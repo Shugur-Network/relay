@@ -87,15 +87,10 @@ Shugur Relay implements the following NIPs for maximum compatibility with Nostr 
 
 ### Distributed Installation (Recommended)
 
-Get a distributed Shugur Relay running in minutes:
+Get a distributed Shugur Relay cluster running with one command:
 
 ```bash
-# Clone the repository
-git clone https://github.com/Shugur-Network/Relay.git
-cd Relay/scripts
-
-# Run the automated installer (requires sudo for SSH operations)
-sudo ./install.distributed.sh
+curl -fsSL https://raw.githubusercontent.com/Shugur-Network/Relay/main/scripts/install.distributed.sh | sudo bash
 ```
 
 ### Standalone Installation
@@ -103,12 +98,7 @@ sudo ./install.distributed.sh
 For a single-node setup:
 
 ```bash
-# Clone the repository
-git clone https://github.com/Shugur-Network/Relay.git
-cd Relay/scripts
-
-# Run the standalone installer
-sudo ./install.standalone.sh
+curl -fsSL https://raw.githubusercontent.com/Shugur-Network/Relay/main/scripts/install.standalone.sh | sudo bash
 ```
 
 For manual setup or other installation methods, see our [Installation Guide](docs/installation/INSTALLATION.md).
@@ -130,13 +120,13 @@ go build -o bin/relay ./cmd
 ## 🐳 Docker Quick Start
 
 ```bash
-# Using Docker Compose (recommended)
+# Using official Docker image
+docker run -p 8080:8080 ghcr.io/shugur-network/relay:latest
+
+# Or using Docker Compose (for development)
 git clone https://github.com/Shugur-Network/Relay.git
 cd Relay
 docker-compose up -d
-
-# Or using Docker directly
-docker run -p 8080:8080 shugur/relay:latest
 ```
 
 ## 📚 Documentation

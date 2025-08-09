@@ -8,24 +8,15 @@ You run a single script from your local machine, which then connects to your ser
 
 ## Steps
 
-1. **Download the Script**
+1. **Run the Installer**
 
-    On your local machine, clone the repository to get the installation script:
-
-    ```bash
-    git clone https://github.com/Shugur-Network/Relay.git
-    cd Relay/scripts
-    ```
-
-2. **Run the Installer**
-
-    Execute the script with `sudo`. It needs root privileges to use `sshpass` for password-based SSH authentication to your servers.
+    Execute the installation script with `curl`. It needs root privileges to use `sshpass` for password-based SSH authentication to your servers.
 
     ```bash
-    sudo ./install.distributed.sh
+    curl -fsSL https://raw.githubusercontent.com/Shugur-Network/Relay/main/scripts/install.distributed.sh | sudo bash
     ```
 
-3. **Follow the Prompts**
+2. **Follow the Prompts**
 
     The script will guide you through the following configuration:
     - **SSH Credentials**: For connecting to your remote servers.
