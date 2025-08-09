@@ -1,0 +1,102 @@
+# Binaries and executables
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build artifacts
+build/
+target/
+*.o
+*.a
+*.out
+
+# Go specific
+vendor/
+*.mod.sum.tmp
+
+# Test coverage
+coverage.out
+coverage.html
+*.cover
+coverage/
+
+# Environment and configuration
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+config.local.yaml
+config.prod.yaml
+*.key
+*.pem
+*.crt
+certs/
+.shugur
+
+# Logs
+*.log
+logs/
+log/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+cockroachDB/
+ds/
+vaultConfig/
+
+# Development and editor files
+.DS_Store
+.DS_Store/
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# Documentation artifacts
+docs/_build/
+site/
+*.pdf
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+
+# Application specific
+roadmap.md
+test_nips.sh
+test_shugur.sh
+old/
+app/
+
+# Docker
+.docker/
+docker-volumes/
+
+# Kubernetes
+*.kubeconfig
+k8s-secrets/
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+.terraform/
+terraform.tfvars
+
+# Monitoring and metrics
+grafana-data/
+prometheus-data/
+websocat

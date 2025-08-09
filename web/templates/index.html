@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{.Name}} - Nostr Relay</title>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <link href="/static/style.css" rel="stylesheet" />
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-content">
+          <div class="logo">
+            <img src="/static/logo.svg" alt="{{.Name}}" class="logo-img" />
+            <div class="logo-text">
+              <span class="logo-main">Shugur</span>
+            </div>
+          </div>
+          <div class="status-indicator">
+            <div class="status-dot online"></div>
+            <span>Online</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="main">
+        <!-- Relay Info Section -->
+        <section class="card relay-info">
+          <h2><i class="fas fa-broadcast-tower"></i> Relay Information</h2>
+          <div class="table-container">
+            <table class="info-table">
+              <tbody>
+                <tr>
+                  <td class="info-label">Name</td>
+                  <td class="info-value">{{.Name}}</td>
+                  <td class="info-actions"></td>
+                </tr>
+                <tr>
+                  <td class="info-label">Description</td>
+                  <td class="info-value">{{.Description}}</td>
+                  <td class="info-actions"></td>
+                </tr>
+                <tr>
+                  <td class="info-label">Software</td>
+                  <td class="info-value">{{.Software}} v{{.Version}}</td>
+                  <td class="info-actions"></td>
+                </tr>
+                <tr>
+                  <td class="info-label">Contact</td>
+                  <td class="info-value">
+                    <a href="mailto:{{.Contact}}" target="_blank">{{.Contact}}</a>
+                  </td>
+                  <td class="info-actions"></td>
+                </tr>
+                <tr>
+                  <td class="info-label">WebSocket URL</td>
+                  <td class="info-value">
+                    <span class="websocket-url" id="websocket-url"
+                      >wss://{{.Host}}</span
+                    >
+                  </td>
+                  <td class="info-actions">
+                    <button
+                      class="copy-btn"
+                      onclick="copyToClipboard('websocket-url')"
+                    >
+                      <i class="fas fa-copy"></i>
+                    </button>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="info-label">Public Key</td>
+                  <td class="info-value">
+                    <span class="pubkey" id="pubkey">{{.Pubkey}}</span>
+                  </td>
+                  <td class="info-actions">
+                    <button
+                      class="copy-btn"
+                      onclick="copyToClipboard('pubkey')"
+                    >
+                      <i class="fas fa-copy"></i>
+                    </button>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="info-label">Relay ID</td>
+                  <td class="info-value">
+                    <span class="relay-id" id="relay-id">{{.RelayID}}</span>
+                  </td>
+                  <td class="info-actions">
+                    <button
+                      class="copy-btn"
+                      onclick="copyToClipboard('relay-id')"
+                    >
+                      <i class="fas fa-copy"></i>
+                    </button>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="info-label">Distributed</td>
+                  <td class="info-value">
+                    {{if .Cluster.IsCluster}}
+                    <span class="cluster-indicator" 
+                          data-cluster-info='{{.Cluster | printf "%v"}}'>
+                      <span class="cluster-status">Yes</span>
+                      <i class="fas fa-info-circle cluster-info-icon" title="Hover for cluster details"></i>
+                    </span>
+                    {{else}}
+                    <span class="cluster-standalone">No</span>
+                    {{end}}
+                  </td>
+                  <td class="info-actions"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Statistics Section -->
+        <section class="stats-section">
+          <div class="card stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-plug"></i>
+            </div>
+            <div class="stat-content">
+              <h3>Active Connections</h3>
+              <div class="stat-value" id="active-connections">
+                {{.Stats.ActiveConnections}}
+              </div>
+            </div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-envelope"></i>
+            </div>
+            <div class="stat-content">
+              <h3>Processed Requests</h3>
+              <div class="stat-value" id="messages-processed">
+                {{.Stats.MessagesProcessed}}
+              </div>
+            </div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-database"></i>
+            </div>
+            <div class="stat-content">
+              <h3>Stored Events</h3>
+              <div class="stat-value" id="events-stored">
+                {{.Stats.EventsStored}}
+              </div>
+            </div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+              <h3>Uptime</h3>
+              <div class="stat-value" id="uptime">{{.Uptime}}</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- NIPs Support Section -->
+        <section class="card nips-section">
+          <h2><i class="fas fa-check-circle"></i> Supported NIPs</h2>
+          <div class="nips-grid">
+            {{range .SupportedNIPs}}
+            <a href="https://github.com/nostr-protocol/nips/blob/master/{{printf "%02d" .}}.md" target="_blank" class="nip-badge-link">
+              <div class="nip-badge">
+                <span class="nip-number">NIP-{{printf "%02d" .}}</span>
+                <i class="fas fa-external-link-alt nip-link-icon"></i>
+              </div>
+            </a>
+            {{end}}
+          </div>
+        </section>
+
+        <!-- Limitations Section -->
+        <section class="card limitations-section">
+          <h2><i class="fas fa-cog"></i> Relay Configuration</h2>
+          <div class="limitations-grid">
+            <div class="limitation-item">
+              <label>Max Message Length</label>
+              <span>{{.Limitation.MaxMessageLength}} chars</span>
+            </div>
+            <div class="limitation-item">
+              <label>Max Subscriptions</label>
+              <span>{{.Limitation.MaxSubscriptions}}</span>
+            </div>
+            <div class="limitation-item">
+              <label>Max Filters</label>
+              <span>{{.Limitation.MaxFilters}}</span>
+            </div>
+            <div class="limitation-item">
+              <label>Max Event Tags</label>
+              <span>{{.Limitation.MaxEventTags}}</span>
+            </div>
+            <div class="limitation-item">
+              <label>Auth Required</label>
+              <span
+                class="{{if .Limitation.AuthRequired}}enabled{{else}}disabled{{end}}"
+              >
+                {{if .Limitation.AuthRequired}}Yes{{else}}No{{end}}
+              </span>
+            </div>
+            <div class="limitation-item">
+              <label>Payment Required</label>
+              <span
+                class="{{if .Limitation.PaymentRequired}}enabled{{else}}disabled{{end}}"
+              >
+                {{if .Limitation.PaymentRequired}}Yes{{else}}No{{end}}
+              </span>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <div class="footer-content">
+          <p>&copy; <span id="currentYear"></span> Shugur. All rights reserved.</p>
+          <div class="footer-links">
+            <a href="https://github.com/Shugur-Network/Relay" target="_blank">GitHub</a>
+            <a href="https://shugur.com" target="_blank">Website</a>
+            <a href="mailto:{{.Contact}}" target="_blank">Support</a>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/script.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var currentYear = new Date().getFullYear();
+        document.getElementById('currentYear').textContent = currentYear;
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,52 @@
+# Shugur Relay Configuration
+# Main configuration file for production deployment
+
+GENERAL:
+  # Reserved for future general configuration options
+
+LOGGING:
+  LEVEL: debug # Log level (debug, info, warn, error)
+  FILE: # Path for the log file (optional)
+  FORMAT: console # Log format (console, json)
+  MAX_SIZE: 20 # Maximum size of the log file in MB
+  MAX_BACKUPS: 10 # Maximum number of backup files
+  MAX_AGE: 14 # Maximum age of backup files in days
+
+METRICS:
+  ENABLED: true # Enable metrics collection
+  PORT: 2112 # Port for Prometheus metrics
+
+RELAY:
+  NAME: "shugur-relay" # Relay name (max 30 chars, shown in NIP-11)
+  DESCRIPTION: "High-performance, reliable, scalable Nostr relay for decentralized communication." # Relay description (max 200 chars, shown in NIP-11)
+  CONTACT: "support@shugur.com" # Relay contact email (shown in NIP-11)
+  ICON: "https://raw.githubusercontent.com/Shugur-Network/Relay/refs/heads/main/logo.png?token=GHSAT0AAAAAADGIFQYNTW2NR7K4FX3GGWIW2EXVDPQ" # Relay icon URL (shown in NIP-11)
+  BANNER: "https://raw.githubusercontent.com/Shugur-Network/Relay/refs/heads/main/banner.png?token=GHSAT0AAAAAADGIFQYN2RZVKPLERUW5OY7K2EXVEQA" # Relay banner URL (optional, shown in NIP-11)
+  WS_ADDR: ":8080" # WebSocket listening address
+  PUBLIC_URL: "wss://relay.shugur.net" # Public URL (optional)
+  EVENT_CACHE_SIZE: 10000 # Event cache size
+  SEND_BUFFER_SIZE: 8192 # WebSocket send buffer size
+  WRITE_TIMEOUT: 60s # WebSocket write timeout
+  IDLE_TIMEOUT: 300s # Connection idle timeout
+  THROTTLING:
+    MAX_CONTENT_LENGTH: 2048 # Maximum content length in bytes
+    MAX_CONNECTIONS: 1000 # Maximum concurrent connections
+    BAN_THRESHOLD: 5 # Number of violations before ban
+    BAN_DURATION: 5 # Ban duration in seconds
+    RATE_LIMIT:
+      ENABLED: true # Enable rate limiting
+      MAX_EVENTS_PER_SECOND: 50 # Maximum events per second
+      MAX_REQUESTS_PER_SECOND: 100 # Maximum requests per second
+      BURST_SIZE: 20 # Rate limit burst size
+      PROGRESSIVE_BAN: true # Enable progressive ban duration
+      MAX_BAN_DURATION: 24h # Maximum ban duration
+
+RELAY_POLICY:
+  BLACKLIST:
+    PUBKEYS: [] # List of pubkeys to blacklist (hex format)
+  WHITELIST:
+    PUBKEYS: [] # List of pubkeys to whitelist (hex format)
+
+DATABASE:
+  SERVER: "cockroachdb" # Database server hostname
+  PORT: 26257 # Database port

@@ -1,0 +1,96 @@
+# Shugur Relay - Complete Standalone Installation
+# Auto-generated Docker Compose configuration
+# This file contains everything needed for a production-ready relay
+
+services:
+  cockroachdb:
+    image: cockroachdb/cockroach:latest
+    container_name: cockroachdb
+    command: start-single-node --insecure
+    volumes:
+      - cockroach_volume:/cockroach/cockroach-data
+    ports:
+      - "26257:26257" # CockroachDB SQL
+      - "26258:26258" # CockroachDB RPC
+      - "9090:8080" # CockroachDB Admin UI
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health?ready=1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - relay_network
+
+  relay:
+    image: ghcr.io/shugur-network/relay:latest
+    container_name: relay-dev
+    restart: unless-stopped
+    # SECURITY: No external ports - all traffic routes through Caddy
+    environment:
+      - SHUGUR_ENV=development
+      - SHUGUR_DB_HOST=cockroachdb
+      - SHUGUR_DB_PORT=26257
+      - SHUGUR_DB_DATABASE=shugur
+      - SHUGUR_DB_USER=root
+      - SHUGUR_DB_SSL_MODE=disable
+      - SHUGUR_LOG_LEVEL=debug
+      - SHUGUR_LOG_FORMAT=text
+      - SHUGUR_METRICS_ENABLED=true
+      - SHUGUR_WS_PORT=8080
+      - SHUGUR_METRICS_PORT=8181
+      - SHUGUR_MAX_CONNECTIONS=100
+      - SHUGUR_RATE_LIMIT=20
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./logs:/app/logs
+      - ./web:/app/web:ro
+    depends_on:
+      cockroachdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - relay_network
+
+  caddy:
+    image: caddy:latest
+    container_name: caddy-dev
+    restart: unless-stopped
+    ports:
+      - "80:80" # HTTP (auto-redirects to HTTPS)
+      - "443:443" # HTTPS (with automatic SSL certificates)
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./logs:/var/log/caddy
+    depends_on:
+      relay:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - relay_network
+
+# Persistent volumes for data storage
+volumes:
+  cockroach_volume:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
+    driver: local
+
+# Secure internal network
+networks:
+  relay_network:
+    driver: bridge

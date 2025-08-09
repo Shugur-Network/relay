@@ -1,0 +1,112 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build Relay",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "build",
+        "-v",
+        "-ldflags",
+        "-w -s -X main.version=$(cat VERSION 2>/dev/null || echo 'dev') -X main.commit=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown') -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+        "-o",
+        "./bin/relay",
+        "./cmd"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "isBackground": false,
+      "problemMatcher": ["$go"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Build Relay (Development)",
+      "type": "shell",
+      "command": "go",
+      "args": [
+        "build",
+        "-v",
+        "-ldflags",
+        "-X main.version=$(cat VERSION 2>/dev/null || echo 'dev') -X main.commit=$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown') -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+        "-o",
+        "./bin/relay",
+        "./cmd"
+      ],
+      "group": "build",
+      "isBackground": false,
+      "problemMatcher": ["$go"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Build Relay (Race Detection)",
+      "type": "shell",
+      "command": "go",
+      "args": ["build", "-v", "-race", "-o", "./bin/relay", "./cmd"],
+      "group": "build",
+      "isBackground": false,
+      "problemMatcher": ["$go"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Clean Build Artifacts",
+      "type": "shell",
+      "command": "rm",
+      "args": ["-rf", "./bin/"],
+      "group": "build",
+      "isBackground": false,
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Build All Platforms",
+      "type": "shell",
+      "command": "make",
+      "args": ["build-all"],
+      "group": "build",
+      "isBackground": false,
+      "problemMatcher": ["$go"],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Run Relay",
+      "type": "shell",
+      "command": "./bin/relay",
+      "group": "test",
+      "isBackground": false,
+      "dependsOn": "Build Relay",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    }
+  ]
+}

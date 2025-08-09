@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="432px" height="406px" viewBox="0 0 432 406" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Logo Copy 2</title>
+    <g id="Assets" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Logo-Copy-2">
+            <rect id="Rectangle" x="0" y="0" width="432" height="406"></rect>
+            <path d="M144,9 L320.727273,9 C368.926669,9 408,48.0733309 408,96.2727273 C408,144.472124 368.926669,183.545455 320.727273,183.545455 L24,183.545455 L24,183.545455 L24,129 C24,62.72583 77.72583,9 144,9 Z" id="Rectangle-Copy-4" fill="#1A1A1A" transform="translate(216, 96.2727) scale(-1, -1) translate(-216, -96.2727)"></path>
+            <path d="M111.272727,218.454545 L408,218.454545 L408,218.454545 L408,273 C408,339.27417 354.27417,393 288,393 L111.272727,393 C63.0733309,393 24,353.926669 24,305.727273 C24,257.527876 63.0733309,218.454545 111.272727,218.454545 Z" id="Rectangle-Copy-9" fill="#1A1A1A" transform="translate(216, 305.7273) scale(-1, -1) translate(-216, -305.7273)"></path>
+        </g>
+    </g>
+</svg>

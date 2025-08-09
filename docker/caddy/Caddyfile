@@ -1,0 +1,33 @@
+# Caddyfile for Shugur Relay - Standalone Installation
+# Auto-generated configuration for complete reverse proxy setup
+# This handles all HTTP/HTTPS traffic routing and SSL certificates automatically
+# NOTE: Metrics endpoint is secured internally for maximum security
+
+shu02.shugur.net {
+    # Reverse proxy to relay WebSocket server
+    reverse_proxy relay:8080 {
+        # Full WebSocket support with proper headers
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    
+    # Automatic HTTPS with Let's Encrypt (disabled for localhost)
+    # Production domains get automatic SSL certificates
+    
+    # Comprehensive access logging
+    log {
+        output file /var/log/caddy/access.log
+        format json
+    }
+    
+    # Professional error handling
+    handle_errors {
+        respond "Shugur Relay temporarily unavailable - please try again shortly" 503
+    }
+}
+
+# SECURITY: Metrics endpoint (8181) is intentionally NOT exposed externally
+# This ensures your relay metrics remain private and secure
+# Access metrics internally: docker exec relay-dev curl http://localhost:8181/metrics

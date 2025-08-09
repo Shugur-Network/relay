@@ -1,0 +1,141 @@
+package nips
+
+import (
+	"fmt"
+
+	"github.com/nbd-wtf/go-nostr"
+)
+
+// NIP-17: Private Direct Messages
+// https://github.com/nostr-protocol/nips/blob/master/17.md
+
+// ValidatePrivateDirectMessage validates NIP-17 private direct message events
+func ValidatePrivateDirectMessage(evt *nostr.Event) error {
+	switch evt.Kind {
+	case 14:
+		return validateChatMessage(evt)
+	case 15:
+		return validateFileMessage(evt)
+	case 1059:
+		return validateGiftWrap(evt)
+	case 10050:
+		return validateDMRelayList(evt)
+	default:
+		return fmt.Errorf("invalid event kind for private direct message: %d", evt.Kind)
+	}
+}
+
+// validateChatMessage validates chat messages (kind 14)
+func validateChatMessage(evt *nostr.Event) error {
+	if evt.Kind != 14 {
+		return fmt.Errorf("invalid event kind for chat message: %d", evt.Kind)
+	}
+
+	// Should have "p" tag with recipient pubkey
+	hasPTag := false
+	for _, tag := range evt.Tags {
+		if len(tag) >= 2 && tag[0] == "p" {
+			hasPTag = true
+			// Validate pubkey format
+			if len(tag[1]) != 64 {
+				return fmt.Errorf("invalid pubkey in 'p' tag: %s", tag[1])
+			}
+			break
+		}
+	}
+
+	if !hasPTag {
+		return fmt.Errorf("chat message should have 'p' tag with recipient")
+	}
+
+	return nil
+}
+
+// validateFileMessage validates file messages (kind 15)
+func validateFileMessage(evt *nostr.Event) error {
+	if evt.Kind != 15 {
+		return fmt.Errorf("invalid event kind for file message: %d", evt.Kind)
+	}
+
+	// Should have "p" tag with recipient pubkey
+	hasPTag := false
+	for _, tag := range evt.Tags {
+		if len(tag) >= 2 && tag[0] == "p" {
+			hasPTag = true
+			// Validate pubkey format
+			if len(tag[1]) != 64 {
+				return fmt.Errorf("invalid pubkey in 'p' tag: %s", tag[1])
+			}
+			break
+		}
+	}
+
+	if !hasPTag {
+		return fmt.Errorf("file message should have 'p' tag with recipient")
+	}
+
+	return nil
+}
+
+// validateGiftWrap validates gift wrap events (kind 1059)
+func validateGiftWrap(evt *nostr.Event) error {
+	if evt.Kind != 1059 {
+		return fmt.Errorf("invalid event kind for gift wrap: %d", evt.Kind)
+	}
+
+	// Must have "p" tag with recipient pubkey
+	hasPTag := false
+	for _, tag := range evt.Tags {
+		if len(tag) >= 2 && tag[0] == "p" {
+			hasPTag = true
+			// Validate pubkey format
+			if len(tag[1]) != 64 {
+				return fmt.Errorf("invalid pubkey in 'p' tag: %s", tag[1])
+			}
+			break
+		}
+	}
+
+	if !hasPTag {
+		return fmt.Errorf("gift wrap must have 'p' tag with recipient")
+	}
+
+	// Content should be encrypted
+	if evt.Content == "" {
+		return fmt.Errorf("gift wrap must have encrypted content")
+	}
+
+	return nil
+}
+
+// validateDMRelayList validates DM relay list events (kind 10050)
+func validateDMRelayList(evt *nostr.Event) error {
+	if evt.Kind != 10050 {
+		return fmt.Errorf("invalid event kind for DM relay list: %d", evt.Kind)
+	}
+
+	// Should have "relay" tags
+	hasRelayTag := false
+	for _, tag := range evt.Tags {
+		if len(tag) >= 2 && tag[0] == "relay" {
+			hasRelayTag = true
+			break
+		}
+	}
+
+	if !hasRelayTag {
+		return fmt.Errorf("DM relay list should have at least one 'relay' tag")
+	}
+
+	return nil
+}
+
+// IsPrivateDirectMessage checks if an event is a private direct message
+func IsPrivateDirectMessage(evt *nostr.Event) bool {
+	return evt.Kind == 14 || evt.Kind == 15 || evt.Kind == 1059 || evt.Kind == 10050
+}
+
+// IsGiftWrap checks if an event is a gift wrap
+func IsGiftWrap(evt *nostr.Event) bool {
+	return evt.Kind == 1059
+}
