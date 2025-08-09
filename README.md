@@ -90,7 +90,7 @@ Shugur Relay implements the following NIPs for maximum compatibility with Nostr 
 Get a distributed Shugur Relay cluster running with one command:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Shugur-Network/Relay/main/scripts/install.distributed.sh | sudo bash
+curl -fsSL https://github.com/Shugur-Network/Relay/raw/main/scripts/install.distributed.sh | sudo bash
 ```
 
 ### Standalone Installation
@@ -98,7 +98,7 @@ curl -fsSL https://raw.githubusercontent.com/Shugur-Network/Relay/main/scripts/i
 For a single-node setup:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Shugur-Network/Relay/main/scripts/install.standalone.sh | sudo bash
+curl -fsSL https://github.com/Shugur-Network/Relay/raw/main/scripts/install.standalone.sh | sudo bash
 ```
 
 For manual setup or other installation methods, see our [Installation Guide](docs/installation/INSTALLATION.md).

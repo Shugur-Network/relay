@@ -16,8 +16,8 @@ This method is for setting up a **single-node** Shugur Relay using Docker. It's 
 Download the `docker-compose.standalone.yml` and a default `config.yaml` file:
 
 ```bash
-curl -O https://raw.githubusercontent.com/Shugur-Network/Relay/main/docker/compose/docker-compose.standalone.yml
-curl -O https://raw.githubusercontent.com/Shugur-Network/Relay/main/config/development.yaml
+curl -O https://github.com/Shugur-Network/Relay/raw/main/docker/compose/docker-compose.standalone.yml
+curl -O https://github.com/Shugur-Network/Relay/raw/main/config/development.yaml
 mv development.yaml config.yaml
 ```
 

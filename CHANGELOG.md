@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Documentation Structure**:
   - Updated `docs/INTRODUCTION.md` table of contents to include new documentation
-  - Enhanced `docs/installation/quick-start.md` with links to operational guides
+  - Enhanced `docs/installation/QUICK-START.md` with links to operational guides
   - Improved cross-references between documentation files
 
 - **Configuration Documentation (`docs/CONFIGURATION.md`)**:
