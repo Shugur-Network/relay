@@ -532,8 +532,8 @@ RELAY:
   NAME: "$node_url"
   DESCRIPTION: "High-performance, reliable, scalable Nostr relay"
   CONTACT: "support@shugur.com"
-  ICON: "https://raw.githubusercontent.com/Shugur-Network/Relay/refs/heads/main/logo.png?token=GHSAT0AAAAAADGIFQYNTW2NR7K4FX3GGWIW2EXVDPQ"
-  BANNER: "https://raw.githubusercontent.com/Shugur-Network/Relay/refs/heads/main/banner.png?token=GHSAT0AAAAAADGIFQYN2RZVKPLERUW5OY7K2EXVEQA"
+  ICON: "https://github.com/Shugur-Network/Relay/raw/main/logo.png"
+  BANNER: "https://github.com/Shugur-Network/Relay/raw/main/banner.png"
   WS_ADDR: ":8080"
   PUBLIC_URL: "wss://$node_url"
   EVENT_CACHE_SIZE: 50000

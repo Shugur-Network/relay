@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://shugur.com">
-    <img src="https://raw.githubusercontent.com/Shugur-Network/Relay/refs/heads/main/banner.png?token=GHSAT0AAAAAADGIFQYN2RZVKPLERUW5OY7K2EXVEQA" alt="Shugur Relay Banner" width="100%">
+    <img src="https://github.com/Shugur-Network/Relay/raw/main/banner.png" alt="Shugur Relay Banner" width="100%">
   </a>
   <p align="center">
     High-performance, reliable, and scalable Nostr relay.
