@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Shugur-Network/Relay/internal/config"
-	"github.com/Shugur-Network/Relay/internal/domain"
-	"github.com/Shugur-Network/Relay/internal/logger"
-	"github.com/Shugur-Network/Relay/internal/metrics"
-	"github.com/Shugur-Network/Relay/internal/relay/nips"
-	"github.com/Shugur-Network/Relay/internal/storage"
+	"github.com/Shugur-Network/relay/internal/config"
+	"github.com/Shugur-Network/relay/internal/domain"
+	"github.com/Shugur-Network/relay/internal/logger"
+	"github.com/Shugur-Network/relay/internal/metrics"
+	"github.com/Shugur-Network/relay/internal/relay/nips"
+	"github.com/Shugur-Network/relay/internal/storage"
 	"github.com/nbd-wtf/go-nostr"
 	"go.uber.org/zap"
 )

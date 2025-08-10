@@ -1,9 +1,9 @@
 package application
 
 import (
-	"github.com/Shugur-Network/Relay/internal/config"
-	"github.com/Shugur-Network/Relay/internal/domain"
-	"github.com/Shugur-Network/Relay/internal/storage"
+	"github.com/Shugur-Network/relay/internal/config"
+	"github.com/Shugur-Network/relay/internal/domain"
+	"github.com/Shugur-Network/relay/internal/storage"
 )
 
 // DB returns the node's database instance.

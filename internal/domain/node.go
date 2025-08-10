@@ -1,8 +1,8 @@
 package domain
 
 import (
-	"github.com/Shugur-Network/Relay/internal/config"
-	"github.com/Shugur-Network/Relay/internal/storage"
+	"github.com/Shugur-Network/relay/internal/config"
+	"github.com/Shugur-Network/relay/internal/storage"
 )
 
 // NodeInterface defines the core capabilities required by the relay.

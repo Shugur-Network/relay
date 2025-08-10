@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Shugur-Network/Relay/internal/config"
-	"github.com/Shugur-Network/Relay/internal/constants"
-	"github.com/Shugur-Network/Relay/internal/identity"
-	"github.com/Shugur-Network/Relay/internal/metrics"
-	"github.com/Shugur-Network/Relay/internal/storage"
+	"github.com/Shugur-Network/relay/internal/config"
+	"github.com/Shugur-Network/relay/internal/constants"
+	"github.com/Shugur-Network/relay/internal/identity"
+	"github.com/Shugur-Network/relay/internal/metrics"
+	"github.com/Shugur-Network/relay/internal/storage"
 	"go.uber.org/zap"
 )
 

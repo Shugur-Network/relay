@@ -13,7 +13,7 @@ Perfect for **development, testing, or small-scale production** environments. Se
     Execute the installation script with `curl`. It handles Docker installation, database setup, and service deployment automatically.
 
     ```bash
-    curl -fsSL https://github.com/Shugur-Network/Relay/raw/main/scripts/install.standalone.sh | sudo bash
+    curl -fsSL https://github.com/Shugur-Network/relay/raw/main/scripts/install.standalone.sh | sudo bash
     ```
 
 2. **Follow the Prompts**
@@ -37,7 +37,7 @@ You run a single script from your local machine, which then connects to your ser
     Execute the installation script with `curl`. It needs root privileges to use `sshpass` for password-based SSH authentication to your servers.
 
     ```bash
-    curl -fsSL https://github.com/Shugur-Network/Relay/raw/main/scripts/install.distributed.sh | sudo bash
+    curl -fsSL https://github.com/Shugur-Network/relay/raw/main/scripts/install.distributed.sh | sudo bash
     ```
 
 2. **Follow the Prompts**

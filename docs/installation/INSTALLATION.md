@@ -68,7 +68,7 @@ Before installing, ensure your system meets the [Getting Started](./../GETTING-S
 ## Need Help?
 
 - **Issues**: Check [Troubleshooting](./../TROUBLESHOOTING.md) for common problems
-- **Questions**: Open an issue on [GitHub](https://github.com/Shugur-Network/Relay/issues)
+- **Questions**: Open an issue on [GitHub](https://github.com/Shugur-Network/relay/issues)
 - **Community**: Join discussions in the project repository
 
 ## Related Documentation

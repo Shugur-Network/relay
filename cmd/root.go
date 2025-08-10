@@ -9,10 +9,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Shugur-Network/Relay/internal/application"
-	"github.com/Shugur-Network/Relay/internal/config"
-	"github.com/Shugur-Network/Relay/internal/logger"
-	"github.com/Shugur-Network/Relay/internal/metrics"
+	"github.com/Shugur-Network/relay/internal/application"
+	"github.com/Shugur-Network/relay/internal/config"
+	"github.com/Shugur-Network/relay/internal/logger"
+	"github.com/Shugur-Network/relay/internal/metrics"
 	"go.uber.org/zap"
 
 	"github.com/spf13/cobra"

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Shugur-Network/Relay/internal/logger"
-	"github.com/Shugur-Network/Relay/internal/relay/nips"
+	"github.com/Shugur-Network/relay/internal/logger"
+	"github.com/Shugur-Network/relay/internal/relay/nips"
 	"github.com/jackc/pgx/v5"
 	"github.com/nbd-wtf/go-nostr"
 	"go.uber.org/zap"

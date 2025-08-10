@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Shugur-Network/Relay/internal/config"
-	"github.com/Shugur-Network/Relay/internal/storage"
+	"github.com/Shugur-Network/relay/internal/config"
+	"github.com/Shugur-Network/relay/internal/storage"
 )
 
 // EventValidator provides validation services for Nostr events

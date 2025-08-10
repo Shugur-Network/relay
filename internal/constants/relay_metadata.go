@@ -1,8 +1,8 @@
 package constants
 
 import (
-	"github.com/Shugur-Network/Relay/internal/config"
-	"github.com/Shugur-Network/Relay/internal/identity"
+	"github.com/Shugur-Network/relay/internal/config"
+	"github.com/Shugur-Network/relay/internal/identity"
 	nip11 "github.com/nbd-wtf/go-nostr/nip11"
 )
 

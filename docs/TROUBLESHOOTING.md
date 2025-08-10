@@ -343,8 +343,8 @@ grep "rate_limit" /var/log/shugur-relay/relay.log
 
 ### Support Channels
 
-- **GitHub Issues**: <https://github.com/Shugur-Network/Relay/issues>
-- **Documentation**: <https://github.com/Shugur-Network/Relay/docs>
+- **GitHub Issues**: <https://github.com/Shugur-Network/relay/issues>
+- **Documentation**: <https://github.com/Shugur-Network/relay/docs>
 - **Community**: Check README for community links
 
 ## Related Documentation

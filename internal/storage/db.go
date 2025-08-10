@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Shugur-Network/Relay/internal/logger"
-	"github.com/Shugur-Network/Relay/internal/metrics"
+	"github.com/Shugur-Network/relay/internal/logger"
+	"github.com/Shugur-Network/relay/internal/metrics"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/willf/bloom"

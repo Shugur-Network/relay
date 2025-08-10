@@ -165,7 +165,7 @@ RELAY:
   DESCRIPTION: "High-performance, reliable, scalable Nostr relay"
   CONTACT: "admin@example.com"
   ICON: "https://avatars.githubusercontent.com/u/198367099?s=400&u=2bc76d4fe6f57a1c39ef00fd784dd0bf85d79bda&v=4"
-  BANNER: "https://github.com/Shugur-Network/Relay/raw/main/banner.png"
+  BANNER: "https://github.com/Shugur-Network/relay/raw/main/banner.png"
   WS_ADDR: ":8080"
   PUBLIC_URL: "ws://localhost:8080"
   EVENT_CACHE_SIZE: 10000

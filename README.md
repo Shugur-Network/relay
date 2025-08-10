@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://shugur.com">
-    <img src="https://github.com/Shugur-Network/Relay/raw/main/banner.png" alt="Shugur Relay Banner" width="100%">
+    <img src="https://github.com/Shugur-Network/relay/raw/main/banner.png" alt="Shugur Relay Banner" width="100%">
   </a>
   <p align="center">
     High-performance, reliable, and scalable Nostr relay.
@@ -90,7 +90,7 @@ Shugur Relay implements the following NIPs for maximum compatibility with Nostr 
 Get a distributed Shugur Relay cluster running with one command:
 
 ```bash
-curl -fsSL https://github.com/Shugur-Network/Relay/raw/main/scripts/install.distributed.sh | sudo bash
+curl -fsSL https://github.com/Shugur-Network/relay/raw/main/scripts/install.distributed.sh | sudo bash
 ```
 
 ### Standalone Installation
@@ -98,7 +98,7 @@ curl -fsSL https://github.com/Shugur-Network/Relay/raw/main/scripts/install.dist
 For a single-node setup:
 
 ```bash
-curl -fsSL https://github.com/Shugur-Network/Relay/raw/main/scripts/install.standalone.sh | sudo bash
+curl -fsSL https://github.com/Shugur-Network/relay/raw/main/scripts/install.standalone.sh | sudo bash
 ```
 
 For manual setup or other installation methods, see our [Installation Guide](docs/installation/INSTALLATION.md).

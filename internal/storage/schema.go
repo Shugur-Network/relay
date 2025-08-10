@@ -5,7 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 
-	"github.com/Shugur-Network/Relay/internal/logger"
+	"github.com/Shugur-Network/relay/internal/logger"
 	"go.uber.org/zap"
 )
 

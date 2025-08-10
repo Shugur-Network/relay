@@ -100,3 +100,6 @@ terraform.tfvars
 grafana-data/
 prometheus-data/
 websocat
+
+# Website directory (independent repo)
+/website/

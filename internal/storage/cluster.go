@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Shugur-Network/Relay/internal/logger"
+	"github.com/Shugur-Network/relay/internal/logger"
 	"go.uber.org/zap"
 )
 

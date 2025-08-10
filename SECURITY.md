@@ -17,7 +17,7 @@ The Shugur Relay team takes all security vulnerabilities seriously. Thank you fo
 
 To report a security vulnerability, please use one of the following methods:
 
-1. **GitHub Security Advisories** (preferred): Use the [Security tab](https://github.com/Shugur-Network/Relay/security/advisories) on our repository
+1. **GitHub Security Advisories** (preferred): Use the [Security tab](https://github.com/Shugur-Network/relay/security/advisories) on our repository
 2. **Email**: Send details to [security@shugur.com](mailto:security@shugur.com)
 
 You should receive a response within 48 hours. If for some reason you do not, please follow up via email to ensure we received your original message.
