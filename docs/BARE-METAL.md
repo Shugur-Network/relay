@@ -13,8 +13,8 @@ This guide provides detailed instructions for installing Shugur Relay directly o
 
 ### Software Dependencies
 
-- **Go**: Version 1.21 or newer
-- **CockroachDB**: Version v23.1.x or newer
+- **Go**: Version 1.24 or newer
+- **CockroachDB**: Version v24.1.x or newer
 - **Git**, **curl**, **wget**, **openssl**
 - **systemd** (for service management)
 
@@ -23,10 +23,10 @@ This guide provides detailed instructions for installing Shugur Relay directly o
 ### 1. Install Go
 
 ```bash
-# Download and install Go 1.21
+# Download and install Go 1.24
 cd /tmp
-wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+wget https://go.dev/dl/go1.24.1.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.24.1.linux-amd64.tar.gz
 
 # Add Go to PATH
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
@@ -41,11 +41,11 @@ go version
 ```bash
 # Download CockroachDB
 cd /tmp
-wget https://binaries.cockroachdb.com/cockroach-v23.1.11.linux-amd64.tgz
-tar -xzf cockroach-v23.1.11.linux-amd64.tgz
+wget https://binaries.cockroachdb.com/cockroach-v24.1.5.linux-amd64.tgz
+tar -xzf cockroach-v24.1.5.linux-amd64.tgz
 
 # Install CockroachDB binary
-sudo cp cockroach-v23.1.11.linux-amd64/cockroach /usr/local/bin/
+sudo cp cockroach-v24.1.5.linux-amd64/cockroach /usr/local/bin/
 sudo chmod +x /usr/local/bin/cockroach
 
 # Verify installation
@@ -106,9 +106,9 @@ sudo -u cockroach cockroach init --certs-dir=/var/lib/cockroach/certs --host=loc
 ```bash
 # Create database and user
 sudo -u cockroach cockroach sql --certs-dir=/var/lib/cockroach/certs --host=localhost:26257 <<EOF
-CREATE DATABASE IF NOT EXISTS shugur_relay;
+CREATE DATABASE IF NOT EXISTS shugur;
 CREATE USER IF NOT EXISTS relay;
-GRANT ALL ON DATABASE shugur_relay TO relay;
+GRANT ALL ON DATABASE shugur TO relay;
 EOF
 ```
 
@@ -159,9 +159,6 @@ METRICS:
 DATABASE:
   SERVER: localhost
   PORT: 26257
-  NAME: shugur_relay
-  USER: relay
-  SSL_MODE: require
 
 RELAY:
   NAME: "shugur-relay"
@@ -280,7 +277,7 @@ sudo systemctl start shugur-relay
 
 ```bash
 # Backup database
-sudo -u cockroach cockroach dump shugur_relay --certs-dir=/var/lib/cockroach/certs --host=localhost:26257 > backup.sql
+sudo -u cockroach cockroach dump shugur --certs-dir=/var/lib/cockroach/certs --host=localhost:26257 > backup.sql
 
 # Backup configuration
 sudo cp -r /opt/shugur-relay/config /backup/location/

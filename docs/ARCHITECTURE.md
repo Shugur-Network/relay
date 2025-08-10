@@ -32,6 +32,8 @@ Shugur Relay is designed for high availability, scalability, and operational sim
 
 ## Standalone vs. Distributed
 
+> **💡 Architecture Tip**: Choose your deployment model based on your availability requirements and operational complexity tolerance. Start simple and scale up as needed.
+
 ### Standalone Deployment
 
 - A single Shugur Relay node connects to a single-node CockroachDB instance.
@@ -46,5 +48,13 @@ Shugur Relay is designed for high availability, scalability, and operational sim
 
 ## Next Steps
 
-- **[Installation Guide](./INSTALLATION.md)**: Now that you understand the architecture, proceed to the installation guide to deploy the relay.
+- **[Installation Guide](./installation/INSTALLATION.md)**: Now that you understand the architecture, proceed to the installation guide to deploy the relay.
 - **[Nostr Concepts](./CONCEPTS.md)**: Learn more about the Nostr protocol itself.
+
+## Related Documentation
+
+- **[Installation Guide](./installation/INSTALLATION.md)**: Choose your deployment method
+- **[Configuration Guide](./CONFIGURATION.md)**: Configure your relay settings
+- **[Performance Guide](./PERFORMANCE.md)**: Optimize for production workloads
+- **[Troubleshooting Guide](./TROUBLESHOOTING.md)**: Resolve common issues
+- **[API Reference](./API.md)**: WebSocket and HTTP endpoint documentation

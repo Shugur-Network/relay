@@ -176,6 +176,8 @@ Compatible with standard Nostr client libraries:
 
 ## Examples
 
+> **💡 Tip**: These examples use JavaScript with nostr-tools, but the same concepts apply to other client libraries. Always handle errors and implement proper retry logic in production applications.
+
 ### Publishing a Note
 
 ```javascript
@@ -215,4 +217,17 @@ sub.on('event', event => {
 sub.on('eose', () => {
   console.log('End of stored events')
 })
-```
+
+## Next Steps
+
+- Review the [Configuration Guide](./CONFIGURATION.md) to understand how to configure the relay
+- Check the [Performance Guide](./PERFORMANCE.md) for optimization recommendations
+- See the [Troubleshooting Guide](./TROUBLESHOOTING.md) for common issues and solutions
+
+## Related Documentation
+
+- **[Installation Guide](./installation/INSTALLATION.md)**: Choose your deployment method
+- **[Architecture Overview](./ARCHITECTURE.md)**: Understand the system design
+- **[Configuration Guide](./CONFIGURATION.md)**: Configure your relay settings
+- **[Performance Guide](./PERFORMANCE.md)**: Optimize for production workloads
+- **[Troubleshooting Guide](./TROUBLESHOOTING.md)**: Resolve common issues

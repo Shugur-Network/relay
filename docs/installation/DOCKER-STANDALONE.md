@@ -42,7 +42,7 @@ docker compose -f docker-compose.standalone.yml up -d
 After the containers are running, initialize the CockroachDB database:
 
 ```bash
-docker compose -f docker-compose.standalone.yml exec cockroachdb ./cockroach sql --insecure --execute="CREATE DATABASE IF NOT EXISTS shugur_relay; CREATE USER IF NOT EXISTS relay; GRANT ALL ON DATABASE shugur_relay TO relay;"
+docker compose -f docker-compose.standalone.yml exec cockroachdb ./cockroach sql --insecure --execute="CREATE DATABASE IF NOT EXISTS shugur; CREATE USER IF NOT EXISTS relay; GRANT ALL ON DATABASE shugur TO relay;"
 ```
 
 Your standalone relay is now running. You can check its status with `docker compose ps`.

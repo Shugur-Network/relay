@@ -105,6 +105,8 @@ Defines rules for accepting or rejecting events based on public keys.
 
 Configuration for connecting to the CockroachDB database.
 
+> **🔒 Security Note**: In production environments, always use secure connections with proper SSL certificates. See [Bare Metal Installation](./BARE-METAL.md) for certificate setup details.
+
 | YAML Key | Environment Variable | Description | Default |
 | :--- | :--- | :--- | :--- |
 | `SERVER` | `SHUGUR_DATABASE_SERVER` | The hostname or IP address of the database server. | `localhost` |
@@ -112,9 +114,11 @@ Configuration for connecting to the CockroachDB database.
 
 **Note**: The relay automatically constructs the database connection string using these parameters. Other connection details are handled automatically:
 
-- **Database Name**: Always uses `shugur_relay`
+- **Database Name**: Always uses `shugur`
 - **Authentication**: Uses `root` user for all connections
 - **SSL Mode**: Automatically determined based on certificate availability (secure/insecure mode)
 - **Connection Parameters**: Connection pooling and SSL settings are managed internally
 
 For production deployments, ensure proper certificates are in place for secure connections. See [Bare Metal Installation](./BARE-METAL.md) for certificate setup details.
+
+> **🔗 Related**: See [Installation Guide](./installation/INSTALLATION.md) for setup instructions and [Performance](./PERFORMANCE.md) for database optimization tips.

@@ -84,14 +84,14 @@ SET CLUSTER SETTING server.max_connections_per_gateway = 500;
 
 ```sql
 -- Optimize table storage for events
-ALTER TABLE shugur_relay.events CONFIGURE ZONE USING
+ALTER TABLE shugur.events CONFIGURE ZONE USING
   range_min_bytes = 134217728,  -- 128MB
   range_max_bytes = 536870912,  -- 512MB
   gc.ttlseconds = 604800;       -- 7 days GC
 
 -- Separate hot and cold data
-CREATE TABLE shugur_relay.events_archive AS 
-SELECT * FROM shugur_relay.events WHERE created_at < extract(epoch from now() - interval '30 days');
+CREATE TABLE shugur.events_archive AS 
+SELECT * FROM shugur.events WHERE created_at < extract(epoch from now() - interval '30 days');
 ```
 
 ## Operating System Optimization
@@ -377,4 +377,22 @@ Typical performance on recommended hardware:
 5. **Backup**: Regular performance benchmarks to detect regressions
 6. **Documentation**: Document any custom optimizations
 
+> **🚀 Performance Tip**: Start with conservative settings and gradually increase based on actual usage patterns. Monitor resource utilization and adjust accordingly.
+
+> **📊 Monitoring Tip**: Set up alerts for key metrics like connection count, event processing rate, and database response times to catch issues early.
+
 Remember: Premature optimization is the root of all evil. Always measure before optimizing!
+
+## Next Steps
+
+- Review your current configuration using the [Configuration Guide](./CONFIGURATION.md)
+- Monitor your relay's performance using the metrics and logging features
+- Scale your deployment as needed using the [Installation Guide](./installation/INSTALLATION.md)
+
+## Related Documentation
+
+- **[Installation Guide](./installation/INSTALLATION.md)**: Choose your deployment method
+- **[Architecture Overview](./ARCHITECTURE.md)**: Understand the system design
+- **[Configuration Guide](./CONFIGURATION.md)**: Configure your relay settings
+- **[Troubleshooting Guide](./TROUBLESHOOTING.md)**: Resolve performance issues
+- **[API Reference](./API.md)**: WebSocket and HTTP endpoint documentation

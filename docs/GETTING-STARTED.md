@@ -6,6 +6,8 @@ This guide covers the prerequisites for installing Shugur Relay. Ensure your sys
 
 These are the minimum requirements to run Shugur Relay. Production environments may require more resources based on usage.
 
+> **💡 Tip**: For production deployments, we recommend doubling these minimum requirements for better performance and reliability.
+
 | Resource  | Standalone          | Distributed (per node) |
 | :-------- | :------------------ | :--------------------- |
 | **CPU**   | 2 Cores (minimum)   | 4 Cores (minimum)      |
@@ -28,8 +30,8 @@ sh get-docker.sh
 
 ### For Bare Metal Installations
 
-- **Go**: Version `1.21` or newer.
-- **CockroachDB**: Version `v23.1.x`.
+- **Go**: Version `1.24` or newer.
+- **CockroachDB**: Version `v24.1.x`.
 - **Git**, **Curl**, **Wget**, **OpenSSL**.
 
 ## Network Requirements
@@ -62,4 +64,11 @@ sudo ufw enable
 
 Now that you have reviewed the prerequisites, you are ready to install Shugur Relay.
 
-➡️ **Proceed to the [Installation Guide](./INSTALLATION.md)**
+➡️ **Proceed to the [Installation Guide](./installation/INSTALLATION.md)**
+
+## Related Documentation
+
+- **[Installation Guide](./installation/INSTALLATION.md)**: Choose your installation method
+- **[Configuration Guide](./CONFIGURATION.md)**: Configure your relay after installation
+- **[Architecture Overview](./ARCHITECTURE.md)**: Understand how the system works
+- **[Troubleshooting](./TROUBLESHOOTING.md)**: Common issues and solutions

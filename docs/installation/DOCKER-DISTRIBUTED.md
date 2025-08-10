@@ -344,7 +344,7 @@ docker compose up -d cockroachdb
 Back on **Node 1**, create the database and user for the relay:
 
 ```bash
-docker compose exec cockroachdb /cockroach/cockroach sql --certs-dir=/cockroach/certs --host=localhost:26257 --execute="CREATE DATABASE IF NOT EXISTS shugur_relay; CREATE USER IF NOT EXISTS relay; GRANT ALL ON DATABASE shugur_relay TO relay;"
+docker compose exec cockroachdb /cockroach/cockroach sql --certs-dir=/cockroach/certs --host=localhost:26257 --execute="CREATE DATABASE IF NOT EXISTS shugur; CREATE USER IF NOT EXISTS relay; GRANT ALL ON DATABASE shugur TO relay;"
 ```
 
 ### 5. Start All Services

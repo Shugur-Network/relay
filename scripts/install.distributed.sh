@@ -821,8 +821,8 @@ initialize_cockroachdb_cluster() {
 
   # Step 4: Create database and user on the initialized cluster
   log_cluster "Creating database and user (secure)..."
-  ssh_exec "$first_node" "cd $REMOTE_DIR && docker compose exec -T cockroachdb /cockroach/cockroach sql --certs-dir=/cockroach/certs --host=localhost:26257 --execute=\"CREATE DATABASE IF NOT EXISTS shugur_relay;\"" "create database"
-  ssh_exec "$first_node" "cd $REMOTE_DIR && docker compose exec -T cockroachdb /cockroach/cockroach sql --certs-dir=/cockroach/certs --host=localhost:26257 --execute=\"CREATE USER IF NOT EXISTS relay; GRANT ALL ON DATABASE shugur_relay TO relay;\"" "create user/grant"
+  ssh_exec "$first_node" "cd $REMOTE_DIR && docker compose exec -T cockroachdb /cockroach/cockroach sql --certs-dir=/cockroach/certs --host=localhost:26257 --execute=\"CREATE DATABASE IF NOT EXISTS shugur;\"" "create database"
+  ssh_exec "$first_node" "cd $REMOTE_DIR && docker compose exec -T cockroachdb /cockroach/cockroach sql --certs-dir=/cockroach/certs --host=localhost:26257 --execute=\"CREATE USER IF NOT EXISTS relay; GRANT ALL ON DATABASE shugur TO relay;\"" "create user/grant"
 
   # Step 5: Now start the remaining nodes which will join the initialized cluster
   if [[ ${#CLUSTER_NODES[@]} -gt 1 ]]; then

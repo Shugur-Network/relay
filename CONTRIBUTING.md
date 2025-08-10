@@ -50,6 +50,8 @@ First off, thank you for considering contributing to Shugur Relay! It's people l
 
 ## Development Setup
 
+> **💻 Development Tip**: Use a consistent development environment. Consider using Docker for database dependencies to avoid conflicts between different projects.
+
 ### Prerequisites
 
 - Go 1.21 or later

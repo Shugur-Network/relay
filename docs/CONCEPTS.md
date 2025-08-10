@@ -67,8 +67,26 @@ This is the core of Nostr's resilience. Instead of relying on one server (centra
 
 A standard relay is simple, but a production-grade service needs more. **Shugur Relay** is an advanced implementation of a Nostr relay, designed for operators who want to provide a reliable, scalable, and secure service. It builds on the simple relay concept by adding:
 
+> **🌐 Ecosystem Tip**: By running a Shugur Relay, you're contributing to the decentralized Nostr network. Consider joining the community to share experiences and best practices with other relay operators.
+
 - **Distributed Database (CockroachDB)**: Allows the relay itself to be scaled across multiple servers for high availability.
 - **Stateless Architecture**: Makes the relay nodes robust and easy to manage.
 - **Advanced Policies**: Gives operators fine-grained control over usage and access.
 
 By running a Shugur Relay, you contribute a high-quality, reliable node to the Nostr ecosystem.
+
+## Next Steps
+
+Now that you understand the basic concepts of Nostr and how Shugur Relay implements them, you can:
+
+- **[Installation Guide](./installation/INSTALLATION.md)**: Deploy your own relay
+- **[Architecture Overview](./ARCHITECTURE.md)**: Understand the system design
+- **[Configuration Guide](./CONFIGURATION.md)**: Configure the relay for your needs
+- **[API Reference](./API.md)**: Understand the technical implementation
+
+## Related Documentation
+
+- **[Installation Guide](./installation/INSTALLATION.md)**: Choose your deployment method
+- **[Architecture Overview](./ARCHITECTURE.md)**: Understand the system design
+- **[Configuration Guide](./CONFIGURATION.md)**: Configure your relay settings
+- **[API Reference](./API.md)**: WebSocket and HTTP endpoint documentation

@@ -4,6 +4,8 @@ This guide helps resolve common issues when deploying and operating Shugur Relay
 
 ## Common Issues
 
+> **🔍 Troubleshooting Tip**: Always start by checking the logs. Most issues can be diagnosed by examining the application logs for error messages and stack traces.
+
 ### 1. Relay Won't Start
 
 #### Symptoms
@@ -199,7 +201,7 @@ SELECT * FROM [SHOW CLUSTER SETTING sql.stats.automatic_collection.enabled];
 
 # Check indexes
 cockroach sql --certs-dir=/certs --host=localhost:26257 --execute="
-SHOW INDEXES FROM shugur_relay.events;
+SHOW INDEXES FROM shugur.events;
 "
 ```
 
@@ -208,13 +210,13 @@ SHOW INDEXES FROM shugur_relay.events;
 ```sql
 -- Create additional indexes for common queries
 CREATE INDEX CONCURRENTLY idx_events_kind_created_at 
-ON shugur_relay.events (kind, created_at DESC);
+ON shugur.events (kind, created_at DESC);
 
 CREATE INDEX CONCURRENTLY idx_events_pubkey_created_at 
-ON shugur_relay.events (pubkey, created_at DESC);
+ON shugur.events (pubkey, created_at DESC);
 
 -- Update table statistics
-ANALYZE shugur_relay.events;
+ANALYZE shugur.events;
 ```
 
 ## Monitoring and Alerting
@@ -344,3 +346,11 @@ grep "rate_limit" /var/log/shugur-relay/relay.log
 - **GitHub Issues**: <https://github.com/Shugur-Network/Relay/issues>
 - **Documentation**: <https://github.com/Shugur-Network/Relay/docs>
 - **Community**: Check README for community links
+
+## Related Documentation
+
+- **[Installation Guide](./installation/INSTALLATION.md)**: Choose your deployment method
+- **[Architecture Overview](./ARCHITECTURE.md)**: Understand the system design
+- **[Configuration Guide](./CONFIGURATION.md)**: Configure your relay settings
+- **[Performance Guide](./PERFORMANCE.md)**: Optimize for production workloads
+- **[API Reference](./API.md)**: WebSocket and HTTP endpoint documentation
