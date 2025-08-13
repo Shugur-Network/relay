@@ -62,7 +62,6 @@ vaultConfig/
 .cursor/
 
 # Documentation artifacts
-docs/_build/
 site/
 *.pdf
 
@@ -101,5 +100,5 @@ grafana-data/
 prometheus-data/
 websocat
 
-# Website directory (independent repo)
-/website/
+
+design-system

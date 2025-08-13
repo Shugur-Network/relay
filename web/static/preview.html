@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{{.Name}} - Nostr Relay</title>
+    <title>Shugur Relay - Nostr Relay</title>
     <link
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
       rel="stylesheet"
     />
-    <link href="/static/style.css" rel="stylesheet" />
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+    <link href="style.css" rel="stylesheet" />
+    <link rel="icon" href="favicon.ico" type="image/x-icon" />
   </head>
   <body>
     <div class="container">
@@ -17,7 +17,7 @@
       <header class="header">
         <div class="header-content">
           <div class="logo">
-            <img src="/static/shugur-logo-full.svg" alt="{{.Name}}" class="logo-img" />
+            <img src="shugur-logo-full.svg" alt="Shugur Relay" class="logo-img" />
           </div>
           <div class="status-indicator">
             <div class="status-dot online"></div>
@@ -36,38 +36,33 @@
               <tbody>
                 <tr>
                   <td class="info-label">Name</td>
-                  <td class="info-value">{{.Name}}</td>
+                  <td class="info-value">Shugur Relay</td>
                   <td class="info-actions"></td>
                 </tr>
                 <tr>
                   <td class="info-label">Description</td>
-                  <td class="info-value">{{.Description}}</td>
+                  <td class="info-value">High-performance Nostr relay built for scale</td>
                   <td class="info-actions"></td>
                 </tr>
                 <tr>
                   <td class="info-label">Software</td>
-                  <td class="info-value">{{.Software}} v{{.Version}}</td>
+                  <td class="info-value">Shugur Relay v0.1.0</td>
                   <td class="info-actions"></td>
                 </tr>
                 <tr>
                   <td class="info-label">Contact</td>
                   <td class="info-value">
-                    <a href="mailto:{{.Contact}}" target="_blank">{{.Contact}}</a>
+                    <a href="mailto:support@shugur.com" target="_blank">support@shugur.com</a>
                   </td>
                   <td class="info-actions"></td>
                 </tr>
                 <tr>
                   <td class="info-label">WebSocket URL</td>
                   <td class="info-value">
-                    <span class="websocket-url" id="websocket-url"
-                      >wss://{{.Host}}</span
-                    >
+                    <span class="websocket-url" id="websocket-url">wss://relay.shugur.com</span>
                   </td>
                   <td class="info-actions">
-                    <button
-                      class="copy-btn"
-                      onclick="copyToClipboard('websocket-url')"
-                    >
+                    <button class="copy-btn" onclick="copyToClipboard('websocket-url')">
                       <i class="fas fa-copy"></i>
                     </button>
                   </td>
@@ -75,13 +70,10 @@
                 <tr>
                   <td class="info-label">Public Key</td>
                   <td class="info-value">
-                    <span class="pubkey" id="pubkey">{{.Pubkey}}</span>
+                    <span class="pubkey" id="pubkey">npub1abc123def456ghi789jkl012mno345pqr678stu901vwx234yz567890abc</span>
                   </td>
                   <td class="info-actions">
-                    <button
-                      class="copy-btn"
-                      onclick="copyToClipboard('pubkey')"
-                    >
+                    <button class="copy-btn" onclick="copyToClipboard('pubkey')">
                       <i class="fas fa-copy"></i>
                     </button>
                   </td>
@@ -89,13 +81,10 @@
                 <tr>
                   <td class="info-label">Relay ID</td>
                   <td class="info-value">
-                    <span class="relay-id" id="relay-id">{{.RelayID}}</span>
+                    <span class="relay-id" id="relay-id">shugur_relay_001</span>
                   </td>
                   <td class="info-actions">
-                    <button
-                      class="copy-btn"
-                      onclick="copyToClipboard('relay-id')"
-                    >
+                    <button class="copy-btn" onclick="copyToClipboard('relay-id')">
                       <i class="fas fa-copy"></i>
                     </button>
                   </td>
@@ -103,15 +92,10 @@
                 <tr>
                   <td class="info-label">Distributed</td>
                   <td class="info-value">
-                    {{if .Cluster.IsCluster}}
-                    <span class="cluster-indicator" 
-                          data-cluster-info='{{.Cluster | printf "%v"}}'>
+                    <span class="cluster-indicator">
                       <span class="cluster-status">Yes</span>
                       <i class="fas fa-info-circle cluster-info-icon" title="Hover for cluster details"></i>
                     </span>
-                    {{else}}
-                    <span class="cluster-standalone">No</span>
-                    {{end}}
                   </td>
                   <td class="info-actions"></td>
                 </tr>
@@ -128,9 +112,7 @@
             </div>
             <div class="stat-content">
               <h3>Active Connections</h3>
-              <div class="stat-value" id="active-connections">
-                {{.Stats.ActiveConnections}}
-              </div>
+              <div class="stat-value" id="active-connections">42</div>
             </div>
           </div>
           <div class="card stat-card">
@@ -139,9 +121,7 @@
             </div>
             <div class="stat-content">
               <h3>Processed Requests</h3>
-              <div class="stat-value" id="messages-processed">
-                {{.Stats.MessagesProcessed}}
-              </div>
+              <div class="stat-value" id="messages-processed">1,337</div>
             </div>
           </div>
           <div class="card stat-card">
@@ -150,9 +130,7 @@
             </div>
             <div class="stat-content">
               <h3>Stored Events</h3>
-              <div class="stat-value" id="events-stored">
-                {{.Stats.EventsStored}}
-              </div>
+              <div class="stat-value" id="events-stored">25,690</div>
             </div>
           </div>
           <div class="card stat-card">
@@ -161,7 +139,7 @@
             </div>
             <div class="stat-content">
               <h3>Uptime</h3>
-              <div class="stat-value" id="uptime">{{.Uptime}}</div>
+              <div class="stat-value" id="uptime">15d 8h 32m</div>
             </div>
           </div>
         </section>
@@ -170,14 +148,42 @@
         <section class="card nips-section">
           <h2><i class="fas fa-check-circle"></i> Supported NIPs</h2>
           <div class="nips-grid">
-            {{range .SupportedNIPs}}
-            <a href="https://github.com/nostr-protocol/nips/blob/master/{{printf "%02d" .}}.md" target="_blank" class="nip-badge-link">
+            <a href="https://github.com/nostr-protocol/nips/blob/master/01.md" target="_blank" class="nip-badge-link">
               <div class="nip-badge">
-                <span class="nip-number">NIP-{{printf "%02d" .}}</span>
+                <span class="nip-number">NIP-01</span>
                 <i class="fas fa-external-link-alt nip-link-icon"></i>
               </div>
             </a>
-            {{end}}
+            <a href="https://github.com/nostr-protocol/nips/blob/master/02.md" target="_blank" class="nip-badge-link">
+              <div class="nip-badge">
+                <span class="nip-number">NIP-02</span>
+                <i class="fas fa-external-link-alt nip-link-icon"></i>
+              </div>
+            </a>
+            <a href="https://github.com/nostr-protocol/nips/blob/master/04.md" target="_blank" class="nip-badge-link">
+              <div class="nip-badge">
+                <span class="nip-number">NIP-04</span>
+                <i class="fas fa-external-link-alt nip-link-icon"></i>
+              </div>
+            </a>
+            <a href="https://github.com/nostr-protocol/nips/blob/master/09.md" target="_blank" class="nip-badge-link">
+              <div class="nip-badge">
+                <span class="nip-number">NIP-09</span>
+                <i class="fas fa-external-link-alt nip-link-icon"></i>
+              </div>
+            </a>
+            <a href="https://github.com/nostr-protocol/nips/blob/master/11.md" target="_blank" class="nip-badge-link">
+              <div class="nip-badge">
+                <span class="nip-number">NIP-11</span>
+                <i class="fas fa-external-link-alt nip-link-icon"></i>
+              </div>
+            </a>
+            <a href="https://github.com/nostr-protocol/nips/blob/master/15.md" target="_blank" class="nip-badge-link">
+              <div class="nip-badge">
+                <span class="nip-number">NIP-15</span>
+                <i class="fas fa-external-link-alt nip-link-icon"></i>
+              </div>
+            </a>
           </div>
         </section>
 
@@ -187,35 +193,27 @@
           <div class="limitations-grid">
             <div class="limitation-item">
               <label>Max Message Length</label>
-              <span>{{.Limitation.MaxMessageLength}} chars</span>
+              <span>65536 chars</span>
             </div>
             <div class="limitation-item">
               <label>Max Subscriptions</label>
-              <span>{{.Limitation.MaxSubscriptions}}</span>
+              <span>20</span>
             </div>
             <div class="limitation-item">
               <label>Max Filters</label>
-              <span>{{.Limitation.MaxFilters}}</span>
+              <span>100</span>
             </div>
             <div class="limitation-item">
               <label>Max Event Tags</label>
-              <span>{{.Limitation.MaxEventTags}}</span>
+              <span>100</span>
             </div>
             <div class="limitation-item">
               <label>Auth Required</label>
-              <span
-                class="{{if .Limitation.AuthRequired}}enabled{{else}}disabled{{end}}"
-              >
-                {{if .Limitation.AuthRequired}}Yes{{else}}No{{end}}
-              </span>
+              <span class="disabled">No</span>
             </div>
             <div class="limitation-item">
               <label>Payment Required</label>
-              <span
-                class="{{if .Limitation.PaymentRequired}}enabled{{else}}disabled{{end}}"
-              >
-                {{if .Limitation.PaymentRequired}}Yes{{else}}No{{end}}
-              </span>
+              <span class="disabled">No</span>
             </div>
           </div>
         </section>
@@ -224,46 +222,31 @@
       <!-- Footer -->
       <footer class="footer">
         <div class="footer-content">
-          <div class="footer-info">
-            <div class="footer-brand">
-              <img src="/static/shugur-logo-full.svg" alt="Shugur" class="footer-logo" />
-            </div>
-            <p class="footer-tagline">Build open, resilient tech for everyone.</p>
-            <p class="footer-copyright">&copy; <span id="currentYear"></span> Shugur Network. All rights reserved.</p>
-          </div>
-          
-          <div class="footer-nav">
-            <div class="footer-links">
-              <a href="https://github.com/Shugur-Network/Relay" target="_blank">
-                <i class="fab fa-github"></i> Source Code
-              </a>
-              <a href="https://github.com/Shugur-Network/docs" target="_blank">
-                <i class="fas fa-book"></i> Documentation
-              </a>
-              <a href="https://shugur.com" target="_blank">
-                <i class="fas fa-globe"></i> Website
-              </a>
-              <a href="mailto:{{.Contact}}" target="_blank">
-                <i class="fas fa-envelope"></i> Support
-              </a>
-            </div>
-            
-            <div class="footer-status">
-              <div class="footer-status-dot"></div>
-              <span>Relay Online</span>
-            </div>
+          <p>&copy; <span id="currentYear">2025</span> Shugur. All rights reserved.</p>
+          <div class="footer-links">
+            <a href="https://github.com/Shugur-Network/Relay" target="_blank">GitHub</a>
+            <a href="https://shugur.com" target="_blank">Website</a>
+            <a href="mailto:support@shugur.com" target="_blank">Support</a>
           </div>
         </div>
       </footer>
     </div>
 
     <!-- Scripts -->
-    <script src="/static/script.js"></script>
+    <script src="script.js"></script>
     <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        var currentYear = new Date().getFullYear();
-        document.getElementById('currentYear').textContent = currentYear;
-      });
+      function copyToClipboard(elementId) {
+        const element = document.getElementById(elementId);
+        const text = element.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+          // Visual feedback
+          const originalColor = element.style.color;
+          element.style.color = 'var(--success-600)';
+          setTimeout(() => {
+            element.style.color = originalColor;
+          }, 1000);
+        });
+      }
     </script>
   </body>
 </html>

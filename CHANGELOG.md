@@ -9,16 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **New Documentation Files**:
-  - `docs/API.md` - Comprehensive API reference for WebSocket (Nostr protocol) and HTTP endpoints
-  - `docs/TROUBLESHOOTING.md` - Detailed troubleshooting guide with common issues and solutions
-  - `docs/PERFORMANCE.md` - Performance optimization and scaling recommendations
+- **New Documentation Files** (moved to [dedicated documentation repository](https://github.com/Shugur-Network/docs)):
+  - `API.md` - Comprehensive API reference for WebSocket (Nostr protocol) and HTTP endpoints
+  - `TROUBLESHOOTING.md` - Detailed troubleshooting guide with common issues and solutions
+  - `PERFORMANCE.md` - Performance optimization and scaling recommendations
   - `CHANGELOG.md` - This changelog file to track project changes
 
 ### Fixed
-- **High Priority Documentation Issues**:
-  - **Empty Installation File**: Populated `docs/installation/INSTALLATION.md` with comprehensive installation overview and decision tree
-  - **Configuration Validation**: Fixed database configuration examples in `docs/BARE-METAL.md` to match actual Go struct definitions
+
+- **High Priority Documentation Issues** (moved to [dedicated documentation repository](https://github.com/Shugur-Network/docs)):
+  - **Empty Installation File**: Populated `installation/INSTALLATION.md` with comprehensive installation overview and decision tree
+  - **Configuration Validation**: Fixed database configuration examples in `BARE-METAL.md` to match actual Go struct definitions
   - **Version Updates**: Updated Go version requirement from 1.21 to 1.24 and CockroachDB from v23.1.x to v24.1.x
   - **Removed Non-existent Parameters**: Eliminated references to `NAME`, `USER`, and `SSL_MODE` database parameters that don't exist in the codebase
 
@@ -30,12 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Improved quick start instructions with multiple installation options
   - Added comprehensive feature list highlighting production-readiness
 
-- **Documentation Structure**:
-  - Updated `docs/INTRODUCTION.md` table of contents to include new documentation
-  - Enhanced `docs/installation/QUICK-START.md` with links to operational guides
+- **Documentation Structure** (moved to [dedicated documentation repository](https://github.com/Shugur-Network/docs)):
+  - Updated `INTRODUCTION.md` table of contents to include new documentation
+  - Enhanced `installation/QUICK-START.md` with links to operational guides
   - Improved cross-references between documentation files
 
-- **Configuration Documentation (`docs/CONFIGURATION.md`)**:
+- **Configuration Documentation** (moved to [dedicated documentation repository](https://github.com/Shugur-Network/docs/blob/main/CONFIGURATION.md)):
   - **BREAKING**: Corrected database configuration parameters to match actual implementation
   - Removed non-existent database parameters (`NAME`, `USER`, `PASSWORD`, `SSL_MODE`, `MAX_OPEN_CONNS`, etc.)
   - Updated to only include actual parameters (`SERVER` and `PORT`)

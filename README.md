@@ -22,7 +22,7 @@ Key benefits of Nostr:
 - **Interoperability**: Works across different clients and applications
 - **Simplicity**: Lightweight protocol that's easy to implement and understand
 
-Learn more in our [Nostr Concepts](docs/CONCEPTS.md) documentation.
+Learn more in our [Nostr Concepts](https://github.com/Shugur-Network/docs/blob/main/CONCEPTS.md) documentation.
 
 ## 📋 Nostr Protocol Support
 
@@ -101,7 +101,7 @@ For a single-node setup:
 curl -fsSL https://github.com/Shugur-Network/relay/raw/main/scripts/install.standalone.sh | sudo bash
 ```
 
-For manual setup or other installation methods, see our [Installation Guide](docs/installation/INSTALLATION.md).
+For manual setup or other installation methods, see our [Installation Guide](https://github.com/Shugur-Network/docs/blob/main/installation/INSTALLATION.md).
 
 ## 🏗️ Build from Source
 
@@ -131,14 +131,14 @@ docker-compose up -d
 
 ## 📚 Documentation
 
-Comprehensive documentation is available in the [`docs`](docs) directory:
+Comprehensive documentation is available in our [dedicated documentation repository](https://github.com/Shugur-Network/docs):
 
-- **[Introduction](docs/INTRODUCTION.md)**: Overview of the project.
-- **[Getting Started](docs/GETTING-STARTED.md)**: Prerequisites and system requirements.
-- **[Installation](docs/installation/INSTALLATION.md)**: Detailed installation methods.
-- **[Configuration](docs/CONFIGURATION.md)**: Complete configuration reference.
-- **[Architecture](docs/ARCHITECTURE.md)**: Understanding Shugur's design.
-- **[Nostr Concepts](docs/CONCEPTS.md)**: Background on the Nostr protocol.
+- **[Introduction](https://github.com/Shugur-Network/docs/blob/main/INTRODUCTION.md)**: Overview of the project.
+- **[Getting Started](https://github.com/Shugur-Network/docs/blob/main/GETTING-STARTED.md)**: Prerequisites and system requirements.
+- **[Installation](https://github.com/Shugur-Network/docs/blob/main/installation/INSTALLATION.md)**: Detailed installation methods.
+- **[Configuration](https://github.com/Shugur-Network/docs/blob/main/CONFIGURATION.md)**: Complete configuration reference.
+- **[Architecture](https://github.com/Shugur-Network/docs/blob/main/ARCHITECTURE.md)**: Understanding Shugur's design.
+- **[Nostr Concepts](https://github.com/Shugur-Network/docs/blob/main/CONCEPTS.md)**: Background on the Nostr protocol.
 
 ## 🤝 Contributing
 

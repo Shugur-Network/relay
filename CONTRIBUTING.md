@@ -115,5 +115,5 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 If you have any questions:
 
 - Open an issue for bug reports or feature requests
-- Check our [documentation](docs/) for detailed guides
+- Check our [documentation](https://github.com/Shugur-Network/docs) for detailed guides
 - Review existing issues and pull requests
