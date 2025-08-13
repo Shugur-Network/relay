@@ -3,7 +3,7 @@ package domain
 import (
 	"context"
 
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // EventHandler defines the operations needed to process Nostr events.

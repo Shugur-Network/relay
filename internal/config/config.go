@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/Shugur-Network/relay/internal/logger"
-	"github.com/go-playground/validator/v10"
+	validator "github.com/go-playground/validator/v10"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )

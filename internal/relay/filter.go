@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // parseFilterFromRaw merges any "#p", "#e", etc. keys into Filter.Tags.

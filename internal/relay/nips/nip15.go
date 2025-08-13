@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // NIP-15: Nostr Marketplace (for resilient marketplaces)

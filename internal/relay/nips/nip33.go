@@ -3,7 +3,7 @@ package nips
 import (
 	"fmt"
 
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // NIP-33: Parameterized Replaceable Events

@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // GetExpirationTime extracts the expiration timestamp from an event

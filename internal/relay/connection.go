@@ -15,7 +15,7 @@ import (
 	"github.com/Shugur-Network/relay/internal/logger"
 	"github.com/Shugur-Network/relay/internal/metrics"
 	"github.com/gorilla/websocket"
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )

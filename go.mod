@@ -1,4 +1,4 @@
-module github.com/Shugur-Network/Relay
+module github.com/Shugur-Network/relay
 
 go 1.24.1
 

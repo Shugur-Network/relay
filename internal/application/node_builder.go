@@ -189,12 +189,12 @@ func allExist(paths ...string) bool {
 // BuildDB initializes the database connection with support for both standalone and distributed modes.
 func (b *NodeBuilder) BuildDB() error {
 	const (
-		caPath     = "./certs/ca.crt"
-		relayCert  = "./certs/client.relay.crt"
-		relayKey   = "./certs/client.relay.key"
-		rootCert   = "./certs/client.root.crt"
-		rootKey    = "./certs/client.root.key"
-		defaultDB  = "defaultdb"
+		caPath    = "./certs/ca.crt"
+		relayCert = "./certs/client.relay.crt"
+		relayKey  = "./certs/client.relay.key"
+		rootCert  = "./certs/client.root.crt"
+		rootKey   = "./certs/client.root.key"
+		defaultDB = "defaultdb"
 	)
 
 	host := b.config.Database.Server
@@ -304,7 +304,6 @@ func (b *NodeBuilder) BuildDB() error {
 
 	return nil
 }
-
 
 // BuildWorkers initializes the worker pool(s).
 func (b *NodeBuilder) BuildWorkers() {

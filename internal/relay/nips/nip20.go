@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // CommandResultType defines the type of command result

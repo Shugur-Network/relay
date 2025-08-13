@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // CompiledFilter represents a pre-compiled filter for efficient matching

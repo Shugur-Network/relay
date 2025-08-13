@@ -12,7 +12,7 @@ import (
 	"github.com/Shugur-Network/relay/internal/logger"
 	"github.com/Shugur-Network/relay/internal/relay/nips"
 	"github.com/jackc/pgx/v5"
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 	"go.uber.org/zap"
 )
 

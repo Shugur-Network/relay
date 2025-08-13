@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // WebSocketConnection represents a client WebSocket connection.

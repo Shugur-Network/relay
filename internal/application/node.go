@@ -14,7 +14,7 @@ import (
 	"github.com/Shugur-Network/relay/internal/relay"
 	"github.com/Shugur-Network/relay/internal/storage"
 	"github.com/Shugur-Network/relay/internal/workers"
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 	"go.uber.org/zap"
 )
 

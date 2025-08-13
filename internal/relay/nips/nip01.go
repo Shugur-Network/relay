@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	// go-nostr from nbd-wtf
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // VerifyEventJSON parses the raw JSON into a go-nostr Event

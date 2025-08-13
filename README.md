@@ -131,14 +131,7 @@ docker-compose up -d
 
 ## 📚 Documentation
 
-Comprehensive documentation is available in our [dedicated documentation repository](https://github.com/Shugur-Network/docs):
-
-- **[Introduction](https://github.com/Shugur-Network/docs/blob/main/INTRODUCTION.md)**: Overview of the project.
-- **[Getting Started](https://github.com/Shugur-Network/docs/blob/main/GETTING-STARTED.md)**: Prerequisites and system requirements.
-- **[Installation](https://github.com/Shugur-Network/docs/blob/main/installation/INSTALLATION.md)**: Detailed installation methods.
-- **[Configuration](https://github.com/Shugur-Network/docs/blob/main/CONFIGURATION.md)**: Complete configuration reference.
-- **[Architecture](https://github.com/Shugur-Network/docs/blob/main/ARCHITECTURE.md)**: Understanding Shugur's design.
-- **[Nostr Concepts](https://github.com/Shugur-Network/docs/blob/main/CONCEPTS.md)**: Background on the Nostr protocol.
+Comprehensive documentation is available in our [documentation](https://docs.shugur.com) and [documentation repository](https://github.com/Shugur-Network/docs):
 
 ## 🤝 Contributing
 

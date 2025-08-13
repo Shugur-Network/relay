@@ -26,12 +26,12 @@ type CockroachClusterNode struct {
 
 // CockroachClusterInfo represents cluster summary information
 type CockroachClusterInfo struct {
-	TotalNodes   int64                   `json:"total_nodes"`
-	LiveNodes    int64                   `json:"live_nodes"`
-	CurrentNode  *CockroachClusterNode   `json:"current_node"`
-	AllNodes     []*CockroachClusterNode `json:"all_nodes"`
-	ClusterName  string                  `json:"cluster_name"`
-	IsCluster    bool                    `json:"is_cluster"`
+	TotalNodes  int64                   `json:"total_nodes"`
+	LiveNodes   int64                   `json:"live_nodes"`
+	CurrentNode *CockroachClusterNode   `json:"current_node"`
+	AllNodes    []*CockroachClusterNode `json:"all_nodes"`
+	ClusterName string                  `json:"cluster_name"`
+	IsCluster   bool                    `json:"is_cluster"`
 }
 
 // GetCockroachClusterInfo retrieves cluster information from CockroachDB
@@ -122,7 +122,7 @@ func (db *DB) GetCockroachClusterInfo(ctx context.Context) (*CockroachClusterInf
 func (db *DB) getCurrentNode(ctx context.Context, nodes []*CockroachClusterNode) (*CockroachClusterNode, error) {
 	// Try to get the current node ID from CockroachDB
 	query := `SELECT crdb_internal.node_id()`
-	
+
 	var currentNodeID int64
 	err := db.Pool.QueryRow(ctx, query).Scan(&currentNodeID)
 	if err != nil {
@@ -169,7 +169,7 @@ func (db *DB) GetClusterHealth(ctx context.Context) (map[string]interface{}, err
 	if clusterInfo.TotalNodes > 0 {
 		healthPercent := float64(clusterInfo.LiveNodes) / float64(clusterInfo.TotalNodes) * 100
 		health["health_percentage"] = healthPercent
-		
+
 		if healthPercent == 100 {
 			health["status"] = "healthy"
 		} else if healthPercent >= 50 {

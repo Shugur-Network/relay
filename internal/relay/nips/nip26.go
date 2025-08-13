@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
-	"github.com/nbd-wtf/go-nostr"
+	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // DelegationInfo holds the parsed delegation data

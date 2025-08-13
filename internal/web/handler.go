@@ -20,19 +20,19 @@ import (
 
 // DashboardData represents the data passed to the dashboard template
 type DashboardData struct {
-	Name          string                       `json:"name"`
-	Description   string                       `json:"description"`
-	Software      string                       `json:"software"`
-	Version       string                       `json:"version"`
-	Contact       string                       `json:"contact"`
-	Icon          string                       `json:"icon"`
-	Host          string                       `json:"host"`
-	Pubkey        string                       `json:"pubkey"`
-	RelayID       string                       `json:"relay_id"`
-	SupportedNIPs []interface{}                `json:"supported_nips"`
-	Limitation    *LimitationData              `json:"limitation"`
-	Stats         *StatsData                   `json:"stats"`
-	Uptime        string                       `json:"uptime"`
+	Name          string                        `json:"name"`
+	Description   string                        `json:"description"`
+	Software      string                        `json:"software"`
+	Version       string                        `json:"version"`
+	Contact       string                        `json:"contact"`
+	Icon          string                        `json:"icon"`
+	Host          string                        `json:"host"`
+	Pubkey        string                        `json:"pubkey"`
+	RelayID       string                        `json:"relay_id"`
+	SupportedNIPs []interface{}                 `json:"supported_nips"`
+	Limitation    *LimitationData               `json:"limitation"`
+	Stats         *StatsData                    `json:"stats"`
+	Uptime        string                        `json:"uptime"`
 	Cluster       *storage.CockroachClusterInfo `json:"cluster"`
 }
 
@@ -282,7 +282,7 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 
 	// Check if requesting health or full cluster info
 	requestType := r.URL.Query().Get("type")
-	
+
 	if requestType == "health" {
 		health, err := h.db.GetClusterHealth(ctx)
 		if err != nil {
@@ -290,7 +290,7 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Failed to get cluster health", http.StatusInternalServerError)
 			return
 		}
-		
+
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(health); err != nil {
 			h.logger.Error("Failed to encode cluster health response", zap.Error(err))
