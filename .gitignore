@@ -102,3 +102,10 @@ websocat
 
 
 docs/
+shugur-net/
+
+# Temporary dashboard development (will be moved to separate repo)
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.netlify/
+dashboard

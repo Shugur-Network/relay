@@ -85,6 +85,9 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 			case r.URL.Path == "/api/stats":
 				// Serve relay statistics API
 				s.webHandler.HandleStatsAPI(w, r)
+			case r.URL.Path == "/api/metrics":
+				// Serve real-time metrics API
+				s.webHandler.HandleMetricsAPI(w, r)
 			case r.URL.Path == "/api/cluster":
 				// Serve cluster information API
 				s.webHandler.HandleClusterAPI(w, r)

@@ -248,11 +248,12 @@ func (c *WsConnection) sendMessageInternal(msg []byte, applyRateLimit bool) {
 	_ = c.ws.SetWriteDeadline(time.Now().Add(10 * time.Second)) // nolint:errcheck // deadline is non-critical
 	if err := c.ws.WriteMessage(websocket.TextMessage, msg); err != nil {
 		logger.Error("Failed to write message", zap.Error(err))
+		metrics.IncrementErrorCount()
 		c.Close()
 	}
 
 	// Update metrics
-	metrics.MessagesSent.Inc()
+	metrics.IncrementMessagesSent()
 	metrics.MessageSizeBytesSent.Observe(float64(len(msg)))
 }
 
@@ -562,13 +563,17 @@ func (c *WsConnection) AddSubscription(subID string, filters []nostr.Filter) {
 	c.subMu.Lock()
 	defer c.subMu.Unlock()
 	c.subscriptions[subID] = filters
+	metrics.IncrementActiveSubscriptions()
 }
 
 // RemoveSubscription removes a subscription
 func (c *WsConnection) RemoveSubscription(subID string) {
 	c.subMu.Lock()
 	defer c.subMu.Unlock()
-	delete(c.subscriptions, subID)
+	if _, exists := c.subscriptions[subID]; exists {
+		delete(c.subscriptions, subID)
+		metrics.DecrementActiveSubscriptions()
+	}
 }
 
 // handleEvent processes EVENT commands

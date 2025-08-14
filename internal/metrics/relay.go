@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"sync/atomic"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -11,6 +12,13 @@ import (
 var (
 	messagesProcessedCount int64
 	activeConnectionsCount int64
+	messagesSentCount      int64
+	activeSubscrCount      int64
+	lastEventTimestamp     int64
+	lastConnTimestamp      int64
+	responseTimeSum        int64
+	responseTimeCount      int64
+	errorCount             int64
 )
 
 // GetMessagesProcessedCount returns the current count of processed messages since start
@@ -22,6 +30,7 @@ func GetMessagesProcessedCount() int64 {
 func IncrementMessagesProcessed() {
 	MessagesReceived.Inc()
 	atomic.AddInt64(&messagesProcessedCount, 1)
+	atomic.StoreInt64(&lastEventTimestamp, time.Now().Unix())
 }
 
 // GetActiveConnectionsCount returns the current number of active WebSocket connections
@@ -33,12 +42,110 @@ func GetActiveConnectionsCount() int64 {
 func IncrementActiveConnections() {
 	ActiveConnections.Inc()
 	atomic.AddInt64(&activeConnectionsCount, 1)
+	atomic.StoreInt64(&lastConnTimestamp, time.Now().Unix())
 }
 
 // DecrementActiveConnections decrements both the prometheus gauge and our local counter
 func DecrementActiveConnections() {
 	ActiveConnections.Dec()
 	atomic.AddInt64(&activeConnectionsCount, -1)
+}
+
+// GetMessagesSentCount returns the current count of sent messages
+func GetMessagesSentCount() int64 {
+	return atomic.LoadInt64(&messagesSentCount)
+}
+
+// IncrementMessagesSent increments the sent messages counter
+func IncrementMessagesSent() {
+	MessagesSent.Inc()
+	atomic.AddInt64(&messagesSentCount, 1)
+}
+
+// GetActiveSubscriptionsCount returns the current number of active subscriptions
+func GetActiveSubscriptionsCount() int64 {
+	return atomic.LoadInt64(&activeSubscrCount)
+}
+
+// IncrementActiveSubscriptions increments the active subscriptions counter
+func IncrementActiveSubscriptions() {
+	ActiveSubscriptions.Inc()
+	atomic.AddInt64(&activeSubscrCount, 1)
+}
+
+// DecrementActiveSubscriptions decrements the active subscriptions counter
+func DecrementActiveSubscriptions() {
+	ActiveSubscriptions.Dec()
+	atomic.AddInt64(&activeSubscrCount, -1)
+}
+
+// AddResponseTime adds a response time measurement
+func AddResponseTime(responseTimeMs float64) {
+	atomic.AddInt64(&responseTimeSum, int64(responseTimeMs))
+	atomic.AddInt64(&responseTimeCount, 1)
+}
+
+// GetAverageResponseTime returns the average response time in milliseconds
+func GetAverageResponseTime() float64 {
+	sum := atomic.LoadInt64(&responseTimeSum)
+	count := atomic.LoadInt64(&responseTimeCount)
+	if count == 0 {
+		return 0
+	}
+	return float64(sum) / float64(count)
+}
+
+// IncrementErrorCount increments the error counter
+func IncrementErrorCount() {
+	atomic.AddInt64(&errorCount, 1)
+}
+
+// GetErrorCount returns the current error count
+func GetErrorCount() int64 {
+	return atomic.LoadInt64(&errorCount)
+}
+
+// GetEventsPerSecond calculates events per second over the last minute
+func GetEventsPerSecond() float64 {
+	lastEvent := atomic.LoadInt64(&lastEventTimestamp)
+	if lastEvent == 0 {
+		return 0
+	}
+	
+	now := time.Now().Unix()
+	timeDiff := now - lastEvent
+	if timeDiff == 0 {
+		return 0
+	}
+	
+	// Simple approximation - in production you'd want a sliding window
+	return float64(atomic.LoadInt64(&messagesProcessedCount)) / float64(timeDiff)
+}
+
+// GetConnectionsPerSecond calculates connections per second
+func GetConnectionsPerSecond() float64 {
+	lastConn := atomic.LoadInt64(&lastConnTimestamp)
+	if lastConn == 0 {
+		return 0
+	}
+	
+	now := time.Now().Unix()
+	timeDiff := now - lastConn
+	if timeDiff == 0 {
+		return 0
+	}
+	
+	return float64(atomic.LoadInt64(&activeConnectionsCount)) / float64(timeDiff)
+}
+
+// GetErrorRate calculates the error rate as a percentage
+func GetErrorRate() float64 {
+	errors := atomic.LoadInt64(&errorCount)
+	messages := atomic.LoadInt64(&messagesProcessedCount)
+	if messages == 0 {
+		return 0
+	}
+	return (float64(errors) / float64(messages)) * 100
 }
 
 // SyncActiveConnectionsCount synchronizes the internal counter with the actual count

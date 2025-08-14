@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -48,9 +49,17 @@ type LimitationData struct {
 
 // StatsData represents relay statistics
 type StatsData struct {
-	ActiveConnections int64 `json:"active_connections"`
-	MessagesProcessed int64 `json:"messages_processed"`
-	EventsStored      int64 `json:"events_stored"`
+	ActiveConnections    int64            `json:"active_connections"`
+	MessagesProcessed    int64            `json:"messages_processed"`
+	EventsStored         int64            `json:"events_stored"`
+	ActiveSubscriptions  int64            `json:"active_subscriptions"`
+	MessagesSent         int64            `json:"messages_sent"`
+	EventsPerSecond      float64          `json:"events_per_second"`
+	ConnectionsPerSecond float64          `json:"connections_per_second"`
+	AverageResponseTime  float64          `json:"average_response_time_ms"`
+	ErrorRate            float64          `json:"error_rate"`
+	MemoryUsage          map[string]int64 `json:"memory_usage"`
+	LoadPercentage       float64          `json:"load_percentage"`
 }
 
 // Handler provides HTTP handlers for the web dashboard
@@ -156,6 +165,77 @@ func (h *Handler) HandleStatsAPI(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// HandleMetricsAPI serves real-time metrics for dashboard
+func (h *Handler) HandleMetricsAPI(w http.ResponseWriter, r *http.Request) {
+	// Set headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow GET requests
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get relay identity
+	relayIdentity, err := identity.GetOrCreateRelayIdentity()
+	relayID := "unknown"
+	if err == nil {
+		relayID = relayIdentity.RelayID
+	}
+
+	// Determine status based on health
+	status := "online"
+	activeConns := metrics.GetActiveConnectionsCount()
+	if activeConns == 0 {
+		status = "idle"
+	}
+
+	// Get current stats
+	stats := h.getStatsData()
+	uptime := time.Since(h.startTime)
+
+	// Get cluster information
+	clusterInfo := h.getClusterData()
+
+	// Create comprehensive metrics response
+	response := map[string]interface{}{
+		"relay_id":             relayID,
+		"name":                 fmt.Sprintf("SHU%s", relayID[len(relayID)-2:]), // Extract last 2 chars for name
+		"status":               status,
+		"uptime_seconds":       int64(uptime.Seconds()),
+		"uptime_human":         h.formatUptime(uptime),
+		"active_connections":   stats.ActiveConnections,
+		"messages_processed":   stats.MessagesProcessed,
+		"events_stored":        stats.EventsStored,
+		"active_subscriptions": stats.ActiveSubscriptions,
+		"messages_sent":        stats.MessagesSent,
+		"events_per_second":    stats.EventsPerSecond,
+		"connections_per_second": stats.ConnectionsPerSecond,
+		"average_response_time": stats.AverageResponseTime,
+		"error_rate":           stats.ErrorRate,
+		"load_percentage":      stats.LoadPercentage,
+		"memory_usage":         stats.MemoryUsage,
+		"cluster":              clusterInfo,
+		"timestamp":            time.Now().Unix(),
+	}
+
+	// Encode and send response
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("Failed to encode metrics response", zap.Error(err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
 // getDashboardData prepares data for the dashboard template
 func (h *Handler) getDashboardData(host string) *DashboardData {
 	metadata := constants.DefaultRelayMetadata(h.config)
@@ -221,11 +301,34 @@ func (h *Handler) getStatsData() *StatsData {
 		metrics.EventsStored.Set(float64(eventsStored))
 	}
 
+	// Get memory usage
+	memUsage := getMemoryUsage()
+
+	// Calculate load percentage (based on active connections vs max)
+	maxConnections := int64(1000) // Default max, should come from config
+	if h.config != nil && h.config.Relay.ThrottlingConfig.MaxConnections > 0 {
+		maxConnections = int64(h.config.Relay.ThrottlingConfig.MaxConnections)
+	}
+	
+	activeConns := metrics.GetActiveConnectionsCount()
+	loadPercentage := float64(activeConns) / float64(maxConnections) * 100
+	if loadPercentage > 100 {
+		loadPercentage = 100
+	}
+
 	// Get other metrics - using our tracking functions
 	stats := &StatsData{
-		ActiveConnections: metrics.GetActiveConnectionsCount(),
-		MessagesProcessed: metrics.GetMessagesProcessedCount(),
-		EventsStored:      eventsStored,
+		ActiveConnections:    activeConns,
+		MessagesProcessed:    metrics.GetMessagesProcessedCount(),
+		EventsStored:         eventsStored,
+		ActiveSubscriptions:  metrics.GetActiveSubscriptionsCount(),
+		MessagesSent:         metrics.GetMessagesSentCount(),
+		EventsPerSecond:      metrics.GetEventsPerSecond(),
+		ConnectionsPerSecond: metrics.GetConnectionsPerSecond(),
+		AverageResponseTime:  metrics.GetAverageResponseTime(),
+		ErrorRate:            metrics.GetErrorRate(),
+		MemoryUsage:          memUsage,
+		LoadPercentage:       loadPercentage,
 	}
 
 	return stats
@@ -326,5 +429,26 @@ func (h *Handler) formatUptime(duration time.Duration) string {
 		return fmt.Sprintf("%dh %dm", hours, minutes)
 	} else {
 		return fmt.Sprintf("%dm", minutes)
+	}
+}
+
+// getMemoryUsage returns current memory usage statistics
+func getMemoryUsage() map[string]int64 {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	return map[string]int64{
+		"alloc":        int64(m.Alloc),           // Currently allocated bytes
+		"total_alloc":  int64(m.TotalAlloc),     // Total allocated bytes (cumulative)
+		"sys":          int64(m.Sys),            // System memory obtained from OS
+		"heap_alloc":   int64(m.HeapAlloc),      // Heap allocated bytes
+		"heap_sys":     int64(m.HeapSys),        // Heap system bytes
+		"heap_idle":    int64(m.HeapIdle),       // Heap idle bytes
+		"heap_inuse":   int64(m.HeapInuse),      // Heap in-use bytes
+		"heap_objects": int64(m.HeapObjects),    // Number of allocated heap objects
+		"stack_inuse":  int64(m.StackInuse),     // Stack in-use bytes
+		"stack_sys":    int64(m.StackSys),       // Stack system bytes
+		"num_gc":       int64(m.NumGC),          // Number of GC cycles
+		"gc_cpu_fraction": int64(m.GCCPUFraction * 1000000), // GC CPU fraction (scaled)
 	}
 }
