@@ -43,6 +43,7 @@ type LimitationData struct {
 	MaxSubscriptions int  `json:"max_subscriptions"`
 	MaxFilters       int  `json:"max_filters"`
 	MaxEventTags     int  `json:"max_event_tags"`
+	MaxConnections   int  `json:"max_connections"`
 	AuthRequired     bool `json:"auth_required"`
 	PaymentRequired  bool `json:"payment_required"`
 }
@@ -271,6 +272,7 @@ func (h *Handler) getDashboardData(host string) *DashboardData {
 			MaxSubscriptions: metadata.Limitation.MaxSubscriptions,
 			MaxFilters:       metadata.Limitation.MaxFilters,
 			MaxEventTags:     metadata.Limitation.MaxEventTags,
+			MaxConnections:   h.config.Relay.ThrottlingConfig.MaxConnections,
 			AuthRequired:     metadata.Limitation.AuthRequired,
 			PaymentRequired:  metadata.Limitation.PaymentRequired,
 		},
