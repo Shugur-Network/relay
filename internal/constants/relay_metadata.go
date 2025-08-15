@@ -106,11 +106,6 @@ func DefaultRelayMetadata(cfg *config.Config) nip11.RelayInformationDocument {
 		maxContentLength = MaxContentLength // fallback to default constant
 	}
 
-	maxConnections := cfg.Relay.ThrottlingConfig.MaxConnections
-	if maxConnections == 0 {
-		maxConnections = 1000 // reasonable default
-	}
-
 	return nip11.RelayInformationDocument{
 		Name:          relayName,
 		Description:   relayDescription,
