@@ -50,8 +50,14 @@ var _ domain.EventValidator = (*PluginValidator)(nil)
 
 // NewPluginValidator returns a PluginValidator with default settings
 func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidator {
+	// Use configuration values for content length limits
+	maxContentLength := cfg.Relay.ThrottlingConfig.MaxContentLen
+	if maxContentLength == 0 {
+		maxContentLength = 64000 // fallback default
+	}
+
 	defaultLimits := ValidationLimits{
-		MaxContentLength:  64000,
+		MaxContentLength:  maxContentLength,  // Use configured value
 		MaxTagsLength:     10000,
 		MaxTagsPerEvent:   256,
 		MaxTagElements:    16,
@@ -395,9 +401,9 @@ func (pv *PluginValidator) RemoveBlacklistedPubkey(pubkey string) {
 
 // ValidateAndProcessEvent performs validation and processing of incoming events
 func (pv *PluginValidator) ValidateAndProcessEvent(ctx context.Context, event nostr.Event) (bool, string, error) {
-	// Check event size
-	if len(event.Content) > 100*1024 { // 100KB max content size
-		return false, "invalid: event content too large", nil
+	// Check event size using configured limit
+	if len(event.Content) > pv.limits.MaxContentLength {
+		return false, fmt.Sprintf("invalid: event content too large (max %d bytes)", pv.limits.MaxContentLength), nil
 	}
 
 	// Create a timeout context for database operations

@@ -176,7 +176,16 @@ func NewWsConnection(
 
 	// Deadlines + read limit
 	_ = ws.SetReadDeadline(time.Now().Add(120 * time.Second)) // nolint:errcheck // deadline is non-critical
-	ws.SetReadLimit(8 * 1024 * 1024)                          // 8MB
+	
+	// Set WebSocket read limit based on configured content length with buffer for JSON overhead
+	readLimitBytes := int64(cfg.ThrottlingConfig.MaxContentLen * 2) // 2x buffer for JSON overhead
+	if readLimitBytes < 1024*1024 {                                 // Minimum 1MB
+		readLimitBytes = 1024 * 1024
+	}
+	if readLimitBytes > 32*1024*1024 { // Maximum 32MB
+		readLimitBytes = 32 * 1024 * 1024
+	}
+	ws.SetReadLimit(readLimitBytes)
 
 	// Ping handler
 	ws.SetPingHandler(func(appData string) error {
@@ -326,7 +335,15 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 		return
 	}
 
-	c.ws.SetReadLimit(16 * 1024 * 1024) // Increase limit for large events
+	// Set WebSocket read limit based on configured content length with buffer for JSON overhead
+	readLimitBytes := int64(cfg.ThrottlingConfig.MaxContentLen * 2) // 2x buffer for JSON overhead
+	if readLimitBytes < 1024*1024 {                                 // Minimum 1MB
+		readLimitBytes = 1024 * 1024
+	}
+	if readLimitBytes > 32*1024*1024 { // Maximum 32MB
+		readLimitBytes = 32 * 1024 * 1024
+	}
+	c.ws.SetReadLimit(readLimitBytes)
 
 	lastPong := time.Now()
 	c.ws.SetPongHandler(func(string) error {

@@ -100,6 +100,17 @@ func DefaultRelayMetadata(cfg *config.Config) nip11.RelayInformationDocument {
 	// Use relay banner from config if provided
 	relayBanner := cfg.Relay.Banner
 
+	// Use actual configuration values for limitations instead of hardcoded constants
+	maxContentLength := cfg.Relay.ThrottlingConfig.MaxContentLen
+	if maxContentLength == 0 {
+		maxContentLength = MaxContentLength // fallback to default constant
+	}
+
+	maxConnections := cfg.Relay.ThrottlingConfig.MaxConnections
+	if maxConnections == 0 {
+		maxConnections = 1000 // reasonable default
+	}
+
 	return nip11.RelayInformationDocument{
 		Name:          relayName,
 		Description:   relayDescription,
@@ -111,17 +122,17 @@ func DefaultRelayMetadata(cfg *config.Config) nip11.RelayInformationDocument {
 		Icon:          relayIcon,
 		Banner:        relayBanner,
 		Limitation: &nip11.RelayLimitationDocument{
-			MaxMessageLength: MaxMessageLength,
-			MaxSubscriptions: MaxSubscriptions,
-			MaxFilters:       MaxFilters,
-			MaxLimit:         MaxLimit,
-			MaxSubidLength:   MaxSubIDLength,
-			MaxEventTags:     MaxEventTags,
-			MaxContentLength: MaxContentLength,
-			MinPowDifficulty: MinPowDifficulty,
-			AuthRequired:     AuthRequired,
-			PaymentRequired:  PaymentRequired,
-			RestrictedWrites: RestrictedWrites,
+			MaxMessageLength: maxContentLength,      // Use actual configured content length
+			MaxSubscriptions: MaxSubscriptions,      // Keep default for now (could be made configurable)
+			MaxFilters:       MaxFilters,            // Keep default for now (could be made configurable)
+			MaxLimit:         MaxLimit,              // Keep default for now (could be made configurable)
+			MaxSubidLength:   MaxSubIDLength,        // Keep default for now (could be made configurable)
+			MaxEventTags:     MaxEventTags,          // Keep default for now (could be made configurable)
+			MaxContentLength: maxContentLength,      // Use actual configured content length
+			MinPowDifficulty: MinPowDifficulty,      // Keep default for now (could be made configurable)
+			AuthRequired:     AuthRequired,          // Keep default for now (could be made configurable)
+			PaymentRequired:  PaymentRequired,       // Keep default for now (could be made configurable)
+			RestrictedWrites: RestrictedWrites,      // Keep default for now (could be made configurable)
 		},
 	}
 }
