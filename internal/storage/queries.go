@@ -158,15 +158,15 @@ func (db *DB) insertEventBatch(ctx context.Context, events []nostr.Event) error 
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	
+
 	// Track if transaction was committed to avoid rollback on committed tx
 	var committed bool
 	defer func() {
 		if !committed {
 			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
 				// Only log rollback errors if the transaction is actually still active
-				if !strings.Contains(rollbackErr.Error(), "tx is closed") && 
-				   !strings.Contains(rollbackErr.Error(), "transaction is already committed") {
+				if !strings.Contains(rollbackErr.Error(), "tx is closed") &&
+					!strings.Contains(rollbackErr.Error(), "transaction is already committed") {
 					db.recordError(fmt.Errorf("rollback failed: %w", rollbackErr))
 				}
 			}
@@ -414,7 +414,12 @@ func (db *DB) GetEventCount(ctx context.Context, filter nostr.Filter) (int64, er
 				for i, val := range tagValues {
 					tagArray[i] = []string{tagName, val}
 				}
-				args = append(args, tagArray)
+				// Convert to JSON string for proper PostgreSQL JSONB handling
+				jsonBytes, err := json.Marshal(tagArray)
+				if err != nil {
+					return 0, fmt.Errorf("failed to marshal tag array to JSON: %w", err)
+				}
+				args = append(args, string(jsonBytes))
 				argIndex++
 			}
 		}
@@ -518,27 +523,27 @@ func (db *DB) persistDeletion(ctx context.Context, del nostr.Event) error {
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		// Use a timeout context for better transaction management in shared DB scenarios
 		txCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		
+
 		err := db.attemptDeletion(txCtx, del, ids)
 		cancel()
-		
+
 		if err == nil {
 			return nil // Success
 		}
-		
+
 		// Check if error indicates a transient issue that might resolve with retry
-		if strings.Contains(err.Error(), "deadlock") || 
-		   strings.Contains(err.Error(), "serialization failure") ||
-		   strings.Contains(err.Error(), "connection") {
+		if strings.Contains(err.Error(), "deadlock") ||
+			strings.Contains(err.Error(), "serialization failure") ||
+			strings.Contains(err.Error(), "connection") {
 			if attempt < maxRetries-1 {
 				time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond) // Exponential backoff
 				continue
 			}
 		}
-		
+
 		return err
 	}
-	
+
 	return errors.New("max retry attempts exceeded")
 }
 
@@ -547,16 +552,16 @@ func (db *DB) attemptDeletion(txCtx context.Context, del nostr.Event, ids []stri
 	if err != nil {
 		return err
 	}
-	
+
 	// Track if transaction was committed to avoid rollback on committed tx
 	var committed bool
 	defer func() {
 		if !committed {
 			if rollbackErr := tx.Rollback(context.Background()); rollbackErr != nil {
 				// Only log rollback errors if the transaction is actually still active
-				if !strings.Contains(rollbackErr.Error(), "tx is closed") && 
-				   !strings.Contains(rollbackErr.Error(), "transaction is already committed") &&
-				   !strings.Contains(rollbackErr.Error(), "context canceled") {
+				if !strings.Contains(rollbackErr.Error(), "tx is closed") &&
+					!strings.Contains(rollbackErr.Error(), "transaction is already committed") &&
+					!strings.Contains(rollbackErr.Error(), "context canceled") {
 					db.recordError(fmt.Errorf("rollback failed: %w", rollbackErr))
 				}
 			}

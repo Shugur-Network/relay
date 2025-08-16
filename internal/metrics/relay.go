@@ -111,13 +111,13 @@ func GetEventsPerSecond() float64 {
 	if lastEvent == 0 {
 		return 0
 	}
-	
+
 	now := time.Now().Unix()
 	timeDiff := now - lastEvent
 	if timeDiff == 0 {
 		return 0
 	}
-	
+
 	// Simple approximation - in production you'd want a sliding window
 	return float64(atomic.LoadInt64(&messagesProcessedCount)) / float64(timeDiff)
 }
@@ -128,13 +128,13 @@ func GetConnectionsPerSecond() float64 {
 	if lastConn == 0 {
 		return 0
 	}
-	
+
 	now := time.Now().Unix()
 	timeDiff := now - lastConn
 	if timeDiff == 0 {
 		return 0
 	}
-	
+
 	return float64(atomic.LoadInt64(&activeConnectionsCount)) / float64(timeDiff)
 }
 

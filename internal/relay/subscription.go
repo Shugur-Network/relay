@@ -59,7 +59,7 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 			zap.String("sub_id", subID),
 			zap.String("raw_filter", string(rawFilterData)),
 			zap.String("client", c.ws.RemoteAddr().String()))
-		
+
 		filter, err := parseFilterFromRaw(arr[2])
 		if err != nil {
 			logger.Debug("Failed to parse filter",

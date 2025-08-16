@@ -57,7 +57,7 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 	}
 
 	defaultLimits := ValidationLimits{
-		MaxContentLength:  maxContentLength,  // Use configured value
+		MaxContentLength:  maxContentLength, // Use configured value
 		MaxTagsLength:     10000,
 		MaxTagsPerEvent:   256,
 		MaxTagElements:    16,
@@ -314,7 +314,7 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 					zap.String("missing_tag", requiredTag),
 					zap.Strings("required_tags", requiredTags),
 					zap.String("nip", nipNumber))
-				
+
 				if event.Kind == 30018 && requiredTag == "t" {
 					return false, "product must have at least one category tag"
 				}
@@ -556,8 +556,8 @@ func (pv *PluginValidator) ValidateAndProcessEvent(ctx context.Context, event no
 				if err != nil {
 					// Event not found is OK for deletion - might have been deleted already
 					// or never existed. Only log actual database errors, not "not found" errors.
-					if !strings.Contains(err.Error(), "no rows in result set") && 
-					   !strings.Contains(err.Error(), "not found") {
+					if !strings.Contains(err.Error(), "no rows in result set") &&
+						!strings.Contains(err.Error(), "not found") {
 						logger.Warn("Database error during deletion validation",
 							zap.String("event_id", id),
 							zap.Error(err))

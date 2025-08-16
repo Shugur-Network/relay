@@ -61,6 +61,31 @@ func normalizeFilter(f *nostr.Filter) {
 		f.Limit = 500
 	}
 
+	// Check for malformed author arrays with sequential hex values and reject them
+	if len(f.Authors) == 256 {
+		// Check if this looks like 256 sequential hex values (00, 01, 02, ..., ff)
+		// This pattern indicates malformed data that should be rejected
+		isSequential := true
+		for i, author := range f.Authors {
+			if len(author) != 2 || !isHexString(author) {
+				isSequential = false
+				break
+			}
+			// Check if values are sequential: 00, 01, 02, ..., ff
+			expectedHex := fmt.Sprintf("%02x", i)
+			if author != expectedHex {
+				isSequential = false
+				break
+			}
+		}
+
+		// If it's sequential hex values, this is garbage data - reject it
+		if isSequential {
+			// Clear the malformed authors to trigger validation error
+			f.Authors = []string{}
+		}
+	}
+
 	// Normalize IDs and Authors to lowercase if needed
 	for i, id := range f.IDs {
 		if len(id) < 64 {
@@ -86,7 +111,7 @@ func ValidateFilter(f nostr.Filter) error {
 		f.Since == nil &&
 		f.Until == nil &&
 		f.Search == "" {
-		return fmt.Errorf("filter must have at least one condition")
+		return fmt.Errorf("filter must have at least one condition (malformed sequential hex arrays are not valid)")
 	}
 
 	// Validate IDs format

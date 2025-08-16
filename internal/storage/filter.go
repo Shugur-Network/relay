@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -177,13 +178,19 @@ func (cf *CompiledFilter) BuildQuery() (string, []interface{}, error) {
 	for tagName, tagValues := range cf.Tags {
 		if len(tagValues) > 0 {
 			query.WriteString(fmt.Sprintf(" AND tags @> $%d", argIndex))
+			// Convert Go slice structure to JSON string for PostgreSQL JSONB
 			tagArray := make([][]string, len(tagValues))
 			i := 0
 			for value := range tagValues {
 				tagArray[i] = []string{tagName, value}
 				i++
 			}
-			args = append(args, tagArray)
+			// Convert to JSON string for proper PostgreSQL JSONB handling
+			jsonBytes, err := json.Marshal(tagArray)
+			if err != nil {
+				return "", nil, fmt.Errorf("failed to marshal tag array to JSON: %w", err)
+			}
+			args = append(args, string(jsonBytes))
 			argIndex++
 		}
 	}

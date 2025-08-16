@@ -52,7 +52,7 @@ func InitDB(ctx context.Context, dbURI string) (*DB, error) {
 
 	for i := 0; i < 5; i++ { // Retry up to 5 times
 		attempts++
-		
+
 		// Configure connection pool for shared database scenarios
 		config, err := pgxpool.ParseConfig(dbURI)
 		if err != nil {
@@ -61,17 +61,17 @@ func InitDB(ctx context.Context, dbURI string) (*DB, error) {
 			backoff *= 2
 			continue
 		}
-		
+
 		// Optimize for shared database with multiple relay instances
-		config.MaxConns = 20                    // Limit connections per relay instance
-		config.MinConns = 2                     // Maintain minimum connections
+		config.MaxConns = 20                       // Limit connections per relay instance
+		config.MinConns = 2                        // Maintain minimum connections
 		config.MaxConnLifetime = 30 * time.Minute  // Connection lifetime
 		config.MaxConnIdleTime = 5 * time.Minute   // Idle connection timeout
 		config.HealthCheckPeriod = 1 * time.Minute // Regular health checks
-		
+
 		// Set better defaults for transaction handling
 		config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
-		
+
 		pool, err = pgxpool.NewWithConfig(ctx, config)
 		if err == nil {
 			// Test the actual connection
