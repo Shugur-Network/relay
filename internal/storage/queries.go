@@ -158,9 +158,18 @@ func (db *DB) insertEventBatch(ctx context.Context, events []nostr.Event) error 
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
+	
+	// Track if transaction was committed to avoid rollback on committed tx
+	var committed bool
 	defer func() {
-		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
-			db.recordError(fmt.Errorf("rollback failed: %w", rollbackErr))
+		if !committed {
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
+				// Only log rollback errors if the transaction is actually still active
+				if !strings.Contains(rollbackErr.Error(), "tx is closed") && 
+				   !strings.Contains(rollbackErr.Error(), "transaction is already committed") {
+					db.recordError(fmt.Errorf("rollback failed: %w", rollbackErr))
+				}
+			}
 		}
 	}()
 
@@ -197,6 +206,7 @@ func (db *DB) insertEventBatch(ctx context.Context, events []nostr.Event) error 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("transaction commit failed: %w", err)
 	}
+	committed = true
 
 	return nil
 }
@@ -481,7 +491,8 @@ func (db *DB) InsertAddressableEvent(ctx context.Context, evt nostr.Event) error
 
 	_, err = db.Pool.Exec(ctx,
 		`INSERT INTO events (id,pubkey,created_at,kind,tags,content,sig)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (id) DO NOTHING`,
 		evt.ID, evt.PubKey, evt.CreatedAt.Time().Unix(),
 		evt.Kind, evt.Tags, evt.Content, evt.Sig,
 	)
@@ -502,18 +513,58 @@ func (db *DB) persistDeletion(ctx context.Context, del nostr.Event) error {
 		return errors.New("deletion event without e‑tags")
 	}
 
-	tx, err := db.Pool.Begin(ctx)
+	// Retry logic for shared database scenarios with multiple relay instances
+	maxRetries := 3
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		// Use a timeout context for better transaction management in shared DB scenarios
+		txCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		
+		err := db.attemptDeletion(txCtx, del, ids)
+		cancel()
+		
+		if err == nil {
+			return nil // Success
+		}
+		
+		// Check if error indicates a transient issue that might resolve with retry
+		if strings.Contains(err.Error(), "deadlock") || 
+		   strings.Contains(err.Error(), "serialization failure") ||
+		   strings.Contains(err.Error(), "connection") {
+			if attempt < maxRetries-1 {
+				time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond) // Exponential backoff
+				continue
+			}
+		}
+		
+		return err
+	}
+	
+	return errors.New("max retry attempts exceeded")
+}
+
+func (db *DB) attemptDeletion(txCtx context.Context, del nostr.Event, ids []string) error {
+	tx, err := db.Pool.Begin(txCtx)
 	if err != nil {
 		return err
 	}
+	
+	// Track if transaction was committed to avoid rollback on committed tx
+	var committed bool
 	defer func() {
-		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
-			db.recordError(fmt.Errorf("rollback failed: %w", rollbackErr))
+		if !committed {
+			if rollbackErr := tx.Rollback(context.Background()); rollbackErr != nil {
+				// Only log rollback errors if the transaction is actually still active
+				if !strings.Contains(rollbackErr.Error(), "tx is closed") && 
+				   !strings.Contains(rollbackErr.Error(), "transaction is already committed") &&
+				   !strings.Contains(rollbackErr.Error(), "context canceled") {
+					db.recordError(fmt.Errorf("rollback failed: %w", rollbackErr))
+				}
+			}
 		}
 	}()
 
 	// 1) delete only events OWNED by the deleter
-	_, err = tx.Exec(ctx,
+	_, err = tx.Exec(txCtx,
 		`DELETE FROM events WHERE id = ANY($1) AND pubkey = $2`,
 		ids, del.PubKey)
 	if err != nil {
@@ -521,20 +572,20 @@ func (db *DB) persistDeletion(ctx context.Context, del nostr.Event) error {
 	}
 
 	// 2) insert the deletion event itself
-	_, err = tx.Exec(ctx,
+	_, err = tx.Exec(txCtx,
 		`INSERT INTO events (id,pubkey,created_at,kind,tags,content,sig)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+		 VALUES ($1,$2,$3,$4,$5,$6,$7)
+		 ON CONFLICT (id) DO NOTHING`,
 		del.ID, del.PubKey, del.CreatedAt.Time().Unix(),
 		del.Kind, del.Tags, del.Content, del.Sig)
 	if err != nil {
 		return err
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	if err := tx.Commit(txCtx); err != nil {
 		return err
 	}
-
-	db.Bloom.AddString(del.ID)
+	committed = true
 	return nil
 }
 

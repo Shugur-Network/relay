@@ -457,15 +457,20 @@ func (pv *PluginValidator) ValidateAndProcessEvent(ctx context.Context, event no
 			func(id string) (nostr.Event, bool) {
 				evt, err := pv.db.GetEventByID(dbCtx, id)
 				if err != nil {
-					logger.Error("Error fetching event for deletion validation",
-						zap.String("event_id", id),
-						zap.Error(err))
+					// Event not found is OK for deletion - might have been deleted already
+					// or never existed. Only log actual database errors, not "not found" errors.
+					if !strings.Contains(err.Error(), "no rows in result set") && 
+					   !strings.Contains(err.Error(), "not found") {
+						logger.Warn("Database error during deletion validation",
+							zap.String("event_id", id),
+							zap.Error(err))
+					}
 					return nostr.Event{}, false
 				}
 				return evt, true
 			},
 		); err != nil {
-			return false, err.Error(), nil
+			return false, fmt.Sprintf("deletion validation failed: %s", err.Error()), nil
 		}
 	case 0: // Metadata
 		if err := pv.validateMetadataEvent(event); err != nil {
