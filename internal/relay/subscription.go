@@ -2,6 +2,7 @@ package relay
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/Shugur-Network/relay/internal/logger"
@@ -50,11 +51,19 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 	// Parse the filter with support for #tag syntax
 	var f nostr.Filter
 	if len(arr) >= 3 {
+		// Log raw filter for debugging
+		rawFilterData, _ := json.Marshal(arr[2])
+		logger.Debug("Parsing filter",
+			zap.String("sub_id", subID),
+			zap.String("raw_filter", string(rawFilterData)),
+			zap.String("client", c.ws.RemoteAddr().String()))
+		
 		filter, err := parseFilterFromRaw(arr[2])
 		if err != nil {
 			logger.Warn("Failed to parse filter",
 				zap.String("sub_id", subID),
 				zap.Error(err),
+				zap.String("raw_filter", string(rawFilterData)),
 				zap.String("client", c.ws.RemoteAddr().String()))
 			c.sendNotice("Invalid filter: " + err.Error())
 			return
@@ -72,10 +81,13 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 
 	// Validate filter with the validator
 	if err := c.node.GetValidator().ValidateFilter(f); err != nil {
+		// Log the full filter content for debugging
+		filterData, _ := json.Marshal(f)
 		logger.Warn("Filter validation failed",
 			zap.String("sub_id", subID),
 			zap.Error(err),
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.ws.RemoteAddr().String()),
+			zap.String("raw_filter", string(filterData)))
 		c.sendClosed(subID, nips.FormatErrorMessage(nips.ErrorCodeInvalidFilter, err.Error()))
 		return
 	}
