@@ -130,14 +130,29 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 
 	// 1. Basic structure checks
 	if len(event.ID) != 64 || !isHexString(event.ID) {
+		logger.Debug("NIP-01 violation: Invalid event ID format",
+			zap.String("event_id", event.ID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind),
+			zap.String("nip", "NIP-01"))
 		return false, "invalid event ID format"
 	}
 
 	if len(event.PubKey) != 64 || !isHexString(event.PubKey) {
+		logger.Debug("NIP-01 violation: Invalid pubkey format",
+			zap.String("event_id", event.ID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind),
+			zap.String("nip", "NIP-01"))
 		return false, "invalid pubkey format"
 	}
 
 	if len(event.Sig) != 128 || !isHexString(event.Sig) {
+		logger.Debug("NIP-01 violation: Invalid signature format",
+			zap.String("event_id", event.ID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind),
+			zap.String("nip", "NIP-01"))
 		return false, "invalid signature format"
 	}
 
@@ -147,18 +162,34 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 		if event.Kind >= 20000 && event.Kind < 30000 {
 			// Ephemeral events are allowed but not stored
 		} else {
+			logger.Debug("NIP constraint violation: Unsupported event kind",
+				zap.String("event_id", event.ID),
+				zap.String("pubkey", event.PubKey),
+				zap.Int("kind", event.Kind),
+				zap.String("nip", "Relay Policy"))
 			return false, fmt.Sprintf("unsupported event kind: %d", event.Kind)
 		}
 	}
 
 	// 3. Check blacklist (case-insensitive)
 	if pv.blacklist[strings.ToLower(event.PubKey)] {
+		logger.Info("Access control violation: Blacklisted pubkey",
+			zap.String("event_id", event.ID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind),
+			zap.String("violation_type", "blacklist"))
 		return false, "pubkey is blacklisted"
 	}
 
 	// 4. Verify event ID matches content
 	computedID := event.GetID()
 	if computedID != event.ID {
+		logger.Debug("NIP-01 violation: Event ID mismatch",
+			zap.String("event_id", event.ID),
+			zap.String("computed_id", computedID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind),
+			zap.String("nip", "NIP-01"))
 		return false, "event ID does not match content"
 	}
 
@@ -167,26 +198,59 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 	maxFutureTime := now + int64(pv.limits.MaxFutureSeconds)
 
 	if event.CreatedAt.Time().Unix() > maxFutureTime {
+		logger.Debug("NIP-01 violation: Future timestamp",
+			zap.String("event_id", event.ID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind),
+			zap.Int64("event_timestamp", event.CreatedAt.Time().Unix()),
+			zap.Int64("max_future_time", maxFutureTime),
+			zap.String("nip", "NIP-01"))
 		return false, fmt.Sprintf("event timestamp is too far in the future (max %d seconds)", pv.limits.MaxFutureSeconds)
 	}
 
 	if event.CreatedAt.Time().Unix() < pv.limits.OldestEventTime {
+		logger.Debug("NIP-01 violation: Timestamp too old",
+			zap.String("event_id", event.ID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind),
+			zap.Int64("event_timestamp", event.CreatedAt.Time().Unix()),
+			zap.Int64("oldest_allowed", pv.limits.OldestEventTime),
+			zap.String("nip", "NIP-01"))
 		return false, "event timestamp is too old"
 	}
 
 	// 6. NIP-40: Check expiration timestamp
 	if expTime, hasExpiration := nips.GetExpirationTime(event); hasExpiration {
 		if time.Now().After(expTime) {
+			logger.Debug("NIP-40 violation: Event expired",
+				zap.String("event_id", event.ID),
+				zap.String("pubkey", event.PubKey),
+				zap.Int("kind", event.Kind),
+				zap.Time("expiration_time", expTime),
+				zap.String("nip", "NIP-40"))
 			return false, "event has expired"
 		}
 		// Validate expiration tag format
 		if err := nips.ValidateExpirationTag(event); err != nil {
+			logger.Debug("NIP-40 violation: Invalid expiration tag",
+				zap.String("event_id", event.ID),
+				zap.String("pubkey", event.PubKey),
+				zap.Int("kind", event.Kind),
+				zap.Error(err),
+				zap.String("nip", "NIP-40"))
 			return false, fmt.Sprintf("invalid expiration tag: %v", err)
 		}
 	}
 
 	// 6. Content length check
 	if len(event.Content) > pv.limits.MaxContentLength {
+		logger.Debug("Content limit violation: Exceeds maximum length",
+			zap.String("event_id", event.ID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind),
+			zap.Int("content_length", len(event.Content)),
+			zap.Int("max_allowed", pv.limits.MaxContentLength),
+			zap.String("violation_type", "content_length"))
 		return false, fmt.Sprintf("content exceeds maximum length of %d bytes", pv.limits.MaxContentLength)
 	}
 
@@ -194,6 +258,14 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 	tagsSize := 0
 	for _, tag := range event.Tags {
 		if len(tag) > pv.limits.MaxTagElements {
+			logger.Debug("Tag limit violation: Too many elements in tag",
+				zap.String("event_id", event.ID),
+				zap.String("pubkey", event.PubKey),
+				zap.Int("kind", event.Kind),
+				zap.Int("tag_elements", len(tag)),
+				zap.Int("max_allowed", pv.limits.MaxTagElements),
+				zap.Strings("tag", tag),
+				zap.String("violation_type", "tag_elements"))
 			return false, "tag has too many elements"
 		}
 		for _, elem := range tag {
@@ -202,10 +274,24 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 	}
 
 	if tagsSize > pv.limits.MaxTagsLength {
-		return false, "tags exceed maximum total size"
+		logger.Debug("Tag limit violation: Total tags size exceeded",
+			zap.String("event_id", event.ID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind),
+			zap.Int("tags_size", tagsSize),
+			zap.Int("max_allowed", pv.limits.MaxTagsLength),
+			zap.String("violation_type", "tags_size"))
+		return false, "total size of tags exceeds maximum"
 	}
 
 	if len(event.Tags) > pv.limits.MaxTagsPerEvent {
+		logger.Debug("Tag limit violation: Too many tags",
+			zap.String("event_id", event.ID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind),
+			zap.Int("tags_count", len(event.Tags)),
+			zap.Int("max_allowed", pv.limits.MaxTagsPerEvent),
+			zap.String("violation_type", "tags_count"))
 		return false, "too many tags"
 	}
 
@@ -220,6 +306,15 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 				}
 			}
 			if !found {
+				nipNumber := pv.getNIPForKind(event.Kind)
+				logger.Debug("NIP constraint violation: Missing required tag",
+					zap.String("event_id", event.ID),
+					zap.String("pubkey", event.PubKey),
+					zap.Int("kind", event.Kind),
+					zap.String("missing_tag", requiredTag),
+					zap.Strings("required_tags", requiredTags),
+					zap.String("nip", nipNumber))
+				
 				if event.Kind == 30018 && requiredTag == "t" {
 					return false, "product must have at least one category tag"
 				}
@@ -235,10 +330,12 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 			if len(tag) >= 2 && tag[0] == "e" {
 				targetEvent, err := pv.db.GetEventByID(context.Background(), tag[1])
 				if err == nil && targetEvent.ID != "" && targetEvent.PubKey != event.PubKey {
-					logger.Warn("Unauthorized deletion attempt",
+					logger.Debug("NIP-09 violation: Unauthorized deletion attempt",
+						zap.String("event_id", event.ID),
 						zap.String("deletion_pubkey", event.PubKey),
-						zap.String("event_pubkey", targetEvent.PubKey),
-						zap.String("event_id", tag[1]))
+						zap.String("target_event_id", tag[1]),
+						zap.String("target_event_pubkey", targetEvent.PubKey),
+						zap.String("nip", "NIP-09"))
 					return false, "unauthorized: only the event author can delete their events"
 				}
 			}
@@ -953,4 +1050,44 @@ func (pv *PluginValidator) validateNIP78Event(event nostr.Event) error {
 	}
 
 	return nil
+}
+
+// getNIPForKind maps event kinds to their corresponding NIP numbers for logging
+func (pv *PluginValidator) getNIPForKind(kind int) string {
+	switch kind {
+	case 0, 1, 2:
+		return "NIP-01"
+	case 3:
+		return "NIP-02"
+	case 4:
+		return "NIP-04"
+	case 5:
+		return "NIP-09"
+	case 6:
+		return "NIP-25"
+	case 7:
+		return "NIP-25"
+	case 40, 41, 42, 43, 44:
+		return "NIP-28"
+	case 1021, 1022:
+		return "NIP-15"
+	case 1040:
+		return "NIP-03"
+	case 10000, 10001, 10002:
+		return "NIP-51"
+	case 30000, 30001, 30002, 30003:
+		return "NIP-33"
+	case 30017, 30018:
+		return "NIP-15"
+	case 30078:
+		return "NIP-78"
+	default:
+		if kind >= 20000 && kind < 30000 {
+			return "NIP-16"
+		}
+		if kind >= 30000 && kind < 40000 {
+			return "NIP-33"
+		}
+		return "Unknown"
+	}
 }
