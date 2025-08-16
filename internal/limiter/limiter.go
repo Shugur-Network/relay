@@ -121,12 +121,10 @@ func (rl *RateLimiter) Allow(key string, limit RateLimit) bool {
 		}
 
 		// Log ban event
-		logger.Warn("Rate limit exceeded, client banned",
-			zap.String("key", key),
-			zap.Int("ban_count", counter.banCount),
+		logger.Debug("Rate limit exceeded, client banned",
+			zap.String("client", key),
 			zap.Duration("ban_duration", limit.BanDuration),
 		)
-
 		return false
 	}
 

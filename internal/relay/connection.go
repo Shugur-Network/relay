@@ -66,7 +66,7 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 	banListMutex.Unlock()
 
 	if banned && time.Now().Before(banExpiry) {
-		logger.Warn("Banned client attempted to reconnect",
+		logger.Debug("Banned client attempted to reconnect",
 			zap.String("client", clientIP),
 		)
 		http.Error(w, "You are temporarily banned due to excessive messages.", http.StatusForbidden)
@@ -81,7 +81,7 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 	// Check global connection limit using metrics counter
 	if metrics.GetActiveConnectionsCount() >= int64(relayConfig.ThrottlingConfig.MaxConnections) {
 		metrics.ErrorsCount.WithLabelValues("max_connections").Inc()
-		logger.Warn("Max connections reached, rejecting new WebSocket connection")
+		logger.Debug("Max connections reached, rejecting new WebSocket connection")
 		http.Error(w, "Max connections reached", http.StatusServiceUnavailable)
 		return
 	}
@@ -271,7 +271,7 @@ func (c *WsConnection) sendMessage(msgType string, args ...interface{}) {
 	data := append([]interface{}{msgType}, args...)
 	raw, err := json.Marshal(data)
 	if err != nil {
-		logger.Warn("Failed to marshal message", zap.Error(err))
+		logger.Debug("Failed to marshal message", zap.Error(err))
 		return
 	}
 
@@ -328,7 +328,7 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 	banListMutex.Unlock()
 
 	if banned && time.Now().Before(banExpiry) {
-		logger.Warn("Banned client attempted to send messages", zap.String("client", clientIP))
+		logger.Debug("Banned client attempted to send messages", zap.String("client", clientIP))
 		c.closeReason = "client banned"
 		c.sendNotice("You are temporarily banned due to excessive messages.")
 		c.Close()

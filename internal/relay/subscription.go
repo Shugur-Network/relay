@@ -18,19 +18,21 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 		zap.String("client", c.ws.RemoteAddr().String()))
 
 	// Validate array length
-	if len(arr) < 3 {
-		logger.Warn("Invalid REQ command: missing subscription ID or filter",
-			zap.String("client", c.ws.RemoteAddr().String()))
-		c.sendNotice("REQ command missing subscription ID or filter")
+	if len(arr) < 2 {
+		logger.Debug("Invalid REQ command: missing subscription ID or filter",
+			zap.String("client", c.ws.RemoteAddr().String()),
+			zap.Int("args_count", len(arr)))
+		c.sendNotice("error: invalid REQ command")
 		return
 	}
 
 	// Extract subscription ID
 	subID, ok := arr[1].(string)
-	if !ok || subID == "" {
-		logger.Warn("Invalid REQ command: subscription ID must be a string",
-			zap.String("client", c.ws.RemoteAddr().String()))
-		c.sendNotice("REQ command subscription ID must be a string")
+	if !ok {
+		logger.Debug("Invalid REQ command: subscription ID must be a string",
+			zap.String("client", c.ws.RemoteAddr().String()),
+			zap.Any("subscription_id", arr[1]))
+		c.sendNotice("error: subscription ID must be a string")
 		return
 	}
 
@@ -60,7 +62,7 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 		
 		filter, err := parseFilterFromRaw(arr[2])
 		if err != nil {
-			logger.Warn("Failed to parse filter",
+			logger.Debug("Failed to parse filter",
 				zap.String("sub_id", subID),
 				zap.Error(err),
 				zap.String("raw_filter", string(rawFilterData)),
@@ -83,7 +85,7 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 	if err := c.node.GetValidator().ValidateFilter(f); err != nil {
 		// Log the full filter content for debugging
 		filterData, _ := json.Marshal(f)
-		logger.Warn("Filter validation failed",
+		logger.Debug("Filter validation failed",
 			zap.String("sub_id", subID),
 			zap.Error(err),
 			zap.String("client", c.ws.RemoteAddr().String()),
@@ -246,7 +248,7 @@ func (c *WsConnection) handleClose(arr []interface{}) {
 
 	// Validate array length
 	if len(arr) < 2 {
-		logger.Warn("Invalid CLOSE command: missing subscription ID",
+		logger.Debug("Invalid CLOSE command: missing subscription ID",
 			zap.String("client", c.ws.RemoteAddr().String()))
 		c.sendNotice("CLOSE command missing subscription ID")
 		return
@@ -255,7 +257,7 @@ func (c *WsConnection) handleClose(arr []interface{}) {
 	// Extract and validate subscription ID
 	subID, ok := arr[1].(string)
 	if !ok {
-		logger.Warn("Invalid CLOSE command: subscription ID must be a string",
+		logger.Debug("Invalid CLOSE command: subscription ID must be a string",
 			zap.String("client", c.ws.RemoteAddr().String()))
 		c.sendNotice("CLOSE command subscription ID must be a string")
 		return
@@ -296,7 +298,7 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 
 	// Validate array length
 	if len(arr) < 3 {
-		logger.Warn("Invalid COUNT command: missing subscription ID or filter",
+		logger.Debug("Invalid COUNT command: missing subscription ID or filter",
 			zap.String("client", c.ws.RemoteAddr().String()))
 		c.sendNotice("COUNT command missing subscription ID or filter")
 		return
@@ -305,7 +307,7 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 	// Extract subscription ID
 	subID, ok := arr[1].(string)
 	if !ok || subID == "" {
-		logger.Warn("Invalid COUNT command: subscription ID must be a string",
+		logger.Debug("Invalid COUNT command: subscription ID must be a string",
 			zap.String("client", c.ws.RemoteAddr().String()))
 		c.sendNotice("COUNT command subscription ID must be a string")
 		return
@@ -316,7 +318,7 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 	if len(arr) >= 3 {
 		filter, err := parseFilterFromRaw(arr[2])
 		if err != nil {
-			logger.Warn("Failed to parse filter for COUNT",
+			logger.Debug("Failed to parse filter for COUNT",
 				zap.String("sub_id", subID),
 				zap.Error(err),
 				zap.String("client", c.ws.RemoteAddr().String()))
@@ -331,7 +333,7 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 
 	// Validate filter with the validator
 	if err := c.node.GetValidator().ValidateFilter(f); err != nil {
-		logger.Warn("Filter validation failed for COUNT",
+		logger.Debug("Filter validation failed for COUNT",
 			zap.String("sub_id", subID),
 			zap.Error(err),
 			zap.String("client", c.ws.RemoteAddr().String()))

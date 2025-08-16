@@ -91,7 +91,7 @@ func InitDB(ctx context.Context, dbURI string) (*DB, error) {
 			pool.Close()
 		}
 
-		logger.Warn("Failed to connect to DB, retrying...",
+		logger.Debug("Failed to connect to DB, retrying...",
 			zap.Error(err),
 			zap.Int("attempt", attempts),
 			zap.Duration("backoff", backoff))

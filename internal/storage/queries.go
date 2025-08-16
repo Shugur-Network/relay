@@ -53,7 +53,7 @@ func (db *DB) GetEvents(ctx context.Context, filter nostr.Filter) ([]nostr.Event
 		var rawTags []byte
 
 		if err := rows.Scan(&evt.ID, &evt.PubKey, &evt.Kind, &createdAt, &evt.Content, &rawTags, &evt.Sig); err != nil {
-			logger.Warn("Row scan failed", zap.Error(err))
+			logger.Debug("Row scan failed", zap.Error(err))
 			continue
 		}
 
@@ -62,7 +62,7 @@ func (db *DB) GetEvents(ctx context.Context, filter nostr.Filter) ([]nostr.Event
 		// Parse tags
 		if len(rawTags) > 0 {
 			if err := json.Unmarshal(rawTags, &evt.Tags); err != nil {
-				logger.Warn("Failed to unmarshal tags", zap.Error(err))
+				logger.Debug("Failed to unmarshal tags", zap.Error(err))
 				evt.Tags = []nostr.Tag{}
 			}
 		}

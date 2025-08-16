@@ -293,7 +293,7 @@ func (h *Handler) getStatsData() *StatsData {
 
 		count, err := h.db.GetTotalEventCount(ctx)
 		if err != nil {
-			h.logger.Warn("Failed to get total event count", zap.Error(err))
+			h.logger.Debug("Failed to get total event count", zap.Error(err))
 			eventsStored = 0
 		} else {
 			eventsStored = count
@@ -349,7 +349,7 @@ func (h *Handler) getClusterData() *storage.CockroachClusterInfo {
 
 	clusterInfo, err := h.db.GetCockroachClusterInfo(ctx)
 	if err != nil {
-		h.logger.Warn("Failed to get cluster information", zap.Error(err))
+		h.logger.Debug("Failed to get cluster information", zap.Error(err))
 		return &storage.CockroachClusterInfo{
 			IsCluster: false,
 		}
