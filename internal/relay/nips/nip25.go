@@ -3,7 +3,9 @@ package nips
 import (
 	"fmt"
 
+	"github.com/Shugur-Network/relay/internal/logger"
 	nostr "github.com/nbd-wtf/go-nostr"
+	"go.uber.org/zap"
 )
 
 // NIP-25: Reactions
@@ -11,7 +13,14 @@ import (
 
 // ValidateReaction validates NIP-25 reaction events (kind 7)
 func ValidateReaction(evt *nostr.Event) error {
+	logger.Debug("NIP-25: Validating reaction event", 
+		zap.String("event_id", evt.ID),
+		zap.String("pubkey", evt.PubKey))
+		
 	if evt.Kind != 7 {
+		logger.Warn("NIP-25: Invalid event kind for reaction", 
+			zap.String("event_id", evt.ID),
+			zap.Int("kind", evt.Kind))
 		return fmt.Errorf("invalid event kind for reaction: %d", evt.Kind)
 	}
 

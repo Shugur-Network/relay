@@ -4,17 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 
-	// go-nostr from nbd-wtf
+	"github.com/Shugur-Network/relay/internal/logger"
 	nostr "github.com/nbd-wtf/go-nostr"
+	"go.uber.org/zap"
 )
 
 // VerifyEventJSON parses the raw JSON into a go-nostr Event
 // and checks the BIP-340 signature. It returns nil if valid, or an error otherwise.
 func VerifyEventJSON(rawEvent []byte) error {
 	// Unmarshal into the standard Nostr event struct
-
 	var evt nostr.Event
 	if err := json.Unmarshal(rawEvent, &evt); err != nil {
+		logger.Debug("NIP-01: Failed to parse JSON into nostr.Event", 
+			zap.Error(err),
+			zap.ByteString("raw_event", rawEvent))
 		return fmt.Errorf("failed to parse JSON into nostr.Event: %w", err)
 	}
 
@@ -25,10 +28,18 @@ func VerifyEventJSON(rawEvent []byte) error {
 	//   4) BIP-340 verification
 	_, err := evt.CheckSignature()
 	if err != nil {
+		logger.Warn("NIP-01: Signature verification failed", 
+			zap.String("event_id", evt.ID),
+			zap.String("pubkey", evt.PubKey),
+			zap.Int("kind", evt.Kind),
+			zap.Error(err))
 		return fmt.Errorf("signature check failed: %w", err)
 	}
 
-	// If no error, the event is valid
+	logger.Debug("NIP-01: Event signature verified successfully", 
+		zap.String("event_id", evt.ID),
+		zap.String("pubkey", evt.PubKey),
+		zap.Int("kind", evt.Kind))
 	return nil
 }
 

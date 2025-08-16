@@ -56,7 +56,10 @@ func (ep *EventProcessor) QueueDeletion(evt nostr.Event) bool {
 	case ep.eventChan <- evt:
 		return true
 	default:
-		logger.Warn("deletion queue full – dropping", zap.String("id", evt.ID))
+		logger.Warn("Deletion queue full, dropping event", 
+			zap.String("event_id", evt.ID),
+			zap.String("pubkey", evt.PubKey),
+			zap.Int("kind", evt.Kind))
 		return false
 	}
 }
@@ -75,7 +78,9 @@ func (ep *EventProcessor) QueueEvent(evt nostr.Event) bool {
 	default:
 		// Queue full - this is backpressure
 		logger.Warn("Event processing queue full, dropping event",
-			zap.String("id", evt.ID))
+			zap.String("event_id", evt.ID),
+			zap.String("pubkey", evt.PubKey),
+			zap.Int("kind", evt.Kind))
 		return false
 	}
 }
@@ -129,9 +134,16 @@ func (ep *EventProcessor) processEvents(ctx context.Context) {
 			}
 
 			if err != nil {
-				logger.Warn("Failed to insert event after retries",
-					zap.String("id", evt.ID),
+				logger.Error("Failed to insert event after retries",
+					zap.String("event_id", evt.ID),
+					zap.String("pubkey", evt.PubKey),
+					zap.Int("kind", evt.Kind),
 					zap.Error(err))
+			} else {
+				logger.Debug("Event successfully processed",
+					zap.String("event_id", evt.ID),
+					zap.String("pubkey", evt.PubKey),
+					zap.Int("kind", evt.Kind))
 			}
 		}
 	}

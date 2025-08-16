@@ -3,7 +3,9 @@ package nips
 import (
 	"fmt"
 
+	"github.com/Shugur-Network/relay/internal/logger"
 	nostr "github.com/nbd-wtf/go-nostr"
+	"go.uber.org/zap"
 )
 
 // NIP-28: Public Chat
@@ -11,6 +13,10 @@ import (
 
 // ValidatePublicChat validates NIP-28 public chat events
 func ValidatePublicChat(evt *nostr.Event) error {
+	logger.Debug("NIP-28: Validating public chat event", 
+		zap.String("event_id", evt.ID),
+		zap.Int("kind", evt.Kind))
+		
 	switch evt.Kind {
 	case 40:
 		return validateChannelCreation(evt)

@@ -235,10 +235,11 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 			if len(tag) >= 2 && tag[0] == "e" {
 				targetEvent, err := pv.db.GetEventByID(context.Background(), tag[1])
 				if err == nil && targetEvent.ID != "" && targetEvent.PubKey != event.PubKey {
-					logger.Warn("Unauthorized deletion attempt",
-						zap.String("deletion_pubkey", event.PubKey),
-						zap.String("event_pubkey", targetEvent.PubKey),
-						zap.String("event_id", tag[1]))
+					logger.Warn("Unauthorized deletion attempt blocked",
+						zap.String("deletion_event_id", event.ID),
+						zap.String("deleter_pubkey", event.PubKey),
+						zap.String("target_event_id", tag[1]),
+						zap.String("target_event_pubkey", targetEvent.PubKey))
 					return false, "unauthorized: only the event author can delete their events"
 				}
 			}
@@ -522,8 +523,15 @@ func (pv *PluginValidator) ValidateAndProcessEvent(ctx context.Context, event no
 		if err := nips.ValidateDelegation(&event, delegationTag); err != nil {
 			return false, fmt.Sprintf("invalid delegation: %s", err.Error()), nil
 		}
+		logger.Debug("Event with valid delegation accepted",
+			zap.String("event_id", event.ID),
+			zap.String("delegator", delegationTag[1]))
 	}
 
+	logger.Debug("Event validation successful",
+		zap.String("event_id", event.ID),
+		zap.String("pubkey", event.PubKey),
+		zap.Int("kind", event.Kind))
 	return true, "", nil
 }
 

@@ -66,9 +66,9 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 	banListMutex.Unlock()
 
 	if banned && time.Now().Before(banExpiry) {
-		logger.Warn("Banned client attempted to reconnect",
+		logger.Info("Blocked connection attempt from banned client",
 			zap.String("client", clientIP),
-		)
+			zap.Time("ban_expires", banExpiry))
 		http.Error(w, "You are temporarily banned due to excessive messages.", http.StatusForbidden)
 		return
 	}
@@ -81,7 +81,10 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 	// Check global connection limit using metrics counter
 	if metrics.GetActiveConnectionsCount() >= int64(relayConfig.ThrottlingConfig.MaxConnections) {
 		metrics.ErrorsCount.WithLabelValues("max_connections").Inc()
-		logger.Warn("Max connections reached, rejecting new WebSocket connection")
+		logger.Info("Max connections limit reached, rejecting new connection",
+			zap.Int64("active_connections", metrics.GetActiveConnectionsCount()),
+			zap.Int("max_connections", relayConfig.ThrottlingConfig.MaxConnections),
+			zap.String("client", r.RemoteAddr))
 		http.Error(w, "Max connections reached", http.StatusServiceUnavailable)
 		return
 	}
@@ -366,7 +369,7 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 
 		_ = c.ws.SetReadDeadline(time.Now().Add(120 * time.Second)) // nolint:errcheck // deadline is non-critical
 		if time.Since(lastPong) > 180*time.Second {
-			logger.Debug("No pong in 180s, closing connection",
+			logger.Debug("No pong response in 180s, closing connection",
 				zap.String("client", c.ws.RemoteAddr().String()))
 			c.closeReason = "no pong response"
 			return
@@ -420,16 +423,18 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 				count := clientExceededCount[clientIP]
 				banListMutex.Unlock()
 
-				logger.Debug("Client exceeded message rate limit",
+				logger.Debug("Client rate limit violation",
 					zap.String("client", clientIP),
-					zap.Int("count", count))
+					zap.Int("violation_count", count),
+					zap.Int("threshold", cfg.ThrottlingConfig.BanThreshold))
 
 				c.sendNotice("Rate limit exceeded: too many messages")
 
 				if count >= cfg.ThrottlingConfig.BanThreshold {
-					logger.Debug("Banning client due to repeated rate limit violations",
+					logger.Info("Banning client due to repeated rate limit violations",
 						zap.String("client", clientIP),
-					)
+						zap.Int("violation_count", count),
+						zap.Duration("ban_duration", 10*time.Minute))
 					banListMutex.Lock()
 					clientBanList[clientIP] = time.Now().Add(time.Duration(cfg.ThrottlingConfig.BanDuration) * time.Second)
 					delete(clientExceededCount, clientIP)
@@ -472,7 +477,7 @@ func (c *WsConnection) Close() {
 		c.isClosed.Store(true)
 
 		if c.closeReason != "" {
-			logger.Info("WebSocket connection closed",
+			logger.Debug("WebSocket connection closed",
 				zap.String("reason", c.closeReason),
 				zap.String("client", c.ws.RemoteAddr().String()))
 		}

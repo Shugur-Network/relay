@@ -13,7 +13,7 @@ import (
 
 func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 	// Log the start of request processing
-	logger.Debug("Starting request processing",
+	logger.Debug("Processing REQ command",
 		zap.String("client", c.ws.RemoteAddr().String()))
 
 	// Validate array length
@@ -229,7 +229,7 @@ func isAuthorizedForDM(evt *nostr.Event, filters []nostr.Filter) bool {
 
 func (c *WsConnection) handleClose(arr []interface{}) {
 	// Log the start of close processing
-	logger.Debug("Starting subscription close processing",
+	logger.Debug("Processing CLOSE command",
 		zap.String("client", c.ws.RemoteAddr().String()))
 
 	// Validate array length
