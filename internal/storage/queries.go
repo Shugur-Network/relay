@@ -107,12 +107,18 @@ func (db *DB) InsertEvent(ctx context.Context, evt nostr.Event) error {
 	// No need to add to Bloom filter here - that should be handled by the caller
 	// so that we can control when the event is considered "processed"
 
-	_, err := db.Pool.Exec(ctx,
+	// Convert nostr.Tags to JSON for PostgreSQL JSONB storage
+	tagsJSON, err := json.Marshal(evt.Tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags to JSON: %w", err)
+	}
+
+	_, err = db.Pool.Exec(ctx,
 		`INSERT INTO events (id, pubkey, created_at, kind, tags, content, sig)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 ON CONFLICT (id) DO NOTHING`,
 		evt.ID, evt.PubKey, evt.CreatedAt.Time().Unix(),
-		evt.Kind, evt.Tags, evt.Content, evt.Sig)
+		evt.Kind, tagsJSON, evt.Content, evt.Sig)
 
 	if err != nil {
 		return fmt.Errorf("failed to insert event: %w", err)
@@ -184,6 +190,12 @@ func (db *DB) insertEventBatch(ctx context.Context, events []nostr.Event) error 
 		// Add event to bloom filter first
 		db.Bloom.AddString(evt.ID)
 
+		// Convert nostr.Tags to JSON for PostgreSQL JSONB storage
+		tagsJSON, err := json.Marshal(evt.Tags)
+		if err != nil {
+			return fmt.Errorf("failed to marshal tags to JSON: %w", err)
+		}
+
 		batch.Queue(
 			`INSERT INTO events (id, pubkey, created_at, kind, tags, content, sig)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -192,7 +204,7 @@ func (db *DB) insertEventBatch(ctx context.Context, events []nostr.Event) error 
 			evt.PubKey,
 			evt.CreatedAt.Time().Unix(),
 			evt.Kind,
-			evt.Tags,
+			tagsJSON,
 			evt.Content,
 			evt.Sig,
 		)
@@ -462,12 +474,18 @@ func (db *DB) InsertReplaceableEvent(ctx context.Context, evt nostr.Event) error
 		return fmt.Errorf("failed to delete old replaceable event: %w", err)
 	}
 
+	// Convert nostr.Tags to JSON for PostgreSQL JSONB storage
+	tagsJSON, err := json.Marshal(evt.Tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags to JSON: %w", err)
+	}
+
 	// Then insert the new event
 	_, err = db.Pool.Exec(ctx,
 		`INSERT INTO events (id, pubkey, created_at, kind, tags, content, sig)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
 		evt.ID, evt.PubKey, evt.CreatedAt.Time().Unix(),
-		evt.Kind, evt.Tags, evt.Content, evt.Sig)
+		evt.Kind, tagsJSON, evt.Content, evt.Sig)
 	if err != nil {
 		return fmt.Errorf("failed to insert new replaceable event: %w", err)
 	}
@@ -494,12 +512,18 @@ func (db *DB) InsertAddressableEvent(ctx context.Context, evt nostr.Event) error
 		return err
 	}
 
+	// Convert nostr.Tags to JSON for PostgreSQL JSONB storage
+	tagsJSON, err := json.Marshal(evt.Tags)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tags to JSON: %w", err)
+	}
+
 	_, err = db.Pool.Exec(ctx,
 		`INSERT INTO events (id,pubkey,created_at,kind,tags,content,sig)
          VALUES ($1,$2,$3,$4,$5,$6,$7)
          ON CONFLICT (id) DO NOTHING`,
 		evt.ID, evt.PubKey, evt.CreatedAt.Time().Unix(),
-		evt.Kind, evt.Tags, evt.Content, evt.Sig,
+		evt.Kind, tagsJSON, evt.Content, evt.Sig,
 	)
 	if err == nil {
 		db.Bloom.AddString(evt.ID)
