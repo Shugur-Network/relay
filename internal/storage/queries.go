@@ -85,12 +85,21 @@ func (db *DB) GetEventByID(ctx context.Context, eventID string) (nostr.Event, er
 
 	var evt nostr.Event
 	var createdAt int64
-	err := row.Scan(&evt.ID, &evt.PubKey, &evt.Kind, &createdAt, &evt.Content, &evt.Tags, &evt.Sig)
+	var rawTags []byte
+	err := row.Scan(&evt.ID, &evt.PubKey, &evt.Kind, &createdAt, &evt.Content, &rawTags, &evt.Sig)
 	if err != nil {
 		return nostr.Event{}, fmt.Errorf("event not found: %w", err)
 	}
 
 	evt.CreatedAt = nostr.Timestamp(createdAt) // Convert Unix timestamp to nostr.Timestamp
+
+	// Parse tags from JSONB
+	if len(rawTags) > 0 {
+		if err := json.Unmarshal(rawTags, &evt.Tags); err != nil {
+			logger.Debug("Failed to unmarshal tags", zap.Error(err))
+			evt.Tags = []nostr.Tag{}
+		}
+	}
 
 	return evt, nil
 }
@@ -239,12 +248,21 @@ func (db *DB) GetReplaceableEvent(ctx context.Context, pubkey string, kind int) 
 
 	var evt nostr.Event
 	var createdAt int64
-	err = row.Scan(&evt.ID, &evt.PubKey, &evt.Kind, &createdAt, &evt.Content, &evt.Tags, &evt.Sig)
+	var rawTags []byte
+	err = row.Scan(&evt.ID, &evt.PubKey, &evt.Kind, &createdAt, &evt.Content, &rawTags, &evt.Sig)
 	if err != nil {
 		return nostr.Event{}, fmt.Errorf("replaceable event not found: %w", err)
 	}
 
 	evt.CreatedAt = nostr.Timestamp(createdAt) // Convert Unix timestamp to nostr.Timestamp
+
+	// Parse tags from JSONB
+	if len(rawTags) > 0 {
+		if err := json.Unmarshal(rawTags, &evt.Tags); err != nil {
+			logger.Debug("Failed to unmarshal tags", zap.Error(err))
+			evt.Tags = []nostr.Tag{}
+		}
+	}
 
 	return evt, nil
 }
@@ -265,12 +283,21 @@ func (db *DB) GetAddressableEvent(ctx context.Context, pubkey string, kind int, 
 
 	var evt nostr.Event
 	var createdAt int64
-	err = row.Scan(&evt.ID, &evt.PubKey, &evt.Kind, &createdAt, &evt.Content, &evt.Tags, &evt.Sig)
+	var rawTags []byte
+	err = row.Scan(&evt.ID, &evt.PubKey, &evt.Kind, &createdAt, &evt.Content, &rawTags, &evt.Sig)
 	if err != nil {
 		return nostr.Event{}, fmt.Errorf("addressable event not found: %w", err)
 	}
 
 	evt.CreatedAt = nostr.Timestamp(createdAt) // Convert Unix timestamp to nostr.Timestamp
+
+	// Parse tags from JSONB
+	if len(rawTags) > 0 {
+		if err := json.Unmarshal(rawTags, &evt.Tags); err != nil {
+			logger.Debug("Failed to unmarshal tags", zap.Error(err))
+			evt.Tags = []nostr.Tag{}
+		}
+	}
 
 	return evt, nil
 }
