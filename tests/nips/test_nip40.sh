@@ -11,7 +11,8 @@ echo
 
 # Test 1: Valid event without expiration
 echo "Test 1: Valid event without expiration..."
-RESPONSE=$(echo '["EVENT",{"kind":1,"content":"Test message","tags":[],"created_at":'$(date +%s)',"pubkey":"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798","id":"test123","sig":"test"}]' | websocat ws://localhost:8080 2>/dev/null | head -1)
+# RESPONSE=$(echo '["EVENT",{"kind":1,"content":"Test message","tags":[],"created_at":'$(date +%s)',"pubkey":"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798","id":"test123","sig":"test"}]' | websocat ws://localhost:8080 2>/dev/null | head -1)
+RESPONSE=$(echo '["EVENT",{"kind":1,"content":"Test message","tags":[],"created_at":'$(date +%s)',"pubkey":"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798","id":"test123","sig":"test"}]' | websocat wss://shu02.shugur.net 2>/dev/null | head -1)
 if [[ "$RESPONSE" == *"OK"* ]]; then
     echo -e "${GREEN}✓ Event without expiration accepted${NC}"
 else

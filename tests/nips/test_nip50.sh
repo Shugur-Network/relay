@@ -11,7 +11,9 @@ successful_tests=0
 failed_tests=0
 
 # Relay URL
-RELAY="ws://localhost:8080"
+# RELAY="ws://localhost:8080"
+RELAY="wss://shu02.shugur.net"
+
 RELAY_URL=$RELAY
 
 # Function to check dependencies

@@ -8,7 +8,8 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 
 # Relay URL - should be from kind 10050 list
-RELAY="ws://localhost:8080"
+# RELAY="ws://localhost:8080"
+RELAY="wss://shu02.shugur.net"
 
 # Function to check if nak is installed
 check_nak() {
@@ -81,7 +82,7 @@ simulate_sender() {
     
     # Publish to relay
     echo -e "${YELLOW}Sender: Publishing gift-wrapped message...${NC}"
-    echo "$GIFT_WRAPPED" | nak event "$RELAY" --debug
+    echo "$GIFT_WRAPPED" | nak event "$RELAY"
     
     # Wait a moment for the event to be processed
     sleep 2

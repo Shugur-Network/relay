@@ -13,8 +13,9 @@ success_count=0
 fail_count=0
 
 # Relay URL
-RELAY="ws://localhost:8080"
-RELAY_INFO_URL="http://localhost:8080"
+# RELAY="ws://localhost:8080"
+RELAY="wss://shu02.shugur.net"
+RELAY_INFO_URL="https://shu02.shugur.net"
 
 # Helper function to print test results
 print_result() {
