@@ -525,7 +525,7 @@ func (pv *PluginValidator) ValidateAndProcessEvent(ctx context.Context, event no
 		}
 		logger.Debug("Event with valid delegation accepted",
 			zap.String("event_id", event.ID),
-			zap.String("delegator", delegationTag[1]))
+			zap.String("delegator", delegationTag.MasterPubkey))
 	}
 
 	logger.Debug("Event validation successful",
