@@ -5,9 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2025-08-16
 
 ### Added
+
+- **Enhanced NIP-11 Relay Information**: Dynamic relay metadata now uses actual configuration values instead of hardcoded constants for accurate limit reporting
+- **Comprehensive Logging System**: Added detailed validation logging for all NIP constraint violations with structured context
+- **Enhanced Filter Debugging**: Added raw filter logging and detailed error context for client behavior analysis
+- **Database Retry Logic**: Implemented exponential backoff retry mechanism for database transactions in shared database environments
+
+### Improved
+
+- **Production Logging Optimization**: Systematically adjusted logging levels across the application to reduce noise while maintaining debugging capabilities
+  - Protocol violations (NIP constraints, invalid formats) → Debug level
+  - Client input validation failures → Debug level  
+  - Rate limiting and connection management → Debug level
+  - Operational metrics and non-critical warnings → Debug level
+- **Shared Database Performance**: Optimized connection pooling and transaction handling for multiple relay instances sharing the same database
+- **WebSocket Connection Management**: Enhanced connection lifecycle logging and error handling
+- **Filter Validation**: Improved error reporting and validation context for subscription requests
+
+### Fixed
+
+- **Database Transaction Conflicts**: Resolved "rollback failed: tx is closed" errors in shared database deployments
+- **Event Deletion Validation**: Fixed "event not found" errors during deletion validation in clustered environments
+- **Connection Pool Optimization**: Improved database connection management for high-concurrency scenarios
+
+### Changed
+
+- **Log Level Strategy**: Reorganized logging levels to distinguish between client-related events (Debug) and actual system issues (Warn/Error)
+- **Error Reporting**: Enhanced error context and structured logging throughout the application
+- **Monitoring Readiness**: Optimized logs for production monitoring and alerting systems
+- **README.md**:
+  - Updated logo to use `banner.png` with full width display
+  - Enhanced NIP support matrix with categorization (Core, Enhanced, Advanced)
+  - Improved quick start instructions with multiple installation options
+  - Added comprehensive feature list highlighting production-readiness
+
+## [Unreleased]
+
+### Documentation Changes
 
 - **New Documentation Files** (moved to [dedicated documentation repository](https://github.com/Shugur-Network/docs)):
   - `API.md` - Comprehensive API reference for WebSocket (Nostr protocol) and HTTP endpoints
