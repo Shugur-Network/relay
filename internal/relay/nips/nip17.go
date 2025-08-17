@@ -101,27 +101,36 @@ func validateGiftWrap(evt *nostr.Event) error {
 		return fmt.Errorf("invalid event kind for gift wrap: %d", evt.Kind)
 	}
 
-	// Must have "p" tag with recipient pubkey
-	hasPTag := false
+	// Must have exactly one "p" tag with recipient pubkey
+	recipientCount := 0
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "p" {
-			hasPTag = true
-			// Validate pubkey format
+			recipientCount++
+			// Validate recipient pubkey format
 			if len(tag[1]) != 64 {
-				return fmt.Errorf("invalid pubkey in 'p' tag: %s", tag[1])
+				return fmt.Errorf("invalid recipient pubkey format in gift wrap event: %s", tag[1])
 			}
-			break
+			// Validate hex format
+			for _, c := range tag[1] {
+				if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+					return fmt.Errorf("invalid hex format in recipient pubkey: %s", tag[1])
+				}
+			}
 		}
 	}
-
-	if !hasPTag {
-		return fmt.Errorf("gift wrap must have 'p' tag with recipient")
+	
+	if recipientCount != 1 {
+		return fmt.Errorf("gift wrap events must have exactly one recipient")
 	}
 
-	// Content should be encrypted
+	// Gift wrap events must have content
 	if evt.Content == "" {
-		return fmt.Errorf("gift wrap must have encrypted content")
+		return fmt.Errorf("gift wrap events must have content")
 	}
+
+	// Gift wrap events contain encrypted content (NIP-44 encrypted payloads)
+	// The content should be a non-empty string, but we don't validate the encryption format
+	// as different clients may use different encryption methods
 
 	return nil
 }

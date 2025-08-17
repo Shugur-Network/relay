@@ -73,7 +73,7 @@ fi
 
 # Test 5: Attempt to create without name field
 NO_NAME=$(nak event -k 30078 -c '{"data": {"key": "value"}}' -t d=test-app-noname -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY 2>&1)
-if [[ "$NO_NAME" == *"invalid"* ]] || [[ "$NO_NAME" == *"❌"* ]]; then
+if [[ "$NO_NAME" == *"invalid"* ]] || [[ "$NO_NAME" == *"❌"* ]] || [[ "$NO_NAME" == *"NIP validation failed"* ]]; then
     print_result "Reject application-specific data event without name" true "78"
 else
     print_result "Reject application-specific data event without name" false "78"
@@ -81,7 +81,7 @@ fi
 
 # Test 6: Attempt to create without data field
 NO_DATA=$(nak event -k 30078 -c '{"name": "test_app"}' -t d=test-app-nodata -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY 2>&1)
-if [[ "$NO_DATA" == *"invalid"* ]] || [[ "$NO_DATA" == *"❌"* ]]; then
+if [[ "$NO_DATA" == *"invalid"* ]] || [[ "$NO_DATA" == *"❌"* ]] || [[ "$NO_DATA" == *"NIP validation failed"* ]]; then
     print_result "Reject application-specific data event without data" true "78"
 else
     print_result "Reject application-specific data event without data" false "78"

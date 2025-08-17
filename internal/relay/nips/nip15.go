@@ -3,7 +3,6 @@ package nips
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strconv"
 
 	nostr "github.com/nbd-wtf/go-nostr"
@@ -40,9 +39,11 @@ func validateStallEvent(evt *nostr.Event) error {
 
 	// Must have "d" tag for parameterized replaceable events
 	hasDTag := false
+	var dTag string
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "d" {
 			hasDTag = true
+			dTag = tag[1]
 			break
 		}
 	}
@@ -54,6 +55,50 @@ func validateStallEvent(evt *nostr.Event) error {
 	// Content should contain stall information (JSON)
 	if evt.Content == "" {
 		return fmt.Errorf("stall event must have content")
+	}
+
+	// Parse and validate JSON structure
+	var stall struct {
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Description string `json:"description,omitempty"`
+		Currency    string `json:"currency"`
+		Shipping    []struct {
+			ID      string   `json:"id"`
+			Name    string   `json:"name"`
+			Cost    int      `json:"cost"`
+			Regions []string `json:"regions"`
+		} `json:"shipping,omitempty"`
+	}
+
+	if err := json.Unmarshal([]byte(evt.Content), &stall); err != nil {
+		return fmt.Errorf("invalid stall JSON format: %v", err)
+	}
+
+	// Check required fields
+	if stall.ID == "" {
+		return fmt.Errorf("stall must have an id")
+	}
+	if stall.Name == "" {
+		return fmt.Errorf("stall must have a name")
+	}
+	if stall.Currency == "" {
+		return fmt.Errorf("stall must have a currency")
+	}
+
+	// Check d tag matches stall ID
+	if dTag != stall.ID {
+		return fmt.Errorf("stall d tag must match stall id")
+	}
+
+	// Validate shipping zones if present
+	for _, zone := range stall.Shipping {
+		if zone.Cost < 0 {
+			return fmt.Errorf("shipping zone must have a non-negative cost")
+		}
+		if len(zone.Regions) == 0 {
+			return fmt.Errorf("shipping zone must have at least one region")
+		}
 	}
 
 	return nil
@@ -68,10 +113,12 @@ func validateProductEvent(evt *nostr.Event) error {
 	// Must have "d" tag for parameterized replaceable events
 	hasDTag := false
 	hasCategoryTag := false
+	var dTag string
 
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "d" {
 			hasDTag = true
+			dTag = tag[1]
 		}
 		if len(tag) >= 2 && tag[0] == "t" {
 			hasCategoryTag = true
@@ -91,33 +138,47 @@ func validateProductEvent(evt *nostr.Event) error {
 		return fmt.Errorf("product event must have content")
 	}
 
-	// Parse and validate JSON content
-	var product map[string]interface{}
-	if err := json.Unmarshal([]byte(evt.Content), &product); err != nil {
-		return fmt.Errorf("product content must be valid JSON: %v", err)
+	// Parse and validate JSON structure
+	var product struct {
+		ID          string     `json:"id"`
+		StallID     string     `json:"stall_id"`
+		Name        string     `json:"name"`
+		Description string     `json:"description,omitempty"`
+		Currency    string     `json:"currency"`
+		Price       int        `json:"price"`
+		Quantity    int        `json:"quantity,omitempty"`
+		Images      []string   `json:"images,omitempty"`
+		Specs       [][]string `json:"specs,omitempty"`
+		Shipping    []struct {
+			ID   string `json:"id"`
+			Cost int    `json:"cost"`
+		} `json:"shipping,omitempty"`
 	}
 
-	// Validate price if present
-	if price, exists := product["price"]; exists {
-		var priceValue float64
-		switch v := price.(type) {
-		case float64:
-			priceValue = v
-		case int:
-			priceValue = float64(v)
-		case string:
-			if parsed, err := strconv.ParseFloat(v, 64); err == nil {
-				priceValue = parsed
-			} else {
-				return fmt.Errorf("product price must be a valid number")
-			}
-		default:
-			return fmt.Errorf("product price must be a number")
-		}
+	if err := json.Unmarshal([]byte(evt.Content), &product); err != nil {
+		return fmt.Errorf("invalid product JSON format: %v", err)
+	}
 
-		if priceValue <= 0 {
-			return fmt.Errorf("product must have a positive price")
-		}
+	// Check required fields
+	if product.ID == "" {
+		return fmt.Errorf("product must have an id")
+	}
+	if product.StallID == "" {
+		return fmt.Errorf("product must have a stall_id")
+	}
+	if product.Name == "" {
+		return fmt.Errorf("product must have a name")
+	}
+	if product.Currency == "" {
+		return fmt.Errorf("product must have a currency")
+	}
+	if product.Price <= 0 {
+		return fmt.Errorf("product must have a positive price")
+	}
+
+	// Check d tag matches product ID
+	if dTag != product.ID {
+		return fmt.Errorf("product d tag must match product id")
 	}
 
 	return nil
@@ -144,35 +205,41 @@ func validateMarketplaceUIEvent(evt *nostr.Event) error {
 
 	// Parse and validate JSON content
 	if evt.Content != "" {
-		var marketplace map[string]interface{}
-		if err := json.Unmarshal([]byte(evt.Content), &marketplace); err != nil {
-			return fmt.Errorf("marketplace content must be valid JSON: %v", err)
+		var marketplace struct {
+			Name  string `json:"name"`
+			About string `json:"about,omitempty"`
+			UI    struct {
+				Picture  string `json:"picture,omitempty"`
+				Banner   string `json:"banner,omitempty"`
+				Theme    string `json:"theme,omitempty"`
+				DarkMode bool   `json:"darkMode,omitempty"`
+			} `json:"ui,omitempty"`
 		}
 
-		// Validate UI field if present
-		if ui, exists := marketplace["ui"]; exists {
-			if uiMap, ok := ui.(map[string]interface{}); ok {
-				// Validate picture URL if present
-				if picture, exists := uiMap["picture"]; exists {
-					if pictureStr, ok := picture.(string); ok && pictureStr != "" {
-						if _, err := url.ParseRequestURI(pictureStr); err != nil {
-							return fmt.Errorf("marketplace picture must be a valid URL")
-						}
-					}
-				}
-				// Validate banner URL if present
-				if banner, exists := uiMap["banner"]; exists {
-					if bannerStr, ok := banner.(string); ok && bannerStr != "" {
-						if _, err := url.ParseRequestURI(bannerStr); err != nil {
-							return fmt.Errorf("marketplace banner must be a valid URL")
-						}
-					}
-				}
-			}
+		if err := json.Unmarshal([]byte(evt.Content), &marketplace); err != nil {
+			return fmt.Errorf("invalid marketplace JSON format: %v", err)
+		}
+
+		// Check required fields
+		if marketplace.Name == "" {
+			return fmt.Errorf("marketplace must have a name")
+		}
+
+		// Validate URLs if present - use simple prefix check like the original
+		if marketplace.UI.Picture != "" && !isValidURL(marketplace.UI.Picture) {
+			return fmt.Errorf("marketplace picture must be a valid URL")
+		}
+		if marketplace.UI.Banner != "" && !isValidURL(marketplace.UI.Banner) {
+			return fmt.Errorf("marketplace banner must be a valid URL")
 		}
 	}
 
 	return nil
+}
+
+// isValidURL checks if a string is a valid URL (simple check)
+func isValidURL(str string) bool {
+	return str != "" && (len(str) > 7) && (str[:7] == "http://" || str[:8] == "https://")
 }
 
 // validateAuctionEvent validates auction events (kind 30020)
@@ -199,33 +266,38 @@ func validateAuctionEvent(evt *nostr.Event) error {
 		return fmt.Errorf("auction event must have content")
 	}
 
-	// Parse and validate JSON content
-	var auction map[string]interface{}
-	if err := json.Unmarshal([]byte(evt.Content), &auction); err != nil {
-		return fmt.Errorf("auction content must be valid JSON: %v", err)
+	// Parse and validate JSON structure
+	var auction struct {
+		ID          string     `json:"id"`
+		StallID     string     `json:"stall_id"`
+		Name        string     `json:"name"`
+		Description string     `json:"description,omitempty"`
+		Images      []string   `json:"images,omitempty"`
+		StartingBid int        `json:"starting_bid"`
+		StartDate   int64      `json:"start_date,omitempty"`
+		Duration    int64      `json:"duration"`
+		Specs       [][]string `json:"specs,omitempty"`
 	}
 
-	// Validate duration if present
-	if duration, exists := auction["duration"]; exists {
-		var durationValue float64
-		switch v := duration.(type) {
-		case float64:
-			durationValue = v
-		case int:
-			durationValue = float64(v)
-		case string:
-			if parsed, err := strconv.ParseFloat(v, 64); err == nil {
-				durationValue = parsed
-			} else {
-				return fmt.Errorf("auction duration must be a valid number")
-			}
-		default:
-			return fmt.Errorf("auction duration must be a number")
-		}
+	if err := json.Unmarshal([]byte(evt.Content), &auction); err != nil {
+		return fmt.Errorf("invalid auction JSON format: %v", err)
+	}
 
-		if durationValue <= 0 {
-			return fmt.Errorf("auction must have a positive duration")
-		}
+	// Check required fields
+	if auction.ID == "" {
+		return fmt.Errorf("auction must have an id")
+	}
+	if auction.StallID == "" {
+		return fmt.Errorf("auction must have a stall_id")
+	}
+	if auction.Name == "" {
+		return fmt.Errorf("auction must have a name")
+	}
+	if auction.StartingBid <= 0 {
+		return fmt.Errorf("auction must have a positive starting bid")
+	}
+	if auction.Duration <= 0 {
+		return fmt.Errorf("auction must have a positive duration")
 	}
 
 	return nil
@@ -247,12 +319,17 @@ func validateBidEvent(evt *nostr.Event) error {
 	}
 
 	if !hasAuctionTag {
-		return fmt.Errorf("bid event must reference auction with 'e' tag")
+		return fmt.Errorf("bid must reference an auction with e tag")
 	}
 
-	// Content should contain bid information
+	// Content should be a positive integer (bid amount)
 	if evt.Content == "" {
 		return fmt.Errorf("bid event must have content")
+	}
+
+	amount, err := strconv.Atoi(evt.Content)
+	if err != nil || amount <= 0 {
+		return fmt.Errorf("bid amount must be a positive integer")
 	}
 
 	return nil
@@ -265,16 +342,32 @@ func validateBidConfirmationEvent(evt *nostr.Event) error {
 	}
 
 	// Must have "e" tag referencing the bid
-	hasBidTag := false
+	eTags := 0
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "e" {
-			hasBidTag = true
-			break
+			eTags++
 		}
 	}
 
-	if !hasBidTag {
-		return fmt.Errorf("bid confirmation event must reference bid with 'e' tag")
+	if eTags < 2 {
+		return fmt.Errorf("bid confirmation must reference both bid and auction with e tags")
+	}
+
+	// Parse and validate JSON content if present
+	if evt.Content != "" {
+		var confirmation struct {
+			Status  string `json:"status"`
+			Message string `json:"message,omitempty"`
+		}
+
+		if err := json.Unmarshal([]byte(evt.Content), &confirmation); err != nil {
+			return fmt.Errorf("invalid bid confirmation JSON format: %v", err)
+		}
+
+		// Check required fields
+		if confirmation.Status == "" {
+			return fmt.Errorf("bid confirmation must have a status")
+		}
 	}
 
 	return nil

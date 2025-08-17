@@ -54,8 +54,14 @@ func ValidateApplicationSpecificData(evt *nostr.Event) error {
 	if !hasName {
 		return fmt.Errorf("application-specific data must have 'name' field")
 	}
-	if _, ok := name.(string); !ok {
+	nameStr, ok := name.(string)
+	if !ok {
 		return fmt.Errorf("'name' field must be a string")
+	}
+	
+	// Validate name field constraints
+	if len(nameStr) > 100 {
+		return fmt.Errorf("application-specific data 'name' field too long (max 100 characters)")
 	}
 
 	// Must have "data" field

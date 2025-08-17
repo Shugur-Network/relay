@@ -1,6 +1,7 @@
 package nips
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	nostr "github.com/nbd-wtf/go-nostr"
@@ -24,7 +25,12 @@ func ValidateOpenTimestampsAttestation(evt *nostr.Event) error {
 			if len(tag[1]) != 64 {
 				return fmt.Errorf("invalid event ID in 'e' tag: %s", tag[1])
 			}
-			break
+			// Validate hex format
+			for _, c := range tag[1] {
+				if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+					return fmt.Errorf("invalid hex format in event ID: %s", tag[1])
+				}
+			}
 		}
 	}
 
@@ -32,9 +38,27 @@ func ValidateOpenTimestampsAttestation(evt *nostr.Event) error {
 		return fmt.Errorf("OpenTimestamps attestation must reference at least one event with 'e' tag")
 	}
 
-	// Content should contain the OpenTimestamps proof
+	// Optional 'alt' tag validation
+	for _, tag := range evt.Tags {
+		if len(tag) >= 2 && tag[0] == "alt" && tag[1] != "opentimestamps attestation" {
+			return fmt.Errorf("if 'alt' tag is present, it must have value 'opentimestamps attestation'")
+		}
+	}
+
+	// Content must contain the OpenTimestamps proof
 	if evt.Content == "" {
-		return fmt.Errorf("OpenTimestamps attestation must have content with the proof")
+		return fmt.Errorf("OpenTimestamps attestation must have base64-encoded OTS file content")
+	}
+
+	// Try to decode the base64 content to verify it's valid
+	_, err := base64.StdEncoding.DecodeString(evt.Content)
+	if err != nil {
+		return fmt.Errorf("invalid base64 content in OpenTimestamps attestation: %v", err)
+	}
+
+	// Set a size limit on the OTS file content (2KB)
+	if len(evt.Content) > 2048 {
+		return fmt.Errorf("OTS file content too large (max 2KB)")
 	}
 
 	return nil
