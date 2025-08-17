@@ -7,6 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-08-17
+
+### Added
+
+- **Enhanced NIP Validation System**:
+  - Improved NIP validation and testing infrastructure
+  - Enhanced gift wrap event validation using standardized NIP validation methods
+  - Better NIP compliance checking across all supported protocols
+
+- **Metrics and Monitoring Enhancements**:
+  - Enhanced metrics tracking system with real-time capabilities
+  - Added comprehensive real-time metrics API endpoints
+  - Improved Prometheus metrics collection and reporting
+
+- **Configuration Improvements**:
+  - Added MaxConnections field to LimitationData for better connection management
+  - Implemented configurable content length limits for relay metadata and WebSocket connections
+  - Enhanced template updates for better metadata display
+
+- **Web Interface Enhancements**:
+  - Added SVG logo support for improved branding
+  - Created enhanced dashboard interface with modern design
+  - Updated web interface styling to match shugur.net design system
+
+### Fixed
+
+- **Logging and Debugging**:
+  - Corrected delegation logging to use proper struct field instead of slice indexing
+  - Optimized logging across relay components with appropriate log levels
+  - Enhanced NIP validation visibility in logs
+
+- **Configuration and Setup**:
+  - Updated relay URLs in test scripts to use secure WebSocket connections
+  - Fixed repository references from 'Relay' to 'relay' for consistency
+  - Updated .gitignore and fixed import paths for better consistency
+
+- **Connection Management**:
+  - Removed maxConnections fallback logic from DefaultRelayMetadata function for cleaner implementation
+  - Improved WebSocket connection handling and limits
+
+### Changed
+
+- **Development and Testing**:
+  - Enhanced NIP validation testing framework
+  - Improved test script reliability with secure connections
+  - Better error handling and validation across NIP implementations
+
+- **Documentation and Branding**:
+  - Updated logo image for improved branding consistency
+  - Enhanced documentation for installation, configuration, and troubleshooting
+  - Improved user guidance and fixed database references
+
+- **Code Organization**:
+  - Refactored gift wrap event validation for better maintainability
+  - Improved code structure and import organization
+  - Enhanced error handling and validation patterns
+
 ### Added
 
 - **New Documentation Files** (moved to [dedicated documentation repository](https://github.com/Shugur-Network/docs)):
