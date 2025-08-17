@@ -477,7 +477,7 @@ func (pv *PluginValidator) ValidateAndProcessEvent(ctx context.Context, event no
 			return false, err.Error(), nil
 		}
 	case 1059: // NIP-17 Gift wrap
-		if err := pv.validateGiftWrapEvent(event); err != nil {
+		if err := nips.ValidatePrivateDirectMessage(&event); err != nil {
 			return false, err.Error(), nil
 		}
 	case 10050: // NIP-17 DM relay list
