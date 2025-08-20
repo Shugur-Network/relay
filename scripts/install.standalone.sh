@@ -798,10 +798,26 @@ elif [[ $# -eq 1 ]]; then
   start_all_services
   show_completion_message "$server_url"
 else
-  # Piped mode - read URL from stdin
+  # Piped mode - check if there's input from stdin
   check_sudo
-  server_url=$(cat); [[ -z "$server_url" ]] && server_url="localhost"
   show_banner
+  
+  # Try to read from stdin with a timeout
+  if read -t 1 server_url; then
+    # Got input from stdin
+    [[ -z "$server_url" ]] && server_url="localhost"
+  else
+    # No input from stdin, prompt user for FQDN
+    echo
+    echo -e "${YELLOW}📋 Domain Configuration${NC}"
+    echo "========================================"
+    echo "For production use with HTTPS, enter your domain name (FQDN)."
+    echo "For local testing only, press Enter to use 'localhost'."
+    echo
+    read -p "🌐 Enter your domain name (e.g., relay.yourdomain.com): " server_url
+    [[ -z "$server_url" ]] && server_url="localhost"
+  fi
+  
   detect_os
   check_required_ports
   if ! check_docker; then
