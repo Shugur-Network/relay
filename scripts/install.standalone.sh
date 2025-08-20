@@ -798,24 +798,29 @@ elif [[ $# -eq 1 ]]; then
   start_all_services
   show_completion_message "$server_url"
 else
-  # Piped mode - check if there's input from stdin
+  # Piped mode - but check if we can prompt the user via terminal
   check_sudo
   show_banner
   
-  # Try to read from stdin with a timeout
-  if read -t 1 server_url; then
-    # Got input from stdin
+  # Check if we can read from the terminal directly
+  if [[ -t 2 ]] && [[ -c /dev/tty ]]; then
+    # We have access to a terminal, prompt for FQDN
+    echo
+    echo -e "${YELLOW}📋 Domain Configuration${NC}" >&2
+    echo "========================================" >&2
+    echo "For production use with HTTPS, enter your domain name (FQDN)." >&2
+    echo "For local testing only, press Enter to use 'localhost'." >&2
+    echo >&2
+    echo -n "🌐 Enter your domain name (e.g., relay.yourdomain.com): " >&2
+    read server_url </dev/tty
     [[ -z "$server_url" ]] && server_url="localhost"
   else
-    # No input from stdin, prompt user for FQDN
-    echo
-    echo -e "${YELLOW}📋 Domain Configuration${NC}"
-    echo "========================================"
-    echo "For production use with HTTPS, enter your domain name (FQDN)."
-    echo "For local testing only, press Enter to use 'localhost'."
-    echo
-    read -p "🌐 Enter your domain name (e.g., relay.yourdomain.com): " server_url
-    [[ -z "$server_url" ]] && server_url="localhost"
+    # No terminal access, try to read from stdin or default to localhost
+    if read -t 1 server_url 2>/dev/null; then
+      [[ -z "$server_url" ]] && server_url="localhost"
+    else
+      server_url="localhost"
+    fi
   fi
   
   detect_os
