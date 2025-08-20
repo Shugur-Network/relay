@@ -6,13 +6,43 @@
 set -Eeuo pipefail
 
 # ---------- cleanup trap ----------
-cleanup_on_exit() {
+cleanup_on_failure() {
   local exit_code=$?
   if [[ $exit_code -ne 0 ]]; then
     log_error "Installation failed with exit code $exit_code"
-    log_info "Attempting cleanup of temporary files..."
+    log_info "Attempting cleanup of temporary files and Docker resources..."
     
-    # Clean up installation files even on failure
+    # Clean up Docker containers and services if they were created
+    if [[ -f "docker-compose.standalone.yml" ]]; then
+      log_info "Stopping and removing Docker containers..."
+      docker compose -f docker-compose.standalone.yml down --volumes --remove-orphans 2>/dev/null || true
+      
+      # Force remove containers if they still exist
+      local containers=("cockroachdb" "relay" "caddy")
+      for container in "${containers[@]}"; do
+        if docker ps -a --format "{{.Names}}" | grep -q "^${container}$"; then
+          log_debug "Force removing container: $container"
+          docker rm -f "$container" 2>/dev/null || true
+        fi
+      done
+      
+      # Remove Docker volumes created by the installation
+      local volumes=("cockroach_volume" "caddy_data" "caddy_config")
+      for volume in "${volumes[@]}"; do
+        if docker volume ls --format "{{.Name}}" | grep -q "^.*_${volume}$\|^${volume}$"; then
+          log_debug "Removing Docker volume: $volume"
+          docker volume rm -f "$volume" 2>/dev/null || true
+        fi
+      done
+      
+      # Remove Docker network if it exists
+      if docker network ls --format "{{.Name}}" | grep -q "relay_network"; then
+        log_debug "Removing Docker network: relay_network"
+        docker network rm relay_network 2>/dev/null || true
+      fi
+    fi
+    
+    # Clean up installation files only on failure
     local files_to_remove=("Caddyfile" "config.yaml" "docker-compose.standalone.yml")
     for file in "${files_to_remove[@]}"; do
       if [[ -f "$file" ]]; then
@@ -27,12 +57,72 @@ cleanup_on_exit() {
       rm -rf "./logs" 2>/dev/null || true
     fi
     
-    log_info "Cleanup completed. Please check the error above and retry installation."
+    log_info "Cleanup completed. Docker containers, volumes, and temporary files have been removed."
+    log_info "Please check the error above and retry installation."
+    log_info "If cleanup was incomplete, you can run: sudo $0 cleanup"
   fi
 }
 
-# Set up cleanup trap for script failures
-trap cleanup_on_exit EXIT
+# Set up cleanup trap only for script failures (not successful completion)
+trap cleanup_on_failure ERR
+
+# Manual cleanup function for users
+manual_cleanup() {
+  log_info "Manual cleanup requested..."
+  
+  # Stop and remove all containers and volumes
+  if [[ -f "docker-compose.standalone.yml" ]]; then
+    log_info "Stopping Docker services..."
+    docker compose -f docker-compose.standalone.yml down --volumes --remove-orphans 2>/dev/null || true
+  fi
+  
+  # Force remove containers
+  local containers=("cockroachdb" "relay" "caddy")
+  for container in "${containers[@]}"; do
+    if docker ps -a --format "{{.Names}}" | grep -q "^${container}$"; then
+      log_info "Removing container: $container"
+      docker rm -f "$container" 2>/dev/null || true
+    fi
+  done
+  
+  # Remove volumes
+  local volumes=("cockroach_volume" "caddy_data" "caddy_config")
+  for volume in "${volumes[@]}"; do
+    if docker volume ls --format "{{.Name}}" | grep -q "_${volume}$\|^${volume}$"; then
+      log_info "Removing volume: $volume"
+      docker volume rm -f "$volume" 2>/dev/null || true
+    fi
+  done
+  
+  # Remove network
+  if docker network ls --format "{{.Name}}" | grep -q "relay_network"; then
+    log_info "Removing network: relay_network"
+    docker network rm relay_network 2>/dev/null || true
+  fi
+  
+  # Remove files
+  local files_to_remove=("Caddyfile" "config.yaml" "docker-compose.standalone.yml")
+  for file in "${files_to_remove[@]}"; do
+    if [[ -f "$file" ]]; then
+      log_info "Removing file: $file"
+      rm -f "$file"
+    fi
+  done
+  
+  # Remove logs directory
+  if [[ -d "./logs" ]]; then
+    log_info "Removing logs directory: ./logs"
+    rm -rf "./logs"
+  fi
+  
+  log_info "Manual cleanup completed."
+}
+
+# Check for cleanup argument
+if [[ "${1:-}" == "cleanup" ]]; then
+  manual_cleanup
+  exit 0
+fi
 
 # ---------- utils ----------
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
@@ -40,7 +130,6 @@ log_info(){ echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn(){ echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error(){ echo -e "${RED}[ERROR]${NC} $1"; }
 log_debug(){ echo -e "${BLUE}[DEBUG]${NC} $1"; }
-trap 'log_error "Failed at line $LINENO"; exit 1' ERR
 
 # ---------- preflight ----------
 check_sudo() {
@@ -49,6 +138,76 @@ check_sudo() {
     echo "Usage: sudo $0"
     exit 1
   fi
+}
+
+check_port_free() {
+  local port=$1
+  local service_name=$2
+  
+  # Check if port is in use using multiple methods for compatibility
+  if command -v ss >/dev/null 2>&1; then
+    if ss -tuln | grep -q ":${port} "; then
+      return 1
+    fi
+  elif command -v netstat >/dev/null 2>&1; then
+    if netstat -tuln 2>/dev/null | grep -q ":${port} "; then
+      return 1
+    fi
+  elif command -v lsof >/dev/null 2>&1; then
+    if lsof -i ":${port}" >/dev/null 2>&1; then
+      return 1
+    fi
+  else
+    # Fallback: try to bind to the port briefly
+    if ! timeout 1 bash -c "exec 3<>/dev/tcp/127.0.0.1/$port" 2>/dev/null; then
+      return 0  # Port is free (connection failed)
+    else
+      exec 3<&-  # Close the connection
+      return 1   # Port is in use (connection succeeded)
+    fi
+  fi
+  return 0  # Port is free
+}
+
+check_required_ports() {
+  log_info "Checking required ports availability..."
+  
+  local ports_to_check=(
+    "80:HTTP (Caddy)"
+    "443:HTTPS (Caddy)" 
+    "26257:CockroachDB SQL"
+    "26258:CockroachDB RPC"
+    "9090:CockroachDB Admin UI"
+  )
+  
+  local ports_in_use=()
+  
+  for port_info in "${ports_to_check[@]}"; do
+    local port="${port_info%%:*}"
+    local service="${port_info#*:}"
+    
+    if ! check_port_free "$port" "$service"; then
+      ports_in_use+=("$port ($service)")
+      log_warn "Port $port is already in use - $service"
+    else
+      log_debug "Port $port is available - $service"
+    fi
+  done
+  
+  if [[ ${#ports_in_use[@]} -gt 0 ]]; then
+    log_error "The following required ports are already in use:"
+    for port_info in "${ports_in_use[@]}"; do
+      log_error "  • $port_info"
+    done
+    echo
+    log_info "Please stop the services using these ports or use different ports."
+    log_info "You can check what's using a port with: sudo lsof -i :PORT_NUMBER"
+    log_info "Or kill processes with: sudo pkill -f PROCESS_NAME"
+    echo
+    exit 1
+  fi
+  
+  log_info "✅ All required ports are available"
 }
 
 show_banner() {
@@ -62,7 +221,15 @@ This will set up:
  • Shugur Relay (prebuilt image)
  • Caddy (reverse proxy + HTTPS)
 
-⚠️  Requires sudo/root
+⚠️  Requirements:
+ • sudo/root access
+ • Valid domain name (FQDN) for production HTTPS
+ • DNS A record pointing to this server
+ • Ports 80, 443, 26257, 26258, 9090 available
+
+Usage:
+  sudo ./install.standalone.sh        # Install
+  sudo ./install.standalone.sh cleanup # Clean up failed installation
 
 BANNER
 }
@@ -139,9 +306,27 @@ ensure_docker_running() {
 get_server_url() {
   echo "" >&2
   echo "🌐 Server Configuration" >&2
-  echo "Enter your server domain (or 'localhost' or an IP for testing):" >&2
+  echo "Enter your server's Fully Qualified Domain Name (FQDN):" >&2
+  echo "  • For production: your-domain.com" >&2
+  echo "  • For testing with HTTPS: your-server-ip (will use internal TLS)" >&2
+  echo "  • For local testing only: localhost (HTTP only, no HTTPS)" >&2
+  echo "" >&2
+  echo "⚠️  Important: For proper HTTPS operation, use your real domain name!" >&2
+  echo "Domain/IP:" >&2
   read -r server_url
-  [[ -z "$server_url" ]] && server_url="localhost"
+  
+  # Validate input
+  if [[ -z "$server_url" ]]; then
+    echo "❌ No domain provided. Using 'localhost' for local testing only." >&2
+    server_url="localhost"
+  elif [[ "$server_url" == "localhost" ]]; then
+    echo "⚠️  Using localhost - HTTPS will be disabled, HTTP only!" >&2
+  elif is_ip "$server_url"; then
+    echo "📋 Using IP address - will configure internal TLS certificate" >&2
+  else
+    echo "✅ Using domain: $server_url - will obtain Let's Encrypt certificate" >&2
+  fi
+  
   echo "$server_url"
 }
 
@@ -154,9 +339,12 @@ create_caddyfile() {
   local server_url="$1"
   log_info "Creating Caddyfile for: $server_url"
 
-  # For localhost or IPs, avoid public ACME; use HTTP or internal CA.
+  # For localhost: HTTP only (no HTTPS/TLS)
   if [[ "$server_url" == "localhost" ]]; then
+    log_warn "Configuring for localhost - HTTP only, no HTTPS!"
     cat > Caddyfile <<'EOF'
+# Localhost configuration - HTTP only (no HTTPS)
+# ⚠️ For production, use a real domain name to enable HTTPS
 http://localhost {
     handle /api/* {
         reverse_proxy relay:8080
@@ -187,8 +375,12 @@ http://localhost {
     }
 }
 EOF
+  # For IP addresses: Internal TLS certificate
   elif is_ip "$server_url"; then
+    log_info "Configuring for IP address with internal TLS certificate"
     cat > Caddyfile <<EOF
+# IP address configuration with internal TLS
+# Uses Caddy's internal CA for HTTPS
 $server_url {
     tls internal
     handle /api/* {
@@ -220,8 +412,12 @@ $server_url {
     }
 }
 EOF
+  # For domain names: Automatic HTTPS with Let's Encrypt
   else
+    log_info "Configuring for domain with automatic HTTPS (Let's Encrypt)"
     cat > Caddyfile <<EOF
+# Domain configuration with automatic HTTPS
+# Caddy will automatically obtain Let's Encrypt certificate for: $server_url
 $server_url {
     handle /api/* {
         reverse_proxy relay:8080
@@ -484,11 +680,17 @@ show_completion_message() {
   log_info "✅ CockroachDB (single-node) | ✅ Relay | ✅ Caddy"
 
   if [[ "$server_url" == "localhost" ]]; then
-    log_info "Relay:            http://localhost"
+    log_info "Relay Dashboard:  http://localhost"
     log_info "WebSocket:        ws://localhost"
-  else
-    log_info "Relay:            https://$server_url"
+    log_warn "⚠️  HTTP only - For production, use a real domain name!"
+  elif is_ip "$server_url"; then
+    log_info "Relay Dashboard:  https://$server_url"
     log_info "WebSocket:        wss://$server_url"
+    log_info "📋 Using internal TLS certificate (browsers will show security warning)"
+  else
+    log_info "Relay Dashboard:  https://$server_url"
+    log_info "WebSocket:        wss://$server_url"
+    log_info "🔒 Using Let's Encrypt HTTPS certificate"
   fi
   log_info "Cockroach Admin:  http://localhost:9090"
   echo
@@ -498,13 +700,38 @@ show_completion_message() {
   log_info "  docker compose -f docker-compose.standalone.yml down"
   log_info "  docker compose -f docker-compose.standalone.yml pull relay && docker compose -f docker-compose.standalone.yml restart relay"
   echo
+  log_info "🧹 Cleanup (if needed):"
+  log_info "  sudo ./install.standalone.sh cleanup  # Remove all containers, volumes, and config files"
+  echo
   log_info "Security:"
-  log_info "  • Localhost/IP uses HTTP or internal TLS; domains use public HTTPS."
+  if [[ "$server_url" == "localhost" ]]; then
+    log_info "  • HTTP only - suitable for local testing only"
+    log_info "  • For production, re-run with your domain name"
+  elif is_ip "$server_url"; then
+    log_info "  • Internal TLS certificate - browsers will show warnings"
+    log_info "  • For production, use a proper domain name"
+  else
+    log_info "  • Automatic HTTPS with Let's Encrypt certificate"
+    log_info "  • Production-ready configuration"
+  fi
   log_info "  • Metrics port (8181) is not exposed via Caddy."
+  echo
+  log_info "DNS Requirements:"
+  if [[ "$server_url" != "localhost" ]] && ! is_ip "$server_url"; then
+    log_info "  • Ensure DNS A record points $server_url to this server's IP"
+    log_info "  • Allow TCP ports 80 and 443 through firewall"
+    log_info "  • Let's Encrypt needs to verify domain ownership"
+  else
+    log_info "  • No DNS configuration needed for current setup"
+  fi
   echo
   log_info "Repo: https://github.com/Shugur-Network/Relay"
   echo
-  log_info "💡 Installation complete! Configuration files are ready in the current directory."
+  log_info "💡 Installation complete! Configuration files have been preserved in the current directory:"
+  log_info "  • docker-compose.standalone.yml (Docker Compose configuration)"
+  log_info "  • config.yaml (Relay configuration)"
+  log_info "  • Caddyfile (Reverse proxy configuration)"
+  log_info "  • logs/ (Application logs directory)"
 }
 
 # ---------- main ----------
@@ -512,6 +739,7 @@ main() {
   check_sudo
   show_banner
   detect_os
+  check_required_ports
 
   if ! check_docker; then
     install_docker
@@ -544,6 +772,7 @@ else
   server_url=$(cat); [[ -z "$server_url" ]] && server_url="localhost"
   show_banner
   detect_os
+  check_required_ports
   if ! check_docker; then
     log_error "Docker not found. Install Docker first."
     exit 1
