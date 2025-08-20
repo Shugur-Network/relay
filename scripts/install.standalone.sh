@@ -228,8 +228,10 @@ This will set up:
  • Ports 80, 443, 26257, 26258, 9090 available
 
 Usage:
-  sudo ./install.standalone.sh        # Install
-  sudo ./install.standalone.sh cleanup # Clean up failed installation
+  sudo ./install.standalone.sh                    # Interactive mode (prompts for domain)
+  sudo ./install.standalone.sh your-domain.com    # Direct mode (use specified domain)
+  echo "domain.com" | sudo ./install.standalone.sh # Piped mode
+  sudo ./install.standalone.sh cleanup            # Clean up failed installation
 
 BANNER
 }
@@ -764,10 +766,31 @@ main() {
   show_completion_message "$server_url"
 }
 
-# Support piped mode (URL from stdin)
-if [ -t 0 ]; then
+# Support piped mode (URL from stdin) or interactive mode
+if [[ $# -eq 0 ]] && [ -t 0 ]; then
+  # Interactive mode - no arguments and stdin is a terminal
   main
+elif [[ $# -eq 1 ]]; then
+  # Single argument provided - use it as server URL
+  check_sudo
+  server_url="$1"
+  show_banner
+  detect_os
+  check_required_ports
+  if ! check_docker; then
+    log_error "Docker not found. Install Docker first."
+    exit 1
+  fi
+  ensure_docker_running
+  mkdir -p logs logs/caddy
+  create_caddyfile "$server_url"
+  create_config_file
+  update_config_with_server_url "$server_url"
+  create_complete_compose_file
+  start_all_services
+  show_completion_message "$server_url"
 else
+  # Piped mode - read URL from stdin
   check_sudo
   server_url=$(cat); [[ -z "$server_url" ]] && server_url="localhost"
   show_banner
