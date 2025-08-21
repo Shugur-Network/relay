@@ -990,11 +990,23 @@ test_external_connectivity() {
 cleanup_local_directories() {
   log_cluster "Cleaning up local working directories..."
   
+  # Preserve CA certificate and key for future node additions
+  if [[ -f "$CERTS_DIR/ca.crt" && -f "$CERTS_DIR/ca.key" ]]; then
+    log_debug "Preserving CA certificate and key for future node additions..."
+    mkdir -p "./cluster-ca-backup"
+    cp "$CERTS_DIR/ca.crt" "./cluster-ca-backup/" 2>/dev/null || true
+    cp "$CERTS_DIR/ca.key" "./cluster-ca-backup/" 2>/dev/null || true
+    cp "$CERTS_DIR/client.root.key" "./cluster-ca-backup/" 2>/dev/null || true
+    cp "$CERTS_DIR/client.relay.key" "./cluster-ca-backup/" 2>/dev/null || true
+    log_debug "✅ CA certificate backed up to ./cluster-ca-backup/"
+    log_debug "✅ CA private key backed up to ./cluster-ca-backup/"
+  fi
+  
   # Remove certificates directory (contains temporary CA keys and node certificates)
   if [[ -d "$CERTS_DIR" ]]; then
-    log_debug "Removing local certificates directory: $CERTS_DIR"
+    log_debug "Removing working certificates directory: $CERTS_DIR"
     rm -rf "$CERTS_DIR"
-    log_debug "✅ Local certificates directory removed"
+    log_debug "✅ Working certificates directory removed"
   else
     log_debug "No local certificates directory found to clean"
   fi
@@ -1014,7 +1026,7 @@ cleanup_local_directories() {
   rm -f ./*.cnf 2>/dev/null || true
   rm -f ./*.csr 2>/dev/null || true
   
-  log_cluster "✅ Local directories cleaned - workspace ready for next deployment"
+  log_cluster "✅ Local directories cleaned - CA certificates preserved in ./cluster-ca-backup/ for future node additions"
 }
 
 # ---------- summary ----------
@@ -1039,10 +1051,10 @@ show_completion_message() {
   echo -e "${BLUE}📋 Next Steps:${NC}"
   echo -e "   ${GREEN}•${NC} Container UID 1001 matches ubuntu user for seamless certificate access"
   echo -e "   ${GREEN}•${NC} Local working directories automatically cleaned after installation"
-  echo -e "   ${GREEN}•${NC} Rotate certs before expiry; re-run deploy for nodes"
-  echo -e "   ${GREEN}•${NC} To add nodes later: rerun, add hosts, regenerate/stage per-node certs"
+  echo -e "   ${GREEN}•${NC} CA certificates preserved in ./cluster-ca-backup/ for adding nodes"
+  echo -e "   ${GREEN}•${NC} To add nodes later: use ./scripts/add-cluster-node.sh"
   echo ""
-  echo -e "${YELLOW}💡 Installation complete! Local workspace cleaned and ready for next deployment.${NC}"
+  echo -e "${YELLOW}💡 Installation complete! CA preserved for future node additions.${NC}"
   echo ""
 }
 
