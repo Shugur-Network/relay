@@ -757,14 +757,22 @@ deploy_files_to_nodes() {
     scp_copy "$CLUSTER_DIR/$node_id/certs/relay/."     "$node" "$REMOTE_DIR/certs/relay/"     "copying relay certs"
 
     # Set proper ownership and permissions for certificates
-    # The relay container runs as UID 1000, so we need to ensure files are accessible
+    # The relay container runs as UID 1001, cockroach certs need ubuntu user access
     ssh_exec "$node" "
-      # Get current user info - on most cloud instances this is UID 1000 which matches container
+      # Get current user info for cockroach certs
       CURRENT_USER=\$(id -u)
       CURRENT_GROUP=\$(id -g)
       
-      # Set ownership to current user (try sudo first, fall back to regular chown)
-      sudo chown -R \$CURRENT_USER:\$CURRENT_GROUP $REMOTE_DIR/certs/ 2>/dev/null || chown -R \$CURRENT_USER:\$CURRENT_GROUP $REMOTE_DIR/certs/ 2>/dev/null || true
+      # Ensure UID 1001 exists on the system for relay certificate ownership
+      if ! id 1001 >/dev/null 2>&1; then
+        sudo useradd -u 1001 -r -s /bin/false relay-certs 2>/dev/null || true
+      fi
+      
+      # Set ownership for cockroach certs to current user (ubuntu)
+      sudo chown -R \$CURRENT_USER:\$CURRENT_GROUP $REMOTE_DIR/certs/cockroach/ 2>/dev/null || chown -R \$CURRENT_USER:\$CURRENT_GROUP $REMOTE_DIR/certs/cockroach/ 2>/dev/null || true
+      
+      # Set ownership for relay certs to UID 1001 (relay container user)
+      sudo chown -R 1001:1001 $REMOTE_DIR/certs/relay/ 2>/dev/null || chown -R 1001:1001 $REMOTE_DIR/certs/relay/ 2>/dev/null || true
       
       # Set proper permissions for certificate security
       # Private keys: 600 (read/write for owner only)
@@ -777,7 +785,7 @@ deploy_files_to_nodes() {
       # Verify permissions for debugging
       echo 'Certificate directory permissions:'
       ls -la $REMOTE_DIR/certs/relay/ || echo 'Relay certs directory not accessible'
-    " "setting cert ownership and permissions for UID 1000 compatibility"
+    " "setting cert ownership: cockroach certs to ubuntu user, relay certs to UID 1001"
     log_debug "✅ Files deployed to $node_id"
   done
   log_cluster "✅ Deployment complete"
@@ -1049,7 +1057,7 @@ show_completion_message() {
   echo -e "   ${GREEN}•${NC} Local health (on node): ${YELLOW}curl http://localhost:8080/api/info${NC}"
   echo ""
   echo -e "${BLUE}📋 Next Steps:${NC}"
-  echo -e "   ${GREEN}•${NC} Container UID 1001 matches ubuntu user for seamless certificate access"
+  echo -e "   ${GREEN}•${NC} Relay certs owned by UID 1001 for seamless container access"
   echo -e "   ${GREEN}•${NC} Local working directories automatically cleaned after installation"
   echo -e "   ${GREEN}•${NC} CA certificates preserved in ./cluster-ca-backup/ for adding nodes"
   echo -e "   ${GREEN}•${NC} To add nodes later: use ./scripts/add-cluster-node.sh"
