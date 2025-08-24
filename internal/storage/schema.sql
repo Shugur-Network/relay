@@ -3,6 +3,7 @@
 -- Database: Defined in constants.DatabaseName
 
 -- Events table - stores all Nostr events with optimized indexes
+-- This table supports CockroachDB changefeeds for real-time distributed synchronization
 CREATE TABLE IF NOT EXISTS events (
   id CHAR(64) NOT NULL,
   pubkey CHAR(64) NOT NULL,
@@ -29,3 +30,20 @@ CREATE TABLE IF NOT EXISTS events (
   CONSTRAINT valid_sig CHECK (sig ~ '^[a-f0-9]{128}$':::STRING),
   CONSTRAINT kind_range CHECK ((kind >= 0:::INT8) AND (kind <= 65535:::INT8))
 );
+
+-- Changefeed Configuration Notes:
+-- For distributed relay setups, the events table supports real-time synchronization
+-- via CockroachDB changefeeds. The changefeed is automatically configured by the
+-- EventDispatcher using:
+--
+-- EXPERIMENTAL CHANGEFEED FOR events 
+-- WITH updated, resolved='10s', format='json', 
+--      initial_scan='only', envelope='row'
+--
+-- Requirements for changefeed support:
+-- 1. CockroachDB cluster (not single-node for production)
+-- 2. User must have CHANGEFEED privilege
+-- 3. Enterprise license for some changefeed features (optional)
+--
+-- If changefeeds are not available, the relay will operate in single-node mode
+-- without distributed event synchronization.

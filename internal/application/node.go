@@ -27,6 +27,7 @@ type Node struct {
 	config         *config.Config
 	WorkerPool     *workers.WorkerPool
 	EventProcessor *storage.EventProcessor
+	EventDispatcher *storage.EventDispatcher
 	Validator      domain.EventValidator
 	EventValidator *relay.EventValidator
 
@@ -75,6 +76,12 @@ func New(ctx context.Context, cfg *config.Config, privKey ed25519.PrivateKey) (*
 // Start begins the main loops for the node:
 // Starts the relay server with integrated web dashboard
 func (n *Node) Start(ctx context.Context) error {
+	// Start the event dispatcher for real-time notifications
+	if err := n.EventDispatcher.Start(); err != nil {
+		logger.Error("Failed to start event dispatcher", zap.Error(err))
+		return err
+	}
+
 	// Start the relay server (now includes web dashboard)
 	go func() {
 		addr := n.config.Relay.WSAddr
@@ -89,13 +96,18 @@ func (n *Node) Start(ctx context.Context) error {
 		}
 	}()
 
-	logger.Debug("Node started with integrated web dashboard")
+	logger.Debug("Node started with integrated web dashboard and event dispatcher")
 	return nil
 }
 
 // Shutdown cancels the node context and closes all resources.
 func (n *Node) Shutdown() {
 	logger.Debug("Shutting down node...")
+
+	// Stop the event dispatcher
+	if n.EventDispatcher != nil {
+		n.EventDispatcher.Stop()
+	}
 
 	// Shut down the EventProcessor
 	if n.EventProcessor != nil {

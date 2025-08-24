@@ -2,6 +2,8 @@ package relay
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -29,15 +31,30 @@ var (
 
 // normalizeIP converts a network address to a normalized IP string
 func normalizeIP(addr string) string {
+	// Extract the IP portion (remove port)
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
-		return addr
+		// If splitting fails, assume addr is already an IP
+		host = addr
 	}
+
+	// Normalize IPv4-mapped IPv6 addresses
 	ip := net.ParseIP(host)
-	if ip == nil {
-		return addr
+	if ip != nil {
+		if ipv4 := ip.To4(); ipv4 != nil {
+			return ipv4.String()
+		}
+		return ip.String()
 	}
-	return ip.String()
+
+	return host
+}
+
+// generateClientID generates a unique client ID for event dispatcher
+func generateClientID() string {
+	bytes := make([]byte, 8)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
 }
 
 // cleanExpiredBans periodically removes expired bans from the ban list
@@ -142,6 +159,12 @@ type WsConnection struct {
 
 	exceededLimitCount int
 	backpressureChan   chan struct{} // Channel for backpressure handling
+
+	// Event dispatcher integration
+	clientID       string
+	eventChan      chan *nostr.Event
+	eventCtx       context.Context
+	eventCancel    context.CancelFunc
 }
 
 // Ensure WsConnection implements domain.WebSocketConnection
@@ -160,6 +183,9 @@ func NewWsConnection(
 		cfg.ThrottlingConfig.RateLimit.BurstSize,
 	)
 
+	// Create context for event handling
+	eventCtx, eventCancel := context.WithCancel(ctx)
+
 	conn := &WsConnection{
 		ws:               ws,
 		node:             node,
@@ -171,6 +197,17 @@ func NewWsConnection(
 		pingTicker:       time.NewTicker(30 * time.Second),
 		limiter:          limiter,
 		backpressureChan: make(chan struct{}, 100), // Buffer for backpressure
+		// Event dispatcher integration
+		clientID:    generateClientID(),
+		eventCtx:    eventCtx,
+		eventCancel: eventCancel,
+	}
+
+	// Register with event dispatcher for real-time notifications
+	if eventDispatcher := node.GetEventDispatcher(); eventDispatcher != nil {
+		conn.eventChan = eventDispatcher.AddClient(conn.clientID)
+		// Start processing events from dispatcher
+		go conn.processDispatcherEvents()
 	}
 
 	// WebSocket compression
@@ -471,6 +508,126 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 	}
 }
 
+// processDispatcherEvents handles real-time events from the event dispatcher
+func (c *WsConnection) processDispatcherEvents() {
+	if c.eventChan == nil {
+		return
+	}
+
+	for {
+		select {
+		case <-c.eventCtx.Done():
+			return
+		case event := <-c.eventChan:
+			if event == nil {
+				return // Channel closed
+			}
+			
+			// Check if connection is still active
+			if c.isClosed.Load() {
+				return
+			}
+
+			// Check if any subscription matches this event
+			c.subMu.RLock()
+			for subID, filters := range c.subscriptions {
+				for _, filter := range filters {
+					if c.eventMatchesFilter(event, filter) {
+						// Send event to client
+						c.sendMessage("EVENT", subID, event)
+						logger.Debug("Sent real-time event to client",
+							zap.String("sub_id", subID),
+							zap.String("event_id", event.ID),
+							zap.String("client", c.RemoteAddr()))
+						break // Only send once per subscription
+					}
+				}
+			}
+			c.subMu.RUnlock()
+		}
+	}
+}
+
+// eventMatchesFilter checks if an event matches a subscription filter
+func (c *WsConnection) eventMatchesFilter(event *nostr.Event, filter nostr.Filter) bool {
+	// Check IDs
+	if len(filter.IDs) > 0 {
+		found := false
+		for _, id := range filter.IDs {
+			if event.ID == id {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	// Check authors
+	if len(filter.Authors) > 0 {
+		found := false
+		for _, author := range filter.Authors {
+			if event.PubKey == author {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	// Check kinds
+	if len(filter.Kinds) > 0 {
+		found := false
+		for _, kind := range filter.Kinds {
+			if event.Kind == kind {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	// Check since
+	if filter.Since != nil && event.CreatedAt < *filter.Since {
+		return false
+	}
+
+	// Check until
+	if filter.Until != nil && event.CreatedAt > *filter.Until {
+		return false
+	}
+
+	// Check tags
+	for tagName, tagValues := range filter.Tags {
+		if len(tagValues) > 0 {
+			found := false
+			for _, tag := range event.Tags {
+				if len(tag) >= 2 && tag[0] == tagName {
+					for _, value := range tagValues {
+						if tag[1] == value {
+							found = true
+							break
+						}
+					}
+					if found {
+						break
+					}
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 // Close gracefully shuts down the WebSocket
 func (c *WsConnection) Close() {
 	c.closeMu.Do(func() {
@@ -480,6 +637,16 @@ func (c *WsConnection) Close() {
 			logger.Debug("WebSocket connection closed",
 				zap.String("reason", c.closeReason),
 				zap.String("client", c.ws.RemoteAddr().String()))
+		}
+
+		// Stop event dispatcher processing
+		if c.eventCancel != nil {
+			c.eventCancel()
+		}
+
+		// Unregister from event dispatcher
+		if eventDispatcher := c.node.GetEventDispatcher(); eventDispatcher != nil && c.clientID != "" {
+			eventDispatcher.RemoveClient(c.clientID)
 		}
 
 		// Clear any subscriptions

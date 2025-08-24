@@ -28,12 +28,13 @@ type NodeBuilder struct {
 	config  *config.Config
 	privKey ed25519.PrivateKey
 
-	database    *storage.DB
-	workerPool  *workers.WorkerPool
-	validator   domain.EventValidator
-	eventVal    *relay.EventValidator
-	eventProc   *storage.EventProcessor
-	rateLimiter *limiter.RateLimiter
+	database        *storage.DB
+	eventDispatcher *storage.EventDispatcher
+	workerPool      *workers.WorkerPool
+	validator       domain.EventValidator
+	eventVal        *relay.EventValidator
+	eventProc       *storage.EventProcessor
+	rateLimiter     *limiter.RateLimiter
 
 	blacklist map[string]struct{}
 	whitelist map[string]struct{}
@@ -302,6 +303,10 @@ func (b *NodeBuilder) BuildDB() error {
 		logger.Warn("Failed to rebuild bloom filter", zap.Error(err))
 	}
 
+	// Initialize event dispatcher for real-time notifications
+	b.eventDispatcher = storage.NewEventDispatcher(b.database)
+	logger.Info("✅ Event dispatcher initialized")
+
 	return nil
 }
 
@@ -350,6 +355,9 @@ func (b *NodeBuilder) Build() *Node {
 	if b.database == nil {
 		panic("database must be built before calling Build()")
 	}
+	if b.eventDispatcher == nil {
+		panic("event dispatcher must be built before calling Build()")
+	}
 	if b.workerPool == nil {
 		panic("worker pool must be built before calling Build()")
 	}
@@ -367,16 +375,17 @@ func (b *NodeBuilder) Build() *Node {
 	}
 
 	node := &Node{
-		ctx:            b.ctx,
-		cancel:         b.cancel,
-		db:             b.database,
-		EventProcessor: b.eventProc,
-		config:         b.config,
-		Validator:      b.validator,
-		EventValidator: b.eventVal,
-		WorkerPool:     b.workerPool,
-		wsConns:        make(map[domain.WebSocketConnection]bool),
-		rateLimiter:    b.rateLimiter,
+		ctx:             b.ctx,
+		cancel:          b.cancel,
+		db:              b.database,
+		EventProcessor:  b.eventProc,
+		EventDispatcher: b.eventDispatcher,
+		config:          b.config,
+		Validator:       b.validator,
+		EventValidator:  b.eventVal,
+		WorkerPool:      b.workerPool,
+		wsConns:         make(map[domain.WebSocketConnection]bool),
+		rateLimiter:     b.rateLimiter,
 
 		blacklistPubKeys: b.blacklist,
 		whitelistPubKeys: b.whitelist,

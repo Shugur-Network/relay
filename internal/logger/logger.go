@@ -252,3 +252,17 @@ func UpdateLevel(lvl string) error {
 	atomicLevel.SetLevel(level.Level())
 	return nil
 }
+
+/* ------------------------------------------------------------------ *
+|  8. Error helpers                                                   |
+* -------------------------------------------------------------------*/
+
+// NewError creates a new error with the given message
+func NewError(msg string) error {
+	return fmt.Errorf(msg)
+}
+
+// WrapError wraps an error with additional context
+func WrapError(err error, msg string) error {
+	return fmt.Errorf("%s: %w", msg, err)
+}

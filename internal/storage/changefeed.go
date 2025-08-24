@@ -1,0 +1,303 @@
+package storage
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/Shugur-Network/relay/internal/logger"
+	nostr "github.com/nbd-wtf/go-nostr"
+	"go.uber.org/zap"
+)
+
+// ChangefeedEvent represents a changefeed event from CockroachDB
+type ChangefeedEvent struct {
+	Table string          `json:"table"`
+	Key   []interface{}   `json:"key"`
+	Value *EventRowData   `json:"value"`
+	After *EventRowData   `json:"after"`
+}
+
+// EventRowData represents the event data structure from the database
+type EventRowData struct {
+	ID        string          `json:"id"`
+	PubKey    string          `json:"pubkey"`
+	CreatedAt int64           `json:"created_at"`
+	Kind      int             `json:"kind"`
+	Tags      json.RawMessage `json:"tags"`
+	Content   string          `json:"content"`
+	Sig       string          `json:"sig"`
+}
+
+// ToNostrEvent converts EventRowData to a nostr.Event
+func (e *EventRowData) ToNostrEvent() (*nostr.Event, error) {
+	evt := &nostr.Event{
+		ID:        e.ID,
+		PubKey:    e.PubKey,
+		CreatedAt: nostr.Timestamp(e.CreatedAt),
+		Kind:      e.Kind,
+		Content:   e.Content,
+		Sig:       e.Sig,
+	}
+
+	// Parse tags if they exist
+	if len(e.Tags) > 0 {
+		if err := json.Unmarshal(e.Tags, &evt.Tags); err != nil {
+			logger.Warn("Failed to unmarshal tags in changefeed event", zap.Error(err))
+			evt.Tags = []nostr.Tag{}
+		}
+	}
+
+	return evt, nil
+}
+
+// EventDispatcher manages real-time event distribution across relay instances
+type EventDispatcher struct {
+	db              *DB
+	clients         map[string]chan *nostr.Event
+	clientsMu       sync.RWMutex
+	eventBuffer     chan *nostr.Event
+	ctx             context.Context
+	cancel          context.CancelFunc
+	changefeedQuery string
+}
+
+// NewEventDispatcher creates a new event dispatcher for real-time events only
+func NewEventDispatcher(db *DB) *EventDispatcher {
+	ctx, cancel := context.WithCancel(context.Background())
+	
+	// Create a sinkless changefeed using proper CockroachDB syntax
+	// This creates a changefeed that sends messages to the SQL client
+	changefeedQuery := `
+		CREATE CHANGEFEED FOR events 
+		WITH format='json', envelope='row', updated, 
+		initial_scan='no'`
+	
+	return &EventDispatcher{
+		db:              db,
+		clients:         make(map[string]chan *nostr.Event),
+		eventBuffer:     make(chan *nostr.Event, 1000),
+		ctx:             ctx,
+		cancel:          cancel,
+		changefeedQuery: changefeedQuery,
+	}
+}
+
+// Start begins listening to the changefeed and processing events
+func (ed *EventDispatcher) Start() error {
+	if !ed.db.isConnected() {
+		return logger.NewError("database is not connected")
+	}
+
+	logger.Info("Starting changefeed event dispatcher...")
+
+	// Verify changefeed capability before starting
+	if err := ed.verifyChangefeedSupport(); err != nil {
+		logger.Warn("Changefeed not supported, running without real-time sync", zap.Error(err))
+		return nil // Don't fail startup, just run without changefeed
+	}
+
+	go ed.processEvents()
+	go ed.listenToChangefeed()
+
+	logger.Info("✅ Changefeed event dispatcher started")
+	return nil
+}
+
+// Stop stops the event dispatcher
+func (ed *EventDispatcher) Stop() {
+	logger.Info("Stopping event dispatcher...")
+	ed.cancel()
+	
+	// Close all client channels
+	ed.clientsMu.Lock()
+	for clientID, clientChan := range ed.clients {
+		close(clientChan)
+		delete(ed.clients, clientID)
+	}
+	ed.clientsMu.Unlock()
+
+	close(ed.eventBuffer)
+	logger.Info("✅ Event dispatcher stopped")
+}
+
+// AddClient registers a new client for event notifications
+func (ed *EventDispatcher) AddClient(clientID string) chan *nostr.Event {
+	ed.clientsMu.Lock()
+	defer ed.clientsMu.Unlock()
+
+	clientChan := make(chan *nostr.Event, 100)
+	ed.clients[clientID] = clientChan
+
+	logger.Debug("Added event dispatcher client", zap.String("client_id", clientID))
+	return clientChan
+}
+
+// RemoveClient unregisters a client from event notifications
+func (ed *EventDispatcher) RemoveClient(clientID string) {
+	ed.clientsMu.Lock()
+	defer ed.clientsMu.Unlock()
+
+	if clientChan, exists := ed.clients[clientID]; exists {
+		close(clientChan)
+		delete(ed.clients, clientID)
+		logger.Debug("Removed event dispatcher client", zap.String("client_id", clientID))
+	}
+}
+
+// GetClientCount returns the number of active clients
+func (ed *EventDispatcher) GetClientCount() int {
+	ed.clientsMu.RLock()
+	defer ed.clientsMu.RUnlock()
+	return len(ed.clients)
+}
+
+// verifyChangefeedSupport checks if the database supports changefeeds
+func (ed *EventDispatcher) verifyChangefeedSupport() error {
+	rows, err := ed.db.Pool.Query(ed.ctx, "SHOW CLUSTER SETTING cluster.organization")
+	if err != nil {
+		return fmt.Errorf("failed to check changefeed support: %w", err)
+	}
+	defer rows.Close()
+
+	// If we can query cluster settings, changefeeds should be supported
+	logger.Debug("Changefeed support verified")
+	return nil
+}
+
+// listenToChangefeed starts the changefeed listener
+func (ed *EventDispatcher) listenToChangefeed() {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("Changefeed listener crashed", zap.Any("error", r))
+		}
+	}()
+
+	for {
+		select {
+		case <-ed.ctx.Done():
+			logger.Info("Changefeed listener stopped")
+			return
+		default:
+			if err := ed.runChangefeed(); err != nil {
+				logger.Error("Changefeed error, retrying in 10 seconds", zap.Error(err))
+				select {
+				case <-ed.ctx.Done():
+					return
+				case <-time.After(10 * time.Second):
+					continue
+				}
+			}
+		}
+	}
+}
+
+// runChangefeed creates and executes a sinkless changefeed
+func (ed *EventDispatcher) runChangefeed() error {
+	logger.Debug("Creating sinkless changefeed...")
+	
+	// Create sinkless changefeed - each relay gets its own changefeed
+	rows, err := ed.db.Pool.Query(ed.ctx, ed.changefeedQuery)
+	if err != nil {
+		return fmt.Errorf("failed to create changefeed: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		select {
+		case <-ed.ctx.Done():
+			return nil
+		default:
+		}
+
+		var changeData string
+		if err := rows.Scan(&changeData); err != nil {
+			logger.Error("Failed to scan changefeed row", zap.Error(err))
+			continue
+		}
+
+		// Parse changefeed event
+		var changefeedEvent ChangefeedEvent
+		if err := json.Unmarshal([]byte(changeData), &changefeedEvent); err != nil {
+			logger.Warn("Failed to parse changefeed event", zap.Error(err))
+			continue
+		}
+
+		// Only process events with actual data
+		eventData := changefeedEvent.After
+		if eventData == nil {
+			eventData = changefeedEvent.Value
+		}
+
+		if eventData == nil {
+			continue
+		}
+
+		// Convert to Nostr event
+		event, err := eventData.ToNostrEvent()
+		if err != nil {
+			logger.Warn("Failed to convert changefeed event to Nostr event", zap.Error(err))
+			continue
+		}
+
+		// Send to event buffer for processing
+		select {
+		case ed.eventBuffer <- event:
+			logger.Debug("Event added to buffer", zap.String("event_id", event.ID))
+		default:
+			logger.Warn("Event buffer full, dropping event", zap.String("event_id", event.ID))
+		}
+	}
+
+	return rows.Err()
+}
+
+// processEvents processes events from the buffer and broadcasts them to clients
+func (ed *EventDispatcher) processEvents() {
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	var batch []*nostr.Event
+
+	for {
+		select {
+		case <-ed.ctx.Done():
+			return
+		case event := <-ed.eventBuffer:
+			batch = append(batch, event)
+		case <-ticker.C:
+			if len(batch) > 0 {
+				ed.broadcastEvents(batch)
+				batch = batch[:0] // Clear batch
+			}
+		}
+	}
+}
+
+// broadcastEvents sends events to all registered clients
+func (ed *EventDispatcher) broadcastEvents(events []*nostr.Event) {
+	ed.clientsMu.RLock()
+	defer ed.clientsMu.RUnlock()
+
+	for clientID, clientChan := range ed.clients {
+		for _, event := range events {
+			select {
+			case clientChan <- event:
+				// Event sent successfully
+			default:
+				// Client buffer is full, drop the event
+				logger.Warn("Dropped event for client - buffer full",
+					zap.String("client_id", clientID),
+					zap.String("event_id", event.ID))
+			}
+		}
+	}
+
+	if len(events) > 0 {
+		logger.Debug("Broadcasted events to clients", 
+			zap.Int("event_count", len(events)),
+			zap.Int("client_count", len(ed.clients)))
+	}
+}

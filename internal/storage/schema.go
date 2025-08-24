@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"time"
 
 	"github.com/Shugur-Network/relay/internal/logger"
 	"go.uber.org/zap"
@@ -63,7 +64,70 @@ func (db *DB) InitializeSchema(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize database schema: %w", err)
 	}
 
+	// Initialize changefeed for distributed event synchronization
+	if err := db.InitializeChangefeed(ctx); err != nil {
+		logger.Warn("Failed to initialize changefeed (this is normal for single-node setups)", zap.Error(err))
+		// Don't return error as changefeed might not be available in all environments
+	}
+
 	logger.Info("✅ Database schema initialized successfully")
+	return nil
+}
+
+// InitializeChangefeed verifies changefeed capability for distributed event synchronization
+func (db *DB) InitializeChangefeed(ctx context.Context) error {
+	if !db.isConnected() {
+		return fmt.Errorf("database is not connected")
+	}
+
+	logger.Info("Verifying changefeed capability for distributed event synchronization...")
+
+	// Check if changefeeds are supported (CockroachDB specific)
+	var hasChangefeedSupport bool
+	err := db.Pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.tables 
+			WHERE table_name = 'jobs' 
+			AND table_schema = 'crdb_internal'
+		)
+	`).Scan(&hasChangefeedSupport)
+
+	if err != nil || !hasChangefeedSupport {
+		return fmt.Errorf("changefeed support not detected (requires CockroachDB)")
+	}
+
+	// Test changefeed permissions by doing a dry run
+	// We don't actually create a persistent changefeed here because:
+	// 1. The EventDispatcher creates its own changefeed when needed
+	// 2. Multiple persistent changefeeds can cause resource issues
+	// 3. Internal changefeeds (used by EventDispatcher) don't need pre-creation
+	
+	// Test if the user has CHANGEFEED privileges
+	testChangefeedSQL := `
+		SELECT count(*) FROM (
+			SELECT * FROM (
+				CREATE CHANGEFEED FOR events 
+				WITH format='json', envelope='row', updated,
+				     initial_scan='no', resolved='10s'
+			) LIMIT 1
+		)
+	`
+
+	// This will fail fast if user doesn't have changefeed permissions
+	// or if changefeeds aren't properly configured
+	ctx_test, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	
+	rows, err := db.Pool.Query(ctx_test, testChangefeedSQL)
+	if err != nil {
+		logger.Warn("Changefeed test failed", 
+			zap.Error(err),
+			zap.String("note", "This is expected in single-node or test environments without changefeed support"))
+		return fmt.Errorf("changefeed permissions test failed: %w", err)
+	}
+	rows.Close()
+
+	logger.Info("✅ Changefeed capability verified - distributed event synchronization ready")
 	return nil
 }
 

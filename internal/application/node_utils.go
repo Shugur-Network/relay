@@ -25,3 +25,8 @@ func (n *Node) GetValidator() domain.EventValidator {
 func (n *Node) GetEventProcessor() *storage.EventProcessor {
 	return n.EventProcessor
 }
+
+// GetEventDispatcher returns the node's event dispatcher.
+func (n *Node) GetEventDispatcher() *storage.EventDispatcher {
+	return n.EventDispatcher
+}
