@@ -282,6 +282,8 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateApplicationSpecificData(event)
 	case 13194:
 		return nips.ValidateGiftWrapEvent(event)
+	case 10002:
+		return nips.ValidateKind10002(*event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {

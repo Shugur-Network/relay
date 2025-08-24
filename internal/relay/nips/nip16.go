@@ -15,10 +15,13 @@ func IsEphemeral(kind int) bool {
 }
 
 func IsReplaceable(kind int) bool {
-	// NIP-16 calls certain kinds "replaceable." Commonly these are 0, 3, 41...
-	// You can define a set or switch statement:
+	// According to NIP-01: events are replaceable for kind n such that:
+	// 10000 <= n < 20000 || n == 0 || n == 3
+	if kind >= 10000 && kind < 20000 {
+		return true
+	}
 	switch kind {
-	case 0, 3, 41:
+	case 0, 3, 41: // 41 is replaceable per NIP-28: "Only the most recent kind 41 per e tag value MAY be available"
 		return true
 	}
 	return false
