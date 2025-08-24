@@ -64,16 +64,9 @@ type EventDispatcher struct {
 	changefeedQuery string
 }
 
-// NewEventDispatcher creates a new event dispatcher for real-time events only
+// NewEventDispatcher creates a new event dispatcher for real-time events
 func NewEventDispatcher(db *DB) *EventDispatcher {
 	ctx, cancel := context.WithCancel(context.Background())
-	
-	// Create a sinkless changefeed using proper CockroachDB syntax
-	// This creates a changefeed that sends messages to the SQL client
-	changefeedQuery := `
-		CREATE CHANGEFEED FOR events 
-		WITH format='json', envelope='row', updated, 
-		initial_scan='no', resolved='10s'`
 	
 	return &EventDispatcher{
 		db:              db,
@@ -81,7 +74,7 @@ func NewEventDispatcher(db *DB) *EventDispatcher {
 		eventBuffer:     make(chan *nostr.Event, 1000),
 		ctx:             ctx,
 		cancel:          cancel,
-		changefeedQuery: changefeedQuery,
+		changefeedQuery: "", // Using polling instead of sinkless changefeed
 	}
 }
 
@@ -167,22 +160,22 @@ func (ed *EventDispatcher) verifyChangefeedSupport() error {
 	return nil
 }
 
-// listenToChangefeed starts the changefeed listener
+// listenToChangefeed starts the cross-node synchronization listener
 func (ed *EventDispatcher) listenToChangefeed() {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error("Changefeed listener crashed", zap.Any("error", r))
+			logger.Error("Cross-node sync listener crashed", zap.Any("error", r))
 		}
 	}()
 
 	for {
 		select {
 		case <-ed.ctx.Done():
-			logger.Info("Changefeed listener stopped")
+			logger.Info("Cross-node sync listener stopped")
 			return
 		default:
 			if err := ed.runChangefeed(); err != nil {
-				logger.Error("Changefeed error, retrying in 10 seconds", zap.Error(err))
+				logger.Error("Cross-node sync error, retrying in 10 seconds", zap.Error(err))
 				select {
 				case <-ed.ctx.Done():
 					return
@@ -194,81 +187,90 @@ func (ed *EventDispatcher) listenToChangefeed() {
 	}
 }
 
-// runChangefeed creates and executes a sinkless changefeed
+// runChangefeed implements cross-node event synchronization using polling
 func (ed *EventDispatcher) runChangefeed() error {
-	logger.Info("Creating sinkless changefeed for real-time event distribution...")
+	logger.Info("Starting cross-node event polling for distributed synchronization...")
 	
-	// Create sinkless changefeed - each relay gets its own changefeed
-	rows, err := ed.db.Pool.Query(ed.ctx, ed.changefeedQuery)
-	if err != nil {
-		return fmt.Errorf("failed to create changefeed: %w", err)
-	}
-	defer rows.Close()
+	// Track the latest timestamp we've seen to avoid duplicates
+	var lastSeen int64 = time.Now().Unix()
+	
+	// Create a ticker for polling new events
+	ticker := time.NewTicker(2 * time.Second) // Poll every 2 seconds
+	defer ticker.Stop()
+	
+	logger.Info("✅ Cross-node polling started, checking for events every 2s...")
 
-	logger.Info("✅ Changefeed created successfully, listening for events...")
-
-	for rows.Next() {
+	for {
 		select {
 		case <-ed.ctx.Done():
-			logger.Info("Changefeed stopping due to context cancellation")
+			logger.Info("Cross-node polling stopping due to context cancellation")
 			return nil
-		default:
-		}
+		case <-ticker.C:
+			// Query for events created after our last seen timestamp
+			currentTime := time.Now().Unix()
+			
+			query := `
+				SELECT id, pubkey, kind, created_at, content, tags, sig 
+				FROM events 
+				WHERE created_at > $1 AND created_at <= $2
+				ORDER BY created_at ASC`
+			
+			rows, err := ed.db.Pool.Query(ed.ctx, query, lastSeen, currentTime)
+			if err != nil {
+				logger.Error("Failed to query for new events", zap.Error(err))
+				continue
+			}
 
-		var changeData string
-		if err := rows.Scan(&changeData); err != nil {
-			logger.Error("Failed to scan changefeed row", zap.Error(err))
-			continue
-		}
+			newEventsCount := 0
+			for rows.Next() {
+				var eventData EventRowData
+				err := rows.Scan(
+					&eventData.ID,
+					&eventData.PubKey,
+					&eventData.Kind,
+					&eventData.CreatedAt,
+					&eventData.Content,
+					&eventData.Tags,
+					&eventData.Sig,
+				)
+				if err != nil {
+					logger.Error("Failed to scan event row", zap.Error(err))
+					continue
+				}
 
-		logger.Debug("Received changefeed data", zap.String("data", changeData))
+				// Convert to Nostr event
+				event, err := eventData.ToNostrEvent()
+				if err != nil {
+					logger.Warn("Failed to convert event to Nostr event", zap.Error(err))
+					continue
+				}
 
-		// Parse changefeed event
-		var changefeedEvent ChangefeedEvent
-		if err := json.Unmarshal([]byte(changeData), &changefeedEvent); err != nil {
-			logger.Warn("Failed to parse changefeed event", zap.Error(err), zap.String("raw_data", changeData))
-			continue
-		}
+				logger.Debug("Found new cross-node event", 
+					zap.String("event_id", event.ID),
+					zap.String("pubkey", event.PubKey),
+					zap.Int("kind", event.Kind),
+					zap.Int64("created_at", event.CreatedAt.Time().Unix()))
 
-		// Only process events with actual data
-		eventData := changefeedEvent.After
-		if eventData == nil {
-			eventData = changefeedEvent.Value
-		}
+				// Send to event buffer for processing
+				select {
+				case ed.eventBuffer <- event:
+					newEventsCount++
+				default:
+					logger.Warn("Event buffer full, dropping cross-node event", zap.String("event_id", event.ID))
+				}
+			}
+			rows.Close()
 
-		if eventData == nil {
-			logger.Debug("Changefeed event has no data, skipping", zap.String("table", changefeedEvent.Table))
-			continue
-		}
+			if newEventsCount > 0 {
+				logger.Info("Synchronized cross-node events", 
+					zap.Int("count", newEventsCount),
+					zap.Int64("time_range", currentTime-lastSeen))
+			}
 
-		// Convert to Nostr event
-		event, err := eventData.ToNostrEvent()
-		if err != nil {
-			logger.Warn("Failed to convert changefeed event to Nostr event", zap.Error(err))
-			continue
-		}
-
-		logger.Info("Processing changefeed event", 
-			zap.String("event_id", event.ID),
-			zap.String("pubkey", event.PubKey),
-			zap.Int("kind", event.Kind))
-
-		// Send to event buffer for processing
-		select {
-		case ed.eventBuffer <- event:
-			logger.Debug("Event added to buffer", zap.String("event_id", event.ID))
-		default:
-			logger.Warn("Event buffer full, dropping event", zap.String("event_id", event.ID))
+			// Update our last seen timestamp
+			lastSeen = currentTime
 		}
 	}
-
-	if err := rows.Err(); err != nil {
-		logger.Error("Changefeed rows error", zap.Error(err))
-		return err
-	}
-
-	logger.Warn("Changefeed stopped receiving rows")
-	return nil
 }
 
 // processEvents processes events from the buffer and broadcasts them to clients
