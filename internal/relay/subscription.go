@@ -148,7 +148,7 @@ func (c *WsConnection) processSubscription(ctx context.Context, subID string, f 
 			// Filter out invalid relay list events
 			validEvents := make([]nostr.Event, 0, len(events))
 			for _, evt := range events {
-				if err := nips.ValidateRelayListEvent(evt); err == nil {
+				if err := nips.ValidateKind10002(evt); err == nil {
 					validEvents = append(validEvents, evt)
 				}
 			}
