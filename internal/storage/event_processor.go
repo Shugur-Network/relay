@@ -108,6 +108,12 @@ func (ep *EventProcessor) processEvents(ctx context.Context) {
 
 				ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 				switch {
+				case nips.IsEphemeral(evt.Kind):
+					// Ephemeral events (NIP-16) should not be stored
+					logger.Debug("Skipping storage of ephemeral event",
+						zap.String("event_id", evt.ID),
+						zap.Int("kind", evt.Kind))
+					err = nil // No error, just don't store
 				case nips.IsDeletionEvent(evt):
 					err = ep.db.persistDeletion(ctx, evt)
 				case nips.IsReplaceable(evt.Kind):
@@ -120,17 +126,11 @@ func (ep *EventProcessor) processEvents(ctx context.Context) {
 				cancel()
 
 				if err == nil || strings.Contains(err.Error(), "duplicate key") {
-					// Only add to bloom filter after successful insertion
-					ep.db.Bloom.AddString(evt.ID)
-
-					// Increment the stored events metric only for new events
-					if err == nil {
-						metrics.EventsStored.Inc()
-						
-						// Broadcast event immediately to local clients for real-time streaming
-						// This ensures same-node clients get events instantly without waiting for changefeed
+					// For ephemeral events, skip bloom filter and metrics but still broadcast
+					if nips.IsEphemeral(evt.Kind) {
+						// Broadcast ephemeral event immediately to local clients for real-time streaming
 						if ep.db.eventDispatcher != nil {
-							logger.Debug("Broadcasting event to local clients",
+							logger.Debug("Broadcasting ephemeral event to local clients",
 								zap.String("event_id", evt.ID),
 								zap.String("pubkey", evt.PubKey),
 								zap.Int("kind", evt.Kind))
@@ -138,9 +138,34 @@ func (ep *EventProcessor) processEvents(ctx context.Context) {
 							// Send event to local event dispatcher for immediate broadcasting
 							select {
 							case ep.db.eventDispatcher.eventBuffer <- &evt:
-								logger.Debug("Event added to local broadcast buffer", zap.String("event_id", evt.ID))
+								logger.Debug("Ephemeral event added to local broadcast buffer", zap.String("event_id", evt.ID))
 							default:
-								logger.Warn("Local broadcast buffer full, event may not stream immediately", zap.String("event_id", evt.ID))
+								logger.Warn("Local broadcast buffer full, ephemeral event may not stream immediately", zap.String("event_id", evt.ID))
+							}
+						}
+					} else {
+						// Only add to bloom filter after successful insertion for non-ephemeral events
+						ep.db.Bloom.AddString(evt.ID)
+
+						// Increment the stored events metric only for new events
+						if err == nil {
+							metrics.EventsStored.Inc()
+							
+							// Broadcast event immediately to local clients for real-time streaming
+							// This ensures same-node clients get events instantly without waiting for changefeed
+							if ep.db.eventDispatcher != nil {
+								logger.Debug("Broadcasting event to local clients",
+									zap.String("event_id", evt.ID),
+									zap.String("pubkey", evt.PubKey),
+									zap.Int("kind", evt.Kind))
+								
+								// Send event to local event dispatcher for immediate broadcasting
+								select {
+								case ep.db.eventDispatcher.eventBuffer <- &evt:
+									logger.Debug("Event added to local broadcast buffer", zap.String("event_id", evt.ID))
+								default:
+									logger.Warn("Local broadcast buffer full, event may not stream immediately", zap.String("event_id", evt.ID))
+								}
 							}
 						}
 					}
