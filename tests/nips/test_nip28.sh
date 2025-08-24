@@ -32,88 +32,238 @@ print_result() {
     ((test_count++))
 }
 
-echo -e "${BLUE}Starting Shugur Relay NIP-28 Tests${NC}\n"
-
-# Test NIP-28: Public Chat
-echo -e "\n${YELLOW}Testing NIP-28: Public Chat${NC}"
-
-# Test 1: Create a public chat channel
-CHANNEL_CREATE=$(nak event -k 40 --content '{"name": "Test Channel", "about": "A test channel for NIP-28", "picture": "https://example.com/channel.jpg"}' -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY)
-CHANNEL_ID=$(echo "$CHANNEL_CREATE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
-if [ ! -z "$CHANNEL_CREATE" ]; then
-    print_result "Create public chat channel" true "28"
-else
-    print_result "Create public chat channel" false "28"
-fi
-
-# Test 2: Create a channel message
-if [ ! -z "$CHANNEL_ID" ]; then
-    CHANNEL_MESSAGE=$(nak event -k 41 --content "Hello, this is a test message in the channel" -t e=$CHANNEL_ID -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY)
-    MESSAGE_ID=$(echo "$CHANNEL_MESSAGE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4)
-    if [ ! -z "$CHANNEL_MESSAGE" ]; then
-        print_result "Create channel message" true "28"
+# Helper function to check if event was accepted
+check_event_accepted() {
+    local response=$1
+    # Check if the response contains an acceptance message or event ID
+    if [[ "$response" == *"\"true\""* ]] || [[ "$response" == *"published"* ]] || [[ "$response" == *"id"* ]]; then
+        return 0  # success
     else
-        print_result "Create channel message" false "28"
+        return 1  # failure
     fi
+}
+
+# Helper function to extract event ID from nak output
+extract_event_id() {
+    local output=$1
+    # Try to extract event ID from various possible formats
+    echo "$output" | grep -o '[a-f0-9]\{64\}' | head -1
+}
+
+echo -e "${BLUE}Starting Shugur Relay NIP-28 (Public Chat) Tests${NC}\n"
+echo -e "${YELLOW}Testing NIP-28: Public Chat Events (Kinds 40-44)${NC}\n"
+
+# Test 1: Create Channel (Kind 40)
+echo -e "Test 1: Channel Creation (Kind 40)..."
+CHANNEL_RESPONSE=$(nak event -k 40 --content '{"name": "Test Channel", "about": "A test channel for NIP-28 testing", "picture": "https://example.com/channel.jpg", "relays": ["wss://shu01.shugur.net", "wss://shu02.shugur.net"]}' $RELAY 2>&1)
+CHANNEL_ID=$(extract_event_id "$CHANNEL_RESPONSE")
+
+if [ ! -z "$CHANNEL_ID" ] && check_event_accepted "$CHANNEL_RESPONSE"; then
+    print_result "Create channel with metadata" true "28"
+    echo -e "   Channel ID: $CHANNEL_ID"
+else
+    print_result "Create channel with metadata" false "28"
+    echo -e "   Response: $CHANNEL_RESPONSE"
 fi
 
-# Test 3: Create a channel metadata update
+# Test 2: Channel Metadata Update (Kind 41)
 if [ ! -z "$CHANNEL_ID" ]; then
-    CHANNEL_UPDATE=$(nak event -k 40 --content '{"name": "Updated Channel", "about": "Updated channel description", "picture": "https://example.com/updated.jpg"}' -t e=$CHANNEL_ID -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY)
-    if [ ! -z "$CHANNEL_UPDATE" ]; then
+    echo -e "\nTest 2: Channel Metadata Update (Kind 41)..."
+    METADATA_RESPONSE=$(nak event -k 41 --content '{"name": "Updated Test Channel", "about": "Updated description for testing", "picture": "https://example.com/updated.jpg", "relays": ["wss://shu01.shugur.net"]}' -t e="$CHANNEL_ID,wss://shu01.shugur.net,root" -t t="testing" $RELAY 2>&1)
+    
+    if check_event_accepted "$METADATA_RESPONSE"; then
         print_result "Update channel metadata" true "28"
     else
         print_result "Update channel metadata" false "28"
+        echo -e "   Response: $METADATA_RESPONSE"
     fi
 fi
 
-# Test 4: Create a channel hide message
-if [ ! -z "$MESSAGE_ID" ]; then
-    HIDE_MESSAGE=$(nak event -k 43 --content '{"message_id": "'$MESSAGE_ID'", "reason": "Inappropriate content"}' -t e=$CHANNEL_ID -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY)
-    if [ ! -z "$HIDE_MESSAGE" ]; then
-        print_result "Hide channel message" true "28"
+# Test 3: Channel Message (Kind 42)
+if [ ! -z "$CHANNEL_ID" ]; then
+    echo -e "\nTest 3: Channel Message (Kind 42)..."
+    MESSAGE_RESPONSE=$(nak event -k 42 --content "Hello from the test channel! This is a root message. 👋" -t e="$CHANNEL_ID,wss://shu01.shugur.net,root" $RELAY 2>&1)
+    MESSAGE_ID=$(extract_event_id "$MESSAGE_RESPONSE")
+    
+    if [ ! -z "$MESSAGE_ID" ] && check_event_accepted "$MESSAGE_RESPONSE"; then
+        print_result "Post channel message" true "28"
+        echo -e "   Message ID: $MESSAGE_ID"
     else
-        print_result "Hide channel message" false "28"
+        print_result "Post channel message" false "28"
+        echo -e "   Response: $MESSAGE_RESPONSE"
     fi
 fi
 
-# Test 5: Create a channel mute user
-MUTE_USER=$(nak event -k 44 --content '{"pubkey": "79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", "reason": "Spam"}' -t e=$CHANNEL_ID -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY)
-if [ ! -z "$MUTE_USER" ]; then
-    print_result "Mute channel user" true "28"
-else
-    print_result "Mute channel user" false "28"
+# Test 4: Reply Message (Kind 42 with reply structure)
+if [ ! -z "$CHANNEL_ID" ] && [ ! -z "$MESSAGE_ID" ]; then
+    echo -e "\nTest 4: Reply Message (Kind 42 with reply tags)..."
+    # Get a dummy pubkey for testing (this would be the author of the message being replied to)
+    DUMMY_PUBKEY="79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+    
+    REPLY_RESPONSE=$(nak event -k 42 --content "This is a reply to the first message! 💬" \
+        -t e="$CHANNEL_ID,wss://shu01.shugur.net,root" \
+        -t e="$MESSAGE_ID,wss://shu01.shugur.net,reply" \
+        -t p="$DUMMY_PUBKEY,wss://shu01.shugur.net" \
+        $RELAY 2>&1)
+    
+    if check_event_accepted "$REPLY_RESPONSE"; then
+        print_result "Post reply message with proper threading" true "28"
+    else
+        print_result "Post reply message with proper threading" false "28"
+        echo -e "   Response: $REPLY_RESPONSE"
+    fi
 fi
 
-# Test 6: Attempt to create channel without name
-NO_NAME_CHANNEL=$(nak event -k 40 --content '{"about": "Channel without name"}' -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY 2>&1)
-if [ ! -z "$NO_NAME_CHANNEL" ] && [[ "$NO_NAME_CHANNEL" != *"failed"* ]]; then
-    print_result "Allow channel creation without name" true "28"
-else
-    print_result "Allow channel creation without name" false "28"
+# Test 5: Hide Message (Kind 43)
+if [ ! -z "$MESSAGE_ID" ]; then
+    echo -e "\nTest 5: Hide Message (Kind 43)..."
+    HIDE_RESPONSE=$(nak event -k 43 --content '{"reason": "Testing hide functionality"}' -t e="$MESSAGE_ID" $RELAY 2>&1)
+    
+    if check_event_accepted "$HIDE_RESPONSE"; then
+        print_result "Hide message with reason" true "28"
+    else
+        print_result "Hide message with reason" false "28"
+        echo -e "   Response: $HIDE_RESPONSE"
+    fi
 fi
 
-# Test 7: Attempt to create channel message without channel ID
-NO_CHANNEL_MESSAGE=$(nak event -k 41 --content "Attempting to send without channel ID" -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY 2>&1)
-if [[ "$NO_CHANNEL_MESSAGE" == *"missing required 'e' tag"* ]] || [[ "$NO_CHANNEL_MESSAGE" == *"failed"* ]]; then
-    print_result "Reject channel message without channel ID" true "28"
+# Test 6: Mute User (Kind 44)
+echo -e "\nTest 6: Mute User (Kind 44)..."
+MUTE_PUBKEY="79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798"
+MUTE_RESPONSE=$(nak event -k 44 --content '{"reason": "Testing mute functionality"}' -t p="$MUTE_PUBKEY" $RELAY 2>&1)
+
+if check_event_accepted "$MUTE_RESPONSE"; then
+    print_result "Mute user with reason" true "28"
 else
-    print_result "Reject channel message without channel ID" false "28"
+    print_result "Mute user with reason" false "28"
+    echo -e "   Response: $MUTE_RESPONSE"
 fi
 
-# Test 8: Attempt to create channel message with invalid channel ID
-INVALID_CHANNEL_MESSAGE=$(nak event -k 41 --content "Attempting to send to invalid channel" -t e=invalid_channel_id -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY 2>&1)
-if [ ! -z "$INVALID_CHANNEL_MESSAGE" ] && [[ "$INVALID_CHANNEL_MESSAGE" != *"failed"* ]]; then
-    print_result "Allow channel message with any channel ID" true "28"
+echo -e "\n${YELLOW}Testing NIP-28 Validation Rules${NC}\n"
+
+# Test 7: Invalid Channel Creation (no name)
+echo -e "Test 7: Invalid Channel Creation (missing name)..."
+INVALID_CHANNEL_RESPONSE=$(nak event -k 40 --content '{"about": "Channel without required name field"}' $RELAY 2>&1)
+
+if [[ "$INVALID_CHANNEL_RESPONSE" == *"channel name is required"* ]] || [[ "$INVALID_CHANNEL_RESPONSE" == *"invalid"* ]]; then
+    print_result "Reject channel creation without name" true "28"
 else
-    print_result "Allow channel message with any channel ID" false "28"
+    print_result "Reject channel creation without name" false "28"
+    echo -e "   Response: $INVALID_CHANNEL_RESPONSE"
+fi
+
+# Test 8: Invalid Channel Message (missing e tag)
+echo -e "\nTest 8: Invalid Channel Message (missing channel reference)..."
+INVALID_MESSAGE_RESPONSE=$(nak event -k 42 --content "Message without channel reference" $RELAY 2>&1)
+
+if [[ "$INVALID_MESSAGE_RESPONSE" == *"missing required 'e' tag"* ]] || [[ "$INVALID_MESSAGE_RESPONSE" == *"channel message must reference"* ]]; then
+    print_result "Reject channel message without channel reference" true "28"
+else
+    print_result "Reject channel message without channel reference" false "28"
+    echo -e "   Response: $INVALID_MESSAGE_RESPONSE"
+fi
+
+# Test 9: Invalid Hide Message (missing e tag)
+echo -e "\nTest 9: Invalid Hide Message (missing message reference)..."
+INVALID_HIDE_RESPONSE=$(nak event -k 43 --content '{"reason": "test"}' $RELAY 2>&1)
+
+if [[ "$INVALID_HIDE_RESPONSE" == *"missing required 'e' tag"* ]] || [[ "$INVALID_HIDE_RESPONSE" == *"hide message event must reference"* ]]; then
+    print_result "Reject hide message without message reference" true "28"
+else
+    print_result "Reject hide message without message reference" false "28"
+    echo -e "   Response: $INVALID_HIDE_RESPONSE"
+fi
+
+# Test 10: Invalid Mute User (missing p tag)
+echo -e "\nTest 10: Invalid Mute User (missing user reference)..."
+INVALID_MUTE_RESPONSE=$(nak event -k 44 --content '{"reason": "test"}' $RELAY 2>&1)
+
+if [[ "$INVALID_MUTE_RESPONSE" == *"missing required 'p' tag"* ]] || [[ "$INVALID_MUTE_RESPONSE" == *"mute user event must reference"* ]]; then
+    print_result "Reject mute user without user reference" true "28"
+else
+    print_result "Reject mute user without user reference" false "28"
+    echo -e "   Response: $INVALID_MUTE_RESPONSE"
+fi
+
+# Test 11: Invalid Channel Metadata (missing e tag)
+echo -e "\nTest 11: Invalid Channel Metadata Update (missing channel reference)..."
+INVALID_METADATA_RESPONSE=$(nak event -k 41 --content '{"name": "Updated"}' $RELAY 2>&1)
+
+if [[ "$INVALID_METADATA_RESPONSE" == *"missing required 'e' tag"* ]] || [[ "$INVALID_METADATA_RESPONSE" == *"channel metadata update must reference"* ]]; then
+    print_result "Reject metadata update without channel reference" true "28"
+else
+    print_result "Reject metadata update without channel reference" false "28"
+    echo -e "   Response: $INVALID_METADATA_RESPONSE"
+fi
+
+# Test 12: Invalid Reply Structure (missing root tag)
+if [ ! -z "$MESSAGE_ID" ]; then
+    echo -e "\nTest 12: Invalid Reply Structure (missing root reference)..."
+    INVALID_REPLY_RESPONSE=$(nak event -k 42 --content "Invalid reply without root" \
+        -t e="$MESSAGE_ID,wss://shu01.shugur.net,reply" \
+        $RELAY 2>&1)
+    
+    if [[ "$INVALID_REPLY_RESPONSE" == *"reply must have"* ]] || [[ "$INVALID_REPLY_RESPONSE" == *"invalid reply structure"* ]]; then
+        print_result "Reject invalid reply structure" true "28"
+    else
+        print_result "Reject invalid reply structure" false "28"
+        echo -e "   Response: $INVALID_REPLY_RESPONSE"
+    fi
+fi
+
+echo -e "\n${YELLOW}Testing NIP-28 JSON Validation${NC}\n"
+
+# Test 13: Invalid JSON in channel metadata
+echo -e "Test 13: Invalid JSON in channel metadata..."
+INVALID_JSON_RESPONSE=$(nak event -k 40 --content '{"name": "Test", invalid json}' $RELAY 2>&1)
+
+if [[ "$INVALID_JSON_RESPONSE" == *"invalid"* ]] || [[ "$INVALID_JSON_RESPONSE" == *"JSON"* ]]; then
+    print_result "Reject invalid JSON in channel metadata" true "28"
+else
+    print_result "Reject invalid JSON in channel metadata" false "28"
+    echo -e "   Response: $INVALID_JSON_RESPONSE"
+fi
+
+# Test 14: Invalid relay URLs in metadata
+echo -e "\nTest 14: Invalid relay URLs in metadata..."
+INVALID_RELAY_RESPONSE=$(nak event -k 40 --content '{"name": "Test", "relays": ["http://invalid.com", "ftp://bad.url"]}' $RELAY 2>&1)
+
+if [[ "$INVALID_RELAY_RESPONSE" == *"invalid relay URL"* ]] || [[ "$INVALID_RELAY_RESPONSE" == *"invalid"* ]]; then
+    print_result "Reject invalid relay URLs" true "28"
+else
+    print_result "Reject invalid relay URLs" false "28"
+    echo -e "   Response: $INVALID_RELAY_RESPONSE"
 fi
 
 # Print summary
-echo -e "\n${BLUE}Test Summary:${NC}"
+echo -e "\n${BLUE}======================================${NC}"
+echo -e "${BLUE}NIP-28 Public Chat Test Summary${NC}"
+echo -e "${BLUE}======================================${NC}"
 echo -e "Total tests: $test_count"
 echo -e "${GREEN}Successful: $success_count${NC}"
 echo -e "${RED}Failed: $fail_count${NC}"
+
+if [ $success_count -eq $test_count ]; then
+    echo -e "${GREEN}🎉 All NIP-28 tests passed!${NC}"
+elif [ $success_count -gt 0 ]; then
+    echo -e "${YELLOW}⚠️  Some NIP-28 tests failed.${NC}"
+else
+    echo -e "${RED}❌ All NIP-28 tests failed.${NC}"
+fi
+
+echo -e "\n${BLUE}NIP-28 Event Types Tested:${NC}"
+echo -e "• Kind 40: Channel Create"
+echo -e "• Kind 41: Channel Metadata Update"
+echo -e "• Kind 42: Channel Message (root and reply)"
+echo -e "• Kind 43: Hide Message"
+echo -e "• Kind 44: Mute User"
+
+echo -e "\n${BLUE}Validation Rules Tested:${NC}"
+echo -e "• Required metadata fields"
+echo -e "• Proper tag references (e, p tags)"
+echo -e "• Reply structure validation"
+echo -e "• JSON format validation"
+echo -e "• Relay URL format validation"
 
 # Exit with error if any tests failed
 if [ $fail_count -gt 0 ]; then

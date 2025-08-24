@@ -90,9 +90,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
 			7:     {"e", "p"}, // Reaction events require "e" and "p" tags
-			41:    {"e"},      // NIP-28: Channel Message requires "e" tag
-			43:    {"e"},      // NIP-28: Channel Hide Message requires "e" tag
-			44:    {"e"},      // NIP-28: Channel Mute User requires "e" tag
+			41:    {"e"},      // NIP-28: Channel Metadata requires "e" tag
+			42:    {"e"},      // NIP-28: Channel Message requires "e" tag
+			43:    {"e"},      // NIP-28: Hide Message requires "e" tag
+			44:    {"p"},      // NIP-28: Mute User requires "p" tag
 			1059:  {"p"},      // Gift wrap events must have a "p" tag
 			30000: {"d"},      // NIP-33: Parameterized Replaceable Events require "d" tag
 			30001: {"d"},      // NIP-33: Parameterized Replaceable Events require "d" tag
