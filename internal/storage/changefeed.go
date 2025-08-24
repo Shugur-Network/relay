@@ -73,7 +73,7 @@ func NewEventDispatcher(db *DB) *EventDispatcher {
 	changefeedQuery := `
 		CREATE CHANGEFEED FOR events 
 		WITH format='json', envelope='row', updated, 
-		initial_scan='no'`
+		initial_scan='no', resolved='10s'`
 	
 	return &EventDispatcher{
 		db:              db,
@@ -196,7 +196,7 @@ func (ed *EventDispatcher) listenToChangefeed() {
 
 // runChangefeed creates and executes a sinkless changefeed
 func (ed *EventDispatcher) runChangefeed() error {
-	logger.Debug("Creating sinkless changefeed...")
+	logger.Info("Creating sinkless changefeed for real-time event distribution...")
 	
 	// Create sinkless changefeed - each relay gets its own changefeed
 	rows, err := ed.db.Pool.Query(ed.ctx, ed.changefeedQuery)
@@ -205,9 +205,12 @@ func (ed *EventDispatcher) runChangefeed() error {
 	}
 	defer rows.Close()
 
+	logger.Info("✅ Changefeed created successfully, listening for events...")
+
 	for rows.Next() {
 		select {
 		case <-ed.ctx.Done():
+			logger.Info("Changefeed stopping due to context cancellation")
 			return nil
 		default:
 		}
@@ -218,10 +221,12 @@ func (ed *EventDispatcher) runChangefeed() error {
 			continue
 		}
 
+		logger.Debug("Received changefeed data", zap.String("data", changeData))
+
 		// Parse changefeed event
 		var changefeedEvent ChangefeedEvent
 		if err := json.Unmarshal([]byte(changeData), &changefeedEvent); err != nil {
-			logger.Warn("Failed to parse changefeed event", zap.Error(err))
+			logger.Warn("Failed to parse changefeed event", zap.Error(err), zap.String("raw_data", changeData))
 			continue
 		}
 
@@ -232,6 +237,7 @@ func (ed *EventDispatcher) runChangefeed() error {
 		}
 
 		if eventData == nil {
+			logger.Debug("Changefeed event has no data, skipping", zap.String("table", changefeedEvent.Table))
 			continue
 		}
 
@@ -242,6 +248,11 @@ func (ed *EventDispatcher) runChangefeed() error {
 			continue
 		}
 
+		logger.Info("Processing changefeed event", 
+			zap.String("event_id", event.ID),
+			zap.String("pubkey", event.PubKey),
+			zap.Int("kind", event.Kind))
+
 		// Send to event buffer for processing
 		select {
 		case ed.eventBuffer <- event:
@@ -251,7 +262,13 @@ func (ed *EventDispatcher) runChangefeed() error {
 		}
 	}
 
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		logger.Error("Changefeed rows error", zap.Error(err))
+		return err
+	}
+
+	logger.Warn("Changefeed stopped receiving rows")
+	return nil
 }
 
 // processEvents processes events from the buffer and broadcasts them to clients
@@ -279,13 +296,25 @@ func (ed *EventDispatcher) processEvents() {
 // broadcastEvents sends events to all registered clients
 func (ed *EventDispatcher) broadcastEvents(events []*nostr.Event) {
 	ed.clientsMu.RLock()
+	clientCount := len(ed.clients)
+	ed.clientsMu.RUnlock()
+
+	if len(events) > 0 {
+		logger.Info("Broadcasting events to clients", 
+			zap.Int("event_count", len(events)),
+			zap.Int("client_count", clientCount))
+	}
+
+	ed.clientsMu.RLock()
 	defer ed.clientsMu.RUnlock()
 
 	for clientID, clientChan := range ed.clients {
 		for _, event := range events {
 			select {
 			case clientChan <- event:
-				// Event sent successfully
+				logger.Debug("Event sent to client successfully",
+					zap.String("client_id", clientID),
+					zap.String("event_id", event.ID))
 			default:
 				// Client buffer is full, drop the event
 				logger.Warn("Dropped event for client - buffer full",
@@ -293,11 +322,5 @@ func (ed *EventDispatcher) broadcastEvents(events []*nostr.Event) {
 					zap.String("event_id", event.ID))
 			}
 		}
-	}
-
-	if len(events) > 0 {
-		logger.Debug("Broadcasted events to clients", 
-			zap.Int("event_count", len(events)),
-			zap.Int("client_count", len(ed.clients)))
 	}
 }

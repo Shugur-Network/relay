@@ -29,13 +29,14 @@ const (
 
 // DB represents the CockroachDB connection
 type DB struct {
-	Pool         *pgxpool.Pool
-	Bloom        *bloom.BloomFilter
-	state        DBState
-	stateMu      sync.RWMutex
-	errors       chan error
-	errorCount   int32
-	errorCountMu sync.RWMutex
+	Pool            *pgxpool.Pool
+	Bloom           *bloom.BloomFilter
+	eventDispatcher *EventDispatcher
+	state           DBState
+	stateMu         sync.RWMutex
+	errors          chan error
+	errorCount      int32
+	errorCountMu    sync.RWMutex
 }
 
 // InitDB initializes the CockroachDB connection with retries
@@ -275,4 +276,9 @@ func (db *DB) executeWithRetry(ctx context.Context, f func(context.Context) erro
 	}
 
 	return fmt.Errorf("operation failed after %d retries: %w", retries, lastErr)
+}
+
+// SetEventDispatcher sets the event dispatcher reference for immediate local broadcasting
+func (db *DB) SetEventDispatcher(ed *EventDispatcher) {
+	db.eventDispatcher = ed
 }

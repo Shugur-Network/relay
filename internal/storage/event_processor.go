@@ -126,6 +126,23 @@ func (ep *EventProcessor) processEvents(ctx context.Context) {
 					// Increment the stored events metric only for new events
 					if err == nil {
 						metrics.EventsStored.Inc()
+						
+						// Broadcast event immediately to local clients for real-time streaming
+						// This ensures same-node clients get events instantly without waiting for changefeed
+						if ep.db.eventDispatcher != nil {
+							logger.Debug("Broadcasting event to local clients",
+								zap.String("event_id", evt.ID),
+								zap.String("pubkey", evt.PubKey),
+								zap.Int("kind", evt.Kind))
+							
+							// Send event to local event dispatcher for immediate broadcasting
+							select {
+							case ep.db.eventDispatcher.eventBuffer <- &evt:
+								logger.Debug("Event added to local broadcast buffer", zap.String("event_id", evt.ID))
+							default:
+								logger.Warn("Local broadcast buffer full, event may not stream immediately", zap.String("event_id", evt.ID))
+							}
+						}
 					}
 
 					err = nil

@@ -194,7 +194,7 @@ func NewWsConnection(
 		startTime:        time.Now(),
 		lastActivity:     time.Now(),
 		subscriptions:    make(map[string][]nostr.Filter),
-		pingTicker:       time.NewTicker(30 * time.Second),
+		pingTicker:       time.NewTicker(15 * time.Second),
 		limiter:          limiter,
 		backpressureChan: make(chan struct{}, 100), // Buffer for backpressure
 		// Event dispatcher integration
@@ -215,7 +215,7 @@ func NewWsConnection(
 	_ = ws.SetCompressionLevel(2) // nolint:errcheck // compression level is non-critical
 
 	// Deadlines + read limit
-	_ = ws.SetReadDeadline(time.Now().Add(120 * time.Second)) // nolint:errcheck // deadline is non-critical
+	_ = ws.SetReadDeadline(time.Now().Add(60 * time.Second)) // nolint:errcheck // deadline is non-critical
 	
 	// Set WebSocket read limit based on configured content length with buffer for JSON overhead
 	readLimitBytes := int64(cfg.ThrottlingConfig.MaxContentLen * 2) // 2x buffer for JSON overhead
@@ -227,12 +227,13 @@ func NewWsConnection(
 	}
 	ws.SetReadLimit(readLimitBytes)
 
-	// Ping handler
+	// Ping handler - must echo back the same data
 	ws.SetPingHandler(func(appData string) error {
 		conn.lastActivity = time.Now()
 		conn.writeMu.Lock()
 		defer conn.writeMu.Unlock()
-		_ = conn.ws.WriteControl(websocket.PongMessage, []byte{}, time.Now().Add(time.Second))
+		// Echo back the same ping data in the pong response
+		_ = conn.ws.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(5*time.Second))
 		return nil
 	})
 
@@ -404,9 +405,9 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 			// Keep going
 		}
 
-		_ = c.ws.SetReadDeadline(time.Now().Add(120 * time.Second)) // nolint:errcheck // deadline is non-critical
-		if time.Since(lastPong) > 180*time.Second {
-			logger.Debug("No pong response in 180s, closing connection",
+		_ = c.ws.SetReadDeadline(time.Now().Add(60 * time.Second)) // nolint:errcheck // deadline is non-critical
+		if time.Since(lastPong) > 90*time.Second {
+			logger.Debug("No pong response in 90s, closing connection",
 				zap.String("client", c.ws.RemoteAddr().String()))
 			c.closeReason = "no pong response"
 			return
@@ -707,6 +708,25 @@ func (c *WsConnection) monitorConnection(ctx context.Context) {
 		case <-ctx.Done():
 			c.Close()
 			return
+		case <-c.pingTicker.C:
+			// Send ping to keep connection alive
+			c.writeMu.Lock()
+			if !c.isClosed.Load() {
+				_ = c.ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
+				err := c.ws.WriteControl(websocket.PingMessage, []byte("keepalive"), time.Now().Add(5*time.Second))
+				_ = c.ws.SetWriteDeadline(time.Time{})
+				if err != nil {
+					logger.Debug("Failed to send ping, closing connection",
+						zap.Error(err),
+						zap.String("client", c.ws.RemoteAddr().String()))
+					c.writeMu.Unlock()
+					c.closeReason = "ping failed"
+					c.Close()
+					return
+				}
+				logger.Debug("Sent ping to client", zap.String("client", c.ws.RemoteAddr().String()))
+			}
+			c.writeMu.Unlock()
 		case <-ticker.C:
 			now := time.Now()
 			c.writeMu.Lock()
@@ -714,6 +734,7 @@ func (c *WsConnection) monitorConnection(ctx context.Context) {
 			// Check idle timeout
 			if now.Sub(c.lastActivity) > c.idleTimeout {
 				c.writeMu.Unlock()
+				c.closeReason = "idle timeout"
 				c.Close()
 				return
 			}
@@ -721,6 +742,7 @@ func (c *WsConnection) monitorConnection(ctx context.Context) {
 			// Check max lifetime
 			if now.Sub(c.startTime) > c.maxLifetime {
 				c.writeMu.Unlock()
+				c.closeReason = "max lifetime exceeded"
 				c.Close()
 				return
 			}
@@ -728,6 +750,7 @@ func (c *WsConnection) monitorConnection(ctx context.Context) {
 			// Check backpressure
 			if len(c.backpressureChan) > 90 { // 90% of buffer capacity
 				c.writeMu.Unlock()
+				c.closeReason = "backpressure overflow"
 				c.Close()
 				return
 			}

@@ -96,28 +96,31 @@ func (db *DB) InitializeChangefeed(ctx context.Context) error {
 		return fmt.Errorf("changefeed support not detected (requires CockroachDB)")
 	}
 
+	// Ensure rangefeed is enabled for changefeeds to work
+	logger.Info("Enabling rangefeed setting for changefeed support...")
+	_, err = db.Pool.Exec(ctx, "SET CLUSTER SETTING kv.rangefeed.enabled = true")
+	if err != nil {
+		logger.Warn("Failed to enable rangefeed setting", zap.Error(err))
+		return fmt.Errorf("failed to enable rangefeed setting: %w", err)
+	}
+	logger.Info("✅ Rangefeed setting enabled successfully")
+
 	// Test changefeed permissions by doing a dry run
 	// We don't actually create a persistent changefeed here because:
 	// 1. The EventDispatcher creates its own changefeed when needed
 	// 2. Multiple persistent changefeeds can cause resource issues
 	// 3. Internal changefeeds (used by EventDispatcher) don't need pre-creation
 	
-	// Test if the user has CHANGEFEED privileges
-	testChangefeedSQL := `
-		SELECT count(*) FROM (
-			SELECT * FROM (
-				CREATE CHANGEFEED FOR events 
-				WITH format='json', envelope='row', updated,
-				     initial_scan='no', resolved='10s'
-			) LIMIT 1
-		)
-	`
+	// Test changefeed permissions by checking if the user has CHANGEFEED privileges
+	// We'll try to create a temporary changefeed that we immediately cancel
+	testChangefeedSQL := "CREATE CHANGEFEED FOR events WITH format='json', envelope='row', updated, initial_scan='no', resolved='10s'"
 
 	// This will fail fast if user doesn't have changefeed permissions
 	// or if changefeeds aren't properly configured
 	ctx_test, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	
+	// Try to create a changefeed (it will start running, so we need to close it immediately)
 	rows, err := db.Pool.Query(ctx_test, testChangefeedSQL)
 	if err != nil {
 		logger.Warn("Changefeed test failed", 
@@ -125,6 +128,7 @@ func (db *DB) InitializeChangefeed(ctx context.Context) error {
 			zap.String("note", "This is expected in single-node or test environments without changefeed support"))
 		return fmt.Errorf("changefeed permissions test failed: %w", err)
 	}
+	// Close immediately to stop the changefeed test
 	rows.Close()
 
 	logger.Info("✅ Changefeed capability verified - distributed event synchronization ready")

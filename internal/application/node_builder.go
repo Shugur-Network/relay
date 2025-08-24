@@ -305,6 +305,10 @@ func (b *NodeBuilder) BuildDB() error {
 
 	// Initialize event dispatcher for real-time notifications
 	b.eventDispatcher = storage.NewEventDispatcher(b.database)
+	
+	// Set the event dispatcher reference in the database for immediate local broadcasting
+	b.database.SetEventDispatcher(b.eventDispatcher)
+	
 	logger.Info("✅ Event dispatcher initialized")
 
 	return nil
