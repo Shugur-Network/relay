@@ -252,16 +252,6 @@ func findMessageReference(evt *nostr.Event) string {
 	return ""
 }
 
-// findReplyReference finds the reply reference in "e" tags
-func findReplyReference(evt *nostr.Event) string {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 4 && tag[0] == "e" && tag[3] == "reply" {
-			return tag[1]
-		}
-	}
-	return ""
-}
-
 // findUserReference finds the user reference in "p" tags
 func findUserReference(evt *nostr.Event) string {
 	for _, tag := range evt.Tags {
@@ -290,9 +280,10 @@ func isReply(evt *nostr.Event) bool {
 				parts := strings.Split(tag[1], ",")
 				if len(parts) >= 3 {
 					marker := strings.TrimSpace(parts[2])
-					if marker == "reply" {
+					switch marker {
+					case "reply":
 						replyCount++
-					} else if marker == "root" {
+					case "root":
 						rootCount++
 					}
 				}
@@ -316,9 +307,10 @@ func validateReplyStructure(evt *nostr.Event) error {
 			// Handle both standard format ["e", "id", "relay", "marker"] 
 			// and comma-separated format ["e", "id,relay,marker"]
 			if len(tag) >= 4 {
-				if tag[3] == "root" {
+				switch tag[3] {
+				case "root":
 					hasRoot = true
-				} else if tag[3] == "reply" {
+				case "reply":
 					hasReply = true
 				}
 			} else if len(tag) == 2 {
@@ -326,9 +318,10 @@ func validateReplyStructure(evt *nostr.Event) error {
 				parts := strings.Split(tag[1], ",")
 				if len(parts) >= 3 {
 					marker := strings.TrimSpace(parts[2])
-					if marker == "root" {
+					switch marker {
+					case "root":
 						hasRoot = true
-					} else if marker == "reply" {
+					case "reply":
 						hasReply = true
 					}
 				}

@@ -10,7 +10,10 @@ BINARY_NAME="relay"
 BIN_DIR="./bin"
 MAIN_PATH="./cmd"
 BUILD_FLAGS="-v"
-LDFLAGS="-ldflags \"-w -s\""
+
+# IMPORTANT: Put ONLY the linker flags here (no '-ldflags' keyword)
+# For production/minified builds, we strip symbols with -w -s
+LDFLAGS="-w -s"
 
 # Colors for output
 RED='\033[0;31m'
@@ -44,7 +47,7 @@ show_usage() {
     echo "  -h, --help          Show this help message"
     echo "  -c, --clean         Clean before building"
     echo "  -r, --race          Build with race detection"
-    echo "  -d, --dev           Build development version (with debug info)"
+    echo "  -d, --dev           Build development version (keeps debug info; skips -ldflags)"
     echo "  -a, --all           Build for all platforms"
     echo "  --linux             Build for Linux only"
     echo "  --darwin            Build for macOS only"
@@ -70,24 +73,55 @@ create_bin_dir() {
     mkdir -p "$BIN_DIR"
 }
 
+# Internal helper: build command with correct flags
+# Args:
+#   $1 -> output path
+#   (env GOOS/GOARCH should be set by caller for cross builds)
+run_build() {
+    local output="$1"
+
+    # Build the flag array safely
+    local -a cmd=(go build)
+
+    # Base build flags (split safely)
+    if [ -n "$BUILD_FLAGS" ]; then
+        # shellcheck disable=SC2206
+        cmd+=($BUILD_FLAGS)
+    fi
+
+    # Race vs dev vs release
+    if [ "$RACE_DETECTION" = "true" ]; then
+        cmd+=(-race)
+    fi
+
+    # Only pass -ldflags for non-dev builds *and* when LDFLAGS is set
+    if [ "$DEV_BUILD" != "true" ] && [ -n "$LDFLAGS" ]; then
+        cmd+=(-ldflags "$LDFLAGS")
+    fi
+
+    cmd+=(-o "$output" "$MAIN_PATH")
+
+    # Show what we're running (helpful for debugging)
+    print_info "Running: ${cmd[*]}"
+
+    "${cmd[@]}"
+}
+
 # Function to build for current platform
 build_current() {
-    local flags="$BUILD_FLAGS"
     local output="$BIN_DIR/$BINARY_NAME"
-    
+
     if [ "$RACE_DETECTION" = "true" ]; then
-        flags="$flags -race"
         print_info "Building $BINARY_NAME with race detection..."
     elif [ "$DEV_BUILD" = "true" ]; then
-        print_info "Building $BINARY_NAME (development version)..."
+        print_info "Building $BINARY_NAME (development version; no -ldflags)..."
     else
-        flags="$flags $LDFLAGS"
-        print_info "Building $BINARY_NAME..."
+        print_info "Building $BINARY_NAME (release; -ldflags=\"$LDFLAGS\")..."
     fi
-    
+
     create_bin_dir
-    
-    if go build $flags -o "$output" "$MAIN_PATH"; then
+
+    if run_build "$output"; then
         print_success "Build completed: $output"
     else
         print_error "Build failed"
@@ -100,13 +134,13 @@ build_platform() {
     local goos=$1
     local goarch=$2
     local suffix=$3
-    
+
     print_info "Building for $goos/$goarch..."
     create_bin_dir
-    
+
     local output="$BIN_DIR/$BINARY_NAME-$goos-$goarch$suffix"
-    
-    if GOOS=$goos GOARCH=$goarch go build $BUILD_FLAGS $LDFLAGS -o "$output" "$MAIN_PATH"; then
+
+    if GOOS=$goos GOARCH=$goarch run_build "$output"; then
         print_success "Build completed: $output"
     else
         print_error "Build failed for $goos/$goarch"
@@ -117,17 +151,17 @@ build_platform() {
 # Function to build for all platforms
 build_all() {
     print_info "Building for all platforms..."
-    
+
     # Linux
     build_platform "linux" "amd64" ""
-    
+
     # macOS
     build_platform "darwin" "amd64" ""
     build_platform "darwin" "arm64" ""
-    
+
     # Windows
     build_platform "windows" "amd64" ".exe"
-    
+
     print_success "All builds completed"
 }
 

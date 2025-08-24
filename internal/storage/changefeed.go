@@ -192,7 +192,7 @@ func (ed *EventDispatcher) runChangefeed() error {
 	logger.Info("Starting cross-node event polling for distributed synchronization...")
 	
 	// Track the latest timestamp we've seen to avoid duplicates
-	var lastSeen int64 = time.Now().Unix()
+	var lastSeen = time.Now().Unix()
 	
 	// Create a ticker for polling new events
 	ticker := time.NewTicker(2 * time.Second) // Poll every 2 seconds

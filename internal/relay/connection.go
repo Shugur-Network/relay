@@ -53,7 +53,10 @@ func normalizeIP(addr string) string {
 // generateClientID generates a unique client ID for event dispatcher
 func generateClientID() string {
 	bytes := make([]byte, 8)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to timestamp-based ID if random generation fails
+		return fmt.Sprintf("%x", time.Now().UnixNano())
+	}
 	return hex.EncodeToString(bytes)
 }
 

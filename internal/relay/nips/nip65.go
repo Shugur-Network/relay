@@ -31,6 +31,7 @@ func ValidateKind10002(evt nostr.Event) error {
 	if strings.TrimSpace(evt.Content) != "" {
 		// This is a SHOULD requirement, so we'll log but not reject
 		// In the future, we might want to make this more strict
+		_ = evt.Content // acknowledge non-empty content but allow it
 	}
 
 	// Validate all r tags

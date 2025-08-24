@@ -112,7 +112,7 @@ func validateGiftWrap(evt *nostr.Event) error {
 			}
 			// Validate hex format
 			for _, c := range tag[1] {
-				if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+				if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 					return fmt.Errorf("invalid hex format in recipient pubkey: %s", tag[1])
 				}
 			}

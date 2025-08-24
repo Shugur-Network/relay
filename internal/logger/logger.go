@@ -259,7 +259,7 @@ func UpdateLevel(lvl string) error {
 
 // NewError creates a new error with the given message
 func NewError(msg string) error {
-	return fmt.Errorf(msg)
+	return fmt.Errorf("%s", msg)
 }
 
 // WrapError wraps an error with additional context
