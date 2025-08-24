@@ -7,13 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2025-08-24
+
 ### Added
 
-- **NIP-45 Support**:
+- **NIP-65 Support (Relay List Metadata)**:
+  - Implemented kind 10002 relay list metadata events with comprehensive validation
+  - Added proper "r" tag validation for relay URLs and markers ("read", "write")
+  - Enhanced replaceable event handling to support NIP-01 range (10000-19999)
+  - Created comprehensive test suite for NIP-65 functionality
+  - Updated database schema to support new replaceable event ranges
+
+- **NIP-45 Support (COUNT Command)**:
   - Implemented COUNT command for efficient event counting
   - Added dedicated NIP-45 module with proper validation and error handling
   - Created comprehensive test suite for COUNT operations
   - Added NIP-45 to relay metadata and supported NIPs list
+
+- **Enhanced Event Processing**:
+  - Improved ephemeral event handling (kinds 20000-29999) - now properly excluded from storage
+  - Enhanced replaceable event validation to include kind 41 (channel metadata)
+  - Better NIP-16 event treatment compliance with proper kind range handling
+
+- **Distributed Relay Enhancements**:
+  - Implemented real-time event synchronization using CockroachDB changefeeds
+  - Added cross-node event broadcasting and synchronization
+  - Enhanced distributed relay coordination and failover capabilities
+  - Improved installation script for distributed relay setups
+
+- **Infrastructure Improvements**:
+  - Enhanced certificate management and ownership handling
+  - Better FQDN prompting and validation in installation scripts
+  - Improved port availability checks and cleanup processes
+  - Enhanced Docker build and deployment pipeline
+
+### Fixed
+
+- **Event Validation**: Corrected various edge cases in NIP validation
+- **Storage**: Fixed ephemeral event storage issues - ephemeral events are now properly excluded from persistent storage
+- **Installation**: Improved reliability of installation scripts with better error handling
+
+### Changed
+
+- **Database Schema**: Updated to support extended replaceable event ranges per NIP-01
+- **Event Processing**: Enhanced event treatment validation for better NIP compliance
 
 ## [1.1.0] - 2025-08-17
 

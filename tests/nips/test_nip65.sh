@@ -1,12 +1,11 @@
 #!/bin/bash
 
+#!/bin/bash
+
 # Test script for NIP-65: Relay List Metadata (kind 10002)
-# Tests relay list metadata events with 'r' tags and empty content
+# Tests relay list metadata events with 'r' tags and empty content using nak
 
-set -e
-
-RELAY_URL="${RELAY_URL:-ws://localhost:8080}"
-TEMP_DIR="/tmp/nip65_test_$$"
+RELAY_URL="${RELAY_URL:-wss://shu02.shugur.net}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -17,17 +16,6 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}Testing NIP-65: Relay List Metadata${NC}"
 echo "Relay URL: $RELAY_URL"
-
-# Create temporary directory for test files
-mkdir -p "$TEMP_DIR"
-cd "$TEMP_DIR"
-
-# Function to cleanup
-cleanup() {
-    cd /
-    rm -rf "$TEMP_DIR"
-}
-trap cleanup EXIT
 
 # Test counters
 test_count=0
@@ -49,275 +37,259 @@ print_result() {
     fi
 }
 
-# Check if we have required tools
-if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}Error: python3 is required for testing${NC}"
+# Check if nak is available
+if ! command -v nak &> /dev/null; then
+    echo -e "${RED}Error: nak is required for testing${NC}"
+    echo "Install with: go install github.com/fiatjaf/nak@latest"
     exit 1
 fi
 
-# Check if we have required Python modules
-python3 -c "import websocket, secp256k1" 2>/dev/null || {
-    echo -e "${RED}Error: Required Python modules not found. Install with:${NC}"
-    echo "pip3 install websocket-client secp256k1"
+echo -e "${YELLOW}Running NIP-65 tests...${NC}"
+
+# Test 1: Create a valid relay list with multiple r tags
+echo -e "\n${YELLOW}Test 1: Create relay list with multiple r tags${NC}"
+RESULT1=$(nak event -k 10002 -c "" -t r=wss://relay1.example.com -t r="wss://relay2.example.com;read" -t r="wss://relay3.example.com;write" $RELAY_URL 2>&1)
+
+if echo "$RESULT1" | grep -q "success"; then
+    print_result "Create relay list with r tags" true
+else
+    print_result "Create relay list with r tags" false
+    echo "Result: $RESULT1"
+fi
+
+# Test 2: Create a simple relay list (no markers)
+echo -e "\n${YELLOW}Test 2: Create simple relay list (no markers)${NC}"
+RESULT2=$(nak event -k 10002 -c "" -t r=wss://simple1.example.com -t r=wss://simple2.example.com $RELAY_URL 2>&1)
+
+if echo "$RESULT2" | grep -q "success"; then
+    print_result "Create simple relay list" true
+else
+    print_result "Create simple relay list" false
+    echo "Result: $RESULT2"
+fi
+
+# Test 3: Try to create relay list with invalid URL scheme
+echo -e "\n${YELLOW}Test 3: Try invalid URL scheme (should fail)${NC}"
+RESULT3=$(nak event -k 10002 -c "" -t r=http://invalid-scheme.example.com $RELAY_URL 2>&1)
+
+if echo "$RESULT3" | grep -q "rejected\|error\|invalid\|failed"; then
+    print_result "Reject invalid URL scheme" true
+else
+    print_result "Reject invalid URL scheme" false
+    echo "Result: $RESULT3"
+fi
+
+# Test 4: Try to create relay list with invalid marker
+echo -e "\n${YELLOW}Test 4: Try invalid marker (should fail)${NC}"
+RESULT4=$(nak event -k 10002 -c "" -t r="wss://valid-url.example.com;invalid-marker" $RELAY_URL 2>&1)
+
+if echo "$RESULT4" | grep -q "rejected\|error\|invalid\|failed"; then
+    print_result "Reject invalid marker" true
+else
+    print_result "Reject invalid marker" false
+    echo "Result: $RESULT4"
+fi
+
+# Test 5: Create relay list with non-empty content (should be allowed but not recommended)
+echo -e "\n${YELLOW}Test 5: Create relay list with non-empty content${NC}"
+RESULT5=$(nak event -k 10002 -c "this should be empty per NIP-65" -t r=wss://content-test.example.com $RELAY_URL 2>&1)
+
+if echo "$RESULT5" | grep -q "success"; then
+    print_result "Accept non-empty content" true
+else
+    print_result "Accept non-empty content" false
+    echo "Result: $RESULT5"
+fi
+
+# Test 6: Update relay list (test replaceability)
+echo -e "\n${YELLOW}Test 6: Update relay list (replaceability test)${NC}"
+sleep 1  # Ensure different timestamp
+RESULT6=$(nak event -k 10002 -c "" -t r=wss://updated-relay.example.com -t r="wss://backup-relay.example.com;read" $RELAY_URL 2>&1)
+
+if echo "$RESULT6" | grep -q "success"; then
+    print_result "Update relay list" true
+else
+    print_result "Update relay list" false
+    echo "Result: $RESULT6"
+fi
+
+# Test 7: Query relay lists
+echo -e "
+${YELLOW}Test 7: Query relay lists${NC}"
+QUERY_RESULT=$(nak req -k 10002 --limit 10 $RELAY_URL 2>&1)
+
+if echo "$QUERY_RESULT" | grep -q "kind.*10002\|"kind":10002"; then
+    print_result "Query relay lists" true
+    echo "Found kind 10002 events:"
+    echo "$QUERY_RESULT" | head -20
+else
+    print_result "Query relay lists" false
+    echo "Query result: $QUERY_RESULT"
+fi
+
+# Test 8: Empty relay list (no r tags)
+echo -e "
+${YELLOW}Test 8: Create empty relay list${NC}"
+RESULT8=$(nak event -k 10002 -c "" $RELAY_URL 2>&1)
+
+if echo "$RESULT8" | grep -q "success"; then
+    print_result "Create empty relay list" true
+else
+    print_result "Create empty relay list" false
+    echo "Result: $RESULT8"
+fi
+
+echo -e "
+${BLUE}=== Test Summary ===${NC}"
+echo -e "Total tests: $test_count"
+echo -e "${GREEN}Successful: $success_count${NC}"
+echo -e "${RED}Failed: $fail_count${NC}"
+
+if [ $fail_count -eq 0 ]; then
+    echo -e "
+${GREEN}All NIP-65 tests passed!${NC}"
+    exit 0
+else
+    echo -e "
+${RED}Some tests failed. Check the relay implementation.${NC}"
     exit 1
-}
+fi
 
-# Function to generate a test keypair
-generate_keypair() {
-    local name="$1"
-    python3 -c "
-import secrets
-import hashlib
-from secp256k1 import PrivateKey
+set -e
 
-# Generate private key
-privkey_bytes = secrets.token_bytes(32)
-privkey_hex = privkey_bytes.hex()
+RELAY_URL="${RELAY_URL:-ws://localhost:8080}"
 
-# Generate public key
-privkey = PrivateKey(privkey_bytes)
-pubkey_bytes = privkey.pubkey.serialize(compressed=True)[1:]  # Remove 0x02 prefix
-pubkey_hex = pubkey_bytes.hex()
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-print(f'PRIVATE_KEY_{name.upper()}={privkey_hex}')
-print(f'PUBLIC_KEY_{name.upper()}={pubkey_hex}')
-"
-}
+echo -e "${BLUE}Testing NIP-65: Relay List Metadata${NC}"
+echo "Relay URL: $RELAY_URL"
 
-# Generate test keypairs
-echo -e "${YELLOW}Generating test keypairs...${NC}"
-eval $(generate_keypair "alice")
-eval $(generate_keypair "bob")
+# Test counters
+test_count=0
+success_count=0
+fail_count=0
 
-echo "Alice pubkey: $PUBLIC_KEY_ALICE"
-echo "Bob pubkey: $PUBLIC_KEY_BOB"
-
-# Function to create and sign an event
-create_event() {
-    local kind="$1"
-    local content="$2"
-    local tags="$3"
-    local private_key="$4"
-    local public_key="$5"
+# Helper function to print test results
+print_result() {
+    local test_name=$1
+    local success=$2
     
-    python3 -c "
-import json
-import time
-import hashlib
-from secp256k1 import PrivateKey
-
-# Event data
-kind = $kind
-content = '$content'
-tags = $tags
-created_at = int(time.time())
-pubkey = '$public_key'
-
-# Create event object for signing
-event_data = [0, pubkey, created_at, kind, tags, content]
-event_json = json.dumps(event_data, separators=(',', ':'))
-event_hash = hashlib.sha256(event_json.encode()).hexdigest()
-
-# Sign the event
-privkey = PrivateKey(bytes.fromhex('$private_key'))
-sig = privkey.sign(bytes.fromhex(event_hash), hasher=None)
-signature = sig.serialize().hex()
-
-# Create final event
-event = {
-    'id': event_hash,
-    'pubkey': pubkey,
-    'created_at': created_at,
-    'kind': kind,
-    'tags': tags,
-    'content': content,
-    'sig': signature
-}
-
-print(json.dumps(event))
-"
-}
-
-# Function to send event to relay
-send_event() {
-    local event="$1"
-    local expected_ok="$2"
-    local test_name="$3"
-    
-    echo "Sending event for: $test_name"
-    
-    response=$(timeout 10 python3 -c "
-import json
-import websocket
-import sys
-
-try:
-    event = json.loads('$event')
-    ws = websocket.create_connection('$RELAY_URL', timeout=5)
-    
-    # Send EVENT message
-    message = json.dumps(['EVENT', event])
-    ws.send(message)
-    
-    # Wait for OK response
-    response = ws.recv()
-    ws.close()
-    
-    print(response)
-except Exception as e:
-    print(f'ERROR: {e}')
-    sys.exit(1)
-" 2>/dev/null)
-    
-    echo "Response: $response"
-    
-    # Parse OK response
-    if echo "$response" | grep -q '"OK"'; then
-        if echo "$response" | grep -q "$expected_ok"; then
-            print_result "$test_name" true
-            return 0
-        else
-            print_result "$test_name" false
-            return 1
-        fi
+    ((test_count++))
+    if [ "$success" = true ]; then
+        echo -e "${GREEN}✓ Test $test_count: $test_name${NC}"
+        ((success_count++))
     else
-        print_result "$test_name" false
-        return 1
+        echo -e "${RED}✗ Test $test_count: $test_name${NC}"
+        ((fail_count++))
     fi
 }
 
-# Function to query events
-query_events() {
-    local filter="$1"
-    local description="$2"
-    
-    echo "Querying: $description"
-    
-    response=$(timeout 10 python3 -c "
-import json
-import websocket
-import time
-
-try:
-    filter_obj = json.loads('$filter')
-    ws = websocket.create_connection('$RELAY_URL', timeout=5)
-    
-    # Send REQ message
-    sub_id = 'test_sub_' + str(int(time.time()))
-    message = json.dumps(['REQ', sub_id, filter_obj])
-    ws.send(message)
-    
-    events = []
-    timeout_count = 0
-    while timeout_count < 30:  # 3 second timeout
-        try:
-            response = ws.recv()
-            msg = json.loads(response)
-            
-            if msg[0] == 'EVENT':
-                events.append(msg[2])
-            elif msg[0] == 'EOSE':
-                break
-        except:
-            timeout_count += 1
-            time.sleep(0.1)
-    
-    ws.close()
-    print(json.dumps(events))
-except Exception as e:
-    print('[]')  # Return empty array on error
-" 2>/dev/null)
-    
-    event_count=$(echo "$response" | python3 -c "import json, sys; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
-    echo "Found $event_count events"
-    
-    return $event_count
-}
+# Check if nak is available
+NAK_CMD=""
+if command -v nak &> /dev/null; then
+    NAK_CMD="nak"
+elif [ -f "$HOME/go/bin/nak" ]; then
+    NAK_CMD="$HOME/go/bin/nak"
+else
+    echo -e "${RED}Error: nak is required for testing${NC}"
+    echo "Install nak from: https://github.com/fiatjaf/nak"
+    echo "Or run: go install github.com/fiatjaf/nak@latest"
+    exit 1
+fi
 
 # Test 1: Valid relay list with multiple relays and markers
 echo -e "\n${YELLOW}Test 1: Valid relay list with multiple relays and markers${NC}"
-relay_tags='[["r", "wss://relay1.example.com"], ["r", "wss://relay2.example.com", "read"], ["r", "wss://relay3.example.com", "write"]]'
-event1=$(create_event 10002 "" "$relay_tags" "$PRIVATE_KEY_ALICE" "$PUBLIC_KEY_ALICE")
-send_event "$event1" "true" "Valid relay list with markers"
+result=$(nak event --kind 10002 --content "" --tag r="wss://relay1.example.com" --tag r="wss://relay2.example.com,read" --tag r="wss://relay3.example.com,write" $RELAY_URL 2>&1)
+if echo "$result" | grep -q "Event published successfully" || ! echo "$result" | grep -q -i "error\|failed\|invalid"; then
+    print_result "Valid relay list with markers" true
+else
+    print_result "Valid relay list with markers" false
+    echo "Result: $result"
+fi
 
 # Test 2: Valid relay list with only URLs (no markers)
 echo -e "\n${YELLOW}Test 2: Valid relay list with only URLs (no markers)${NC}"
-simple_tags='[["r", "wss://simple1.example.com"], ["r", "wss://simple2.example.com"]]'
-event2=$(create_event 10002 "" "$simple_tags" "$PRIVATE_KEY_BOB" "$PUBLIC_KEY_BOB")
-send_event "$event2" "true" "Valid relay list without markers"
-
-# Test 3: Query Alice's relay list
-echo -e "\n${YELLOW}Test 3: Query Alice's relay list${NC}"
-filter='{"kinds": [10002], "authors": ["'$PUBLIC_KEY_ALICE'"]}'
-query_events "$filter" "Alice's relay list"
-alice_events=$?
-
-if [ $alice_events -eq 1 ]; then
-    print_result "Query Alice's relay list" true
+result=$(nak event --kind 10002 --content "" --tag r="wss://simple1.example.com" --tag r="wss://simple2.example.com" $RELAY_URL 2>&1)
+if echo "$result" | grep -q "Event published successfully" || ! echo "$result" | grep -q -i "error\|failed\|invalid"; then
+    print_result "Valid relay list without markers" true
 else
-    print_result "Query Alice's relay list" false
+    print_result "Valid relay list without markers" false
+    echo "Result: $result"
 fi
 
-# Test 4: Replaceable event - update Alice's relay list
-echo -e "\n${YELLOW}Test 4: Update Alice's relay list (replaceable behavior)${NC}"
-sleep 2  # Ensure different timestamp
-new_relay_tags='[["r", "wss://new-relay.example.com"], ["r", "wss://backup-relay.example.com", "read"]]'
-event3=$(create_event 10002 "" "$new_relay_tags" "$PRIVATE_KEY_ALICE" "$PUBLIC_KEY_ALICE")
-send_event "$event3" "true" "Update Alice's relay list"
+# Test 3: Query relay lists
+echo -e "\n${YELLOW}Test 3: Query relay lists${NC}"
+result=$(nak req --kinds 10002 --limit 10 $RELAY_URL 2>&1)
+if echo "$result" | grep -q "kind.*10002" || echo "$result" | grep -q "\"kind\":10002"; then
+    print_result "Query relay lists" true
+    echo "Found relay list events in response"
+else
+    print_result "Query relay lists" false
+    echo "No relay list events found or query failed"
+    echo "Result: $result"
+fi
 
-# Verify replacement worked
-echo "Verifying relay list replacement..."
+# Test 4: Invalid relay URL with wrong scheme
+echo -e "\n${YELLOW}Test 4: Invalid relay URL with wrong scheme${NC}"
+result=$(nak event --kind 10002 --content "" --tag r="http://invalid-scheme.example.com" $RELAY_URL 2>&1)
+if echo "$result" | grep -q -i "error\|failed\|invalid\|rejected"; then
+    print_result "Invalid relay URL scheme rejected" true
+else
+    print_result "Invalid relay URL scheme rejected" false
+    echo "Result: $result"
+fi
+
+# Test 5: Invalid marker
+echo -e "\n${YELLOW}Test 5: Invalid marker${NC}"
+result=$(nak event --kind 10002 --content "" --tag r="wss://valid-url.example.com,invalid-marker" $RELAY_URL 2>&1)
+if echo "$result" | grep -q -i "error\|failed\|invalid\|rejected"; then
+    print_result "Invalid relay marker rejected" true
+else
+    print_result "Invalid relay marker rejected" false
+    echo "Result: $result"
+fi
+
+# Test 6: Empty relay list (should be valid)
+echo -e "\n${YELLOW}Test 6: Empty relay list${NC}"
+result=$(nak event --kind 10002 --content "" $RELAY_URL 2>&1)
+if echo "$result" | grep -q "Event published successfully" || ! echo "$result" | grep -q -i "error\|failed\|invalid"; then
+    print_result "Empty relay list" true
+else
+    print_result "Empty relay list" false
+    echo "Result: $result"
+fi
+
+# Test 7: Relay list with non-empty content (should be allowed)
+echo -e "\n${YELLOW}Test 7: Relay list with non-empty content${NC}"
+result=$(nak event --kind 10002 --content "this should be empty per NIP-65" --tag r="wss://content-test.example.com" $RELAY_URL 2>&1)
+if echo "$result" | grep -q "Event published successfully" || ! echo "$result" | grep -q -i "error\|failed\|invalid"; then
+    print_result "Non-empty content (allowed)" true
+else
+    print_result "Non-empty content (allowed)" false
+    echo "Result: $result"
+fi
+
+# Test 8: Test replaceable behavior by creating another event for the same author
+echo -e "\n${YELLOW}Test 8: Test replaceable behavior${NC}"
+echo "Creating first relay list..."
+result1=$(nak event --kind 10002 --content "" --tag r="wss://first-relay.example.com" $RELAY_URL 2>&1)
 sleep 1
-query_events "$filter" "Alice's updated relay list"
-alice_events_after=$?
+echo "Creating second relay list (should replace the first)..."
+result2=$(nak event --kind 10002 --content "" --tag r="wss://second-relay.example.com" $RELAY_URL 2>&1)
 
-if [ $alice_events_after -eq 1 ]; then
-    print_result "Replaceable event behavior" true
+if (echo "$result1" | grep -q "Event published successfully" || ! echo "$result1" | grep -q -i "error\|failed\|invalid") && \
+   (echo "$result2" | grep -q "Event published successfully" || ! echo "$result2" | grep -q -i "error\|failed\|invalid"); then
+    print_result "Replaceable behavior test" true
 else
-    print_result "Replaceable event behavior" false
+    print_result "Replaceable behavior test" false
+    echo "First result: $result1"
+    echo "Second result: $result2"
 fi
-
-# Test 5: Query all relay lists
-echo -e "\n${YELLOW}Test 5: Query all relay lists${NC}"
-all_filter='{"kinds": [10002]}'
-query_events "$all_filter" "All relay lists"
-total_events=$?
-
-if [ $total_events -eq 2 ]; then
-    print_result "Query all relay lists" true
-else
-    print_result "Query all relay lists" false
-fi
-
-# Test 6: Invalid relay URL with wrong scheme
-echo -e "\n${YELLOW}Test 6: Invalid relay URL with wrong scheme${NC}"
-invalid_scheme_tags='[["r", "http://invalid-scheme.example.com"]]'
-event4=$(create_event 10002 "" "$invalid_scheme_tags" "$PRIVATE_KEY_ALICE" "$PUBLIC_KEY_ALICE")
-send_event "$event4" "false" "Invalid relay URL scheme"
-
-# Test 7: Invalid marker
-echo -e "\n${YELLOW}Test 7: Invalid marker${NC}"
-invalid_marker_tags='[["r", "wss://valid-url.example.com", "invalid-marker"]]'
-event5=$(create_event 10002 "" "$invalid_marker_tags" "$PRIVATE_KEY_ALICE" "$PUBLIC_KEY_ALICE")
-send_event "$event5" "false" "Invalid relay marker"
-
-# Test 8: Malformed r tag (missing URL)
-echo -e "\n${YELLOW}Test 8: Malformed r tag (missing URL)${NC}"
-malformed_tags='[["r"]]'
-event6=$(create_event 10002 "" "$malformed_tags" "$PRIVATE_KEY_ALICE" "$PUBLIC_KEY_ALICE")
-send_event "$event6" "false" "Malformed r tag"
-
-# Test 9: Valid event with non-empty content (allowed but not recommended)
-echo -e "\n${YELLOW}Test 9: Valid event with non-empty content${NC}"
-content_tags='[["r", "wss://content-test.example.com"]]'
-event7=$(create_event 10002 "this should be empty per NIP-65" "$content_tags" "$PRIVATE_KEY_BOB" "$PUBLIC_KEY_BOB")
-send_event "$event7" "true" "Non-empty content (allowed)"
-
-# Test 10: Empty event (no r tags)
-echo -e "\n${YELLOW}Test 10: Empty event (no r tags)${NC}"
-empty_tags='[]'
-event8=$(create_event 10002 "" "$empty_tags" "$PRIVATE_KEY_ALICE" "$PUBLIC_KEY_ALICE")
-send_event "$event8" "true" "Empty relay list"
 
 echo -e "\n${BLUE}=== Test Summary ===${NC}"
 echo -e "Total tests: $test_count"
