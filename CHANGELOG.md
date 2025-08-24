@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **NIP-45 Support**:
+  - Implemented COUNT command for efficient event counting
+  - Added dedicated NIP-45 module with proper validation and error handling
+  - Created comprehensive test suite for COUNT operations
+  - Added NIP-45 to relay metadata and supported NIPs list
+
 ## [1.1.0] - 2025-08-17
 
 ### Added

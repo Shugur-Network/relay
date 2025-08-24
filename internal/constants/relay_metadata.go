@@ -40,6 +40,7 @@ var DefaultSupportedNIPs = []interface{}{
 	33, // NIP-33: Parameterized Replaceable Events
 	40, // NIP-40: Expiration Timestamp
 	44, // NIP-44: Encrypted Payloads (Versioned)
+	45, // NIP-45: Counting Events
 	50, // NIP-50: Search Capability
 	59, // NIP-59: Gift Wrap
 	65, // NIP-65: Relay List Metadata

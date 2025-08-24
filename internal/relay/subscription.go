@@ -282,59 +282,53 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 	logger.Debug("Starting count request processing",
 		zap.String("client", c.ws.RemoteAddr().String()))
 
-	// Validate array length
-	if len(arr) < 3 {
-		logger.Warn("Invalid COUNT command: missing subscription ID or filter",
+	// Parse the COUNT command using NIP-45 module
+	countCmd, err := nips.ParseCountCommand(arr)
+	if err != nil {
+		logger.Warn("Invalid COUNT command",
+			zap.Error(err),
 			zap.String("client", c.ws.RemoteAddr().String()))
-		c.sendNotice("COUNT command missing subscription ID or filter")
+		c.sendNotice("Invalid COUNT command: " + err.Error())
 		return
 	}
 
-	// Extract subscription ID
-	subID, ok := arr[1].(string)
-	if !ok || subID == "" {
-		logger.Warn("Invalid COUNT command: subscription ID must be a string",
-			zap.String("client", c.ws.RemoteAddr().String()))
-		c.sendNotice("COUNT command subscription ID must be a string")
-		return
-	}
-
-	// Parse the filter
-	var f nostr.Filter
+	// Parse the filter using existing parseFilterFromRaw
 	if len(arr) >= 3 {
 		filter, err := parseFilterFromRaw(arr[2])
 		if err != nil {
 			logger.Warn("Failed to parse filter for COUNT",
-				zap.String("sub_id", subID),
+				zap.String("sub_id", countCmd.SubID),
 				zap.Error(err),
 				zap.String("client", c.ws.RemoteAddr().String()))
 			c.sendNotice("Invalid filter: " + err.Error())
 			return
 		}
-		f = filter
+		countCmd.Filter = filter
 	} else {
 		c.sendNotice("COUNT command missing filter")
 		return
 	}
 
-	// Validate filter with the validator
-	if err := c.node.GetValidator().ValidateFilter(f); err != nil {
-		logger.Warn("Filter validation failed for COUNT",
-			zap.String("sub_id", subID),
-			zap.Error(err),
-			zap.String("client", c.ws.RemoteAddr().String()))
-		c.sendNotice(nips.FormatErrorMessage(nips.ErrorCodeInvalidFilter, err.Error()))
-		return
-	}
-
-	// Process count in a goroutine with timeout
+	// Process count in a goroutine
 	go func() {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		// Create a context with timeout for the count operation
+		countCtx, cancel := context.WithTimeout(ctx, nips.CountTimeout)
 		defer cancel()
+
+		// Validate the filter using NIP-45
+		_, err := nips.HandleCountRequest(countCtx, countCmd.SubID, countCmd.Filter)
+		if err != nil {
+			logger.Warn("COUNT filter validation failed",
+				zap.String("sub_id", countCmd.SubID),
+				zap.Error(err),
+				zap.String("client", c.ws.RemoteAddr().String()))
+			c.sendNotice("Invalid COUNT filter: " + err.Error())
+			return
+		}
 
 		// Get count from database
 		start := time.Now()
-		count, err := c.node.DB().GetEventCount(ctx, f)
+		count, err := c.node.DB().GetEventCount(countCtx, countCmd.Filter)
 		duration := time.Since(start)
 
 		// Check if client is still connected
@@ -344,8 +338,8 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 
 		// Handle error
 		if err != nil {
-			logger.Error("Failed to get event count",
-				zap.String("sub_id", subID),
+			logger.Error("COUNT request failed",
+				zap.String("sub_id", countCmd.SubID),
 				zap.Error(err),
 				zap.String("client", c.ws.RemoteAddr().String()))
 			c.sendNotice("error: count operation failed")
@@ -354,14 +348,14 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 
 		// Log performance
 		logger.Debug("Count operation completed",
-			zap.String("sub_id", subID),
+			zap.String("sub_id", countCmd.SubID),
 			zap.Duration("duration", duration),
 			zap.Int64("count", count),
 			zap.String("client", c.ws.RemoteAddr().String()))
 
-		// Send the count response
-		resp := map[string]int64{"count": count}
-		c.sendMessage("COUNT", subID, resp)
+		// Send the count response (NIP-45 format)
+		response := &nips.CountResponse{Count: count}
+		c.sendMessage("COUNT", countCmd.SubID, response)
 	}()
 }
 
