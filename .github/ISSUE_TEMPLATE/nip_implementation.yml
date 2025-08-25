@@ -1,0 +1,209 @@
+name: 📋 NIP Implementation Request
+description: Request implementation of a specific Nostr Implementation Possibility (NIP)
+title: "[NIP] Implement NIP-XX: "
+labels: ["nip", "enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for requesting a NIP implementation! This template is specifically for requesting support for Nostr Implementation Possibilities (NIPs).
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following before submitting this NIP request
+      options:
+        - label: I have searched existing issues to ensure this NIP hasn't been requested already
+          required: true
+        - label: I have checked if this NIP is already supported by looking at the implemented NIPs in `/internal/relay/nips/`
+          required: true
+        - label: I have read the [CONTRIBUTING.md](../CONTRIBUTING.md) guidelines
+          required: true
+
+  - type: input
+    id: nip-number
+    attributes:
+      label: NIP Number
+      description: The official NIP number (e.g., NIP-01, NIP-09, NIP-42)
+      placeholder: "NIP-XX"
+    validations:
+      required: true
+
+  - type: input
+    id: nip-title
+    attributes:
+      label: NIP Title
+      description: The official title of the NIP
+      placeholder: "Event Deletion, Authentication, etc."
+    validations:
+      required: true
+
+  - type: input
+    id: nip-link
+    attributes:
+      label: NIP Specification Link
+      description: Link to the official NIP specification
+      placeholder: "https://github.com/nostr-protocol/nips/blob/master/XX.md"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: nip-status
+    attributes:
+      label: NIP Status
+      description: What is the current status of this NIP in the Nostr ecosystem?
+      options:
+        - Draft
+        - Proposed
+        - Final
+        - Experimental
+        - Unknown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: implementation-priority
+    attributes:
+      label: Implementation Priority
+      description: How critical is this NIP for your use case?
+      options:
+        - Low - Nice to have for completeness
+        - Medium - Would improve functionality
+        - High - Important for client compatibility
+        - Critical - Required for essential functionality
+    validations:
+      required: true
+
+  - type: textarea
+    id: nip-summary
+    attributes:
+      label: NIP Summary
+      description: Brief summary of what this NIP does and its purpose
+      placeholder: |
+        Provide a concise summary of:
+        - What this NIP specifies
+        - What functionality it adds
+        - Why it's important
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases
+      description: Describe specific use cases where this NIP would be beneficial
+      placeholder: |
+        - This NIP would enable...
+        - Relay operators could use this to...
+        - Clients would benefit from...
+        - This improves the user experience by...
+    validations:
+      required: true
+
+  - type: textarea
+    id: client-support
+    attributes:
+      label: Client Support
+      description: List known clients that support or require this NIP
+      placeholder: |
+        Known clients that support this NIP:
+        - Client A
+        - Client B
+        
+        Clients that would benefit:
+        - Client C
+        - Client D
+
+  - type: checkboxes
+    id: relay-impact
+    attributes:
+      label: Relay Impact
+      description: Check all areas that this NIP would impact
+      options:
+        - label: Event storage and retrieval
+        - label: Event validation
+        - label: Subscription filters
+        - label: Authentication/Authorization
+        - label: Performance considerations
+        - label: Database schema changes
+        - label: Configuration options
+        - label: API endpoints
+        - label: WebSocket handling
+
+  - type: textarea
+    id: implementation-considerations
+    attributes:
+      label: Implementation Considerations
+      description: Any technical considerations, challenges, or dependencies for implementing this NIP
+      placeholder: |
+        Consider:
+        - Database changes required
+        - Performance implications
+        - Backward compatibility
+        - Configuration requirements
+        - Dependencies on other NIPs
+        - Security considerations
+
+  - type: textarea
+    id: related-nips
+    attributes:
+      label: Related NIPs
+      description: List any NIPs that are related, dependencies, or conflicts with this request
+      placeholder: |
+        Dependencies:
+        - Requires NIP-XX
+        
+        Related:
+        - Works with NIP-YY
+        
+        Conflicts:
+        - May conflict with NIP-ZZ
+
+  - type: checkboxes
+    id: testing-requirements
+    attributes:
+      label: Testing Requirements
+      description: Check testing approaches that would be needed
+      options:
+        - label: Unit tests for NIP-specific logic
+        - label: Integration tests with real clients
+        - label: Performance testing
+        - label: Interoperability testing with other relays
+        - label: Security testing
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What would need to be implemented for this NIP to be considered complete?
+      placeholder: |
+        - [ ] Implements all required NIP specifications
+        - [ ] Passes compatibility tests with major clients
+        - [ ] Includes comprehensive unit tests
+        - [ ] Updates relay configuration options if needed
+        - [ ] Documentation is updated
+        - [ ] Performance meets expectations
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any additional information, links, discussions, or context about this NIP
+      placeholder: |
+        Links to:
+        - Community discussions
+        - Implementation examples from other relays
+        - Test vectors or examples
+        - Any other relevant information
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Terms
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

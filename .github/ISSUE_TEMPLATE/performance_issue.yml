@@ -1,0 +1,294 @@
+name: ⚡ Performance Issue
+description: Report performance problems, bottlenecks, or optimization opportunities
+title: "[PERFORMANCE] "
+labels: ["performance", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a performance issue! Performance is critical for relay operations. Please provide detailed information to help us identify and resolve the problem.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following before submitting this performance issue
+      options:
+        - label: I have searched existing issues to ensure this performance issue hasn't been reported already
+          required: true
+        - label: I have read the [CONTRIBUTING.md](../CONTRIBUTING.md) guidelines
+          required: true
+        - label: I have verified this is reproducible with the latest version
+          required: true
+
+  - type: dropdown
+    id: performance-category
+    attributes:
+      label: Performance Category
+      description: What type of performance issue are you experiencing?
+      options:
+        - Event ingestion/publishing
+        - Query/filter performance
+        - Database operations
+        - Memory usage
+        - CPU utilization
+        - Network I/O
+        - WebSocket connections
+        - Startup time
+        - Rate limiting efficiency
+        - Concurrent connection handling
+        - Storage efficiency
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severely does this impact relay operations?
+      options:
+        - Low - Minor performance degradation
+        - Medium - Noticeable but manageable impact
+        - High - Significant impact on relay performance
+        - Critical - Relay becomes unusable under load
+    validations:
+      required: true
+
+  - type: textarea
+    id: performance-description
+    attributes:
+      label: Performance Issue Description
+      description: Describe the performance problem you're experiencing
+      placeholder: |
+        Clear description of the performance issue:
+        - What operation is slow?
+        - When does the problem occur?
+        - How does it manifest?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-performance
+    attributes:
+      label: Expected Performance
+      description: What performance did you expect?
+      placeholder: |
+        - Expected response times
+        - Expected throughput
+        - Expected resource usage
+        - Performance benchmarks or targets
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-performance
+    attributes:
+      label: Actual Performance
+    attributes:
+      label: Actual Performance
+      description: What performance are you actually seeing?
+      placeholder: |
+        - Measured response times
+        - Actual throughput
+        - Resource usage metrics
+        - Performance degradation details
+    validations:
+      required: true
+
+  - type: textarea
+    id: workload-details
+    attributes:
+      label: Workload Details
+      description: Describe the workload that triggers this performance issue
+      placeholder: |
+        - Number of concurrent connections
+        - Event publishing rate (events/second)
+        - Query patterns and frequency
+        - Data volume and growth rate
+        - Client behavior patterns
+    validations:
+      required: true
+
+  - type: input
+    id: relay-version
+    attributes:
+      label: Relay Version
+      description: What version of the relay are you running?
+      placeholder: "v1.0.0 or commit hash"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment-type
+    attributes:
+      label: Deployment Type
+      description: How is the relay deployed?
+      options:
+        - Standalone
+        - Distributed/Clustered
+        - Docker
+        - Local Development
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: system-specs
+    attributes:
+      label: System Specifications
+      description: Provide details about the system where the relay is running
+      placeholder: |
+        Hardware:
+        - CPU: (cores, model)
+        - RAM: (amount, type)
+        - Storage: (type, speed, IOPS)
+        - Network: (bandwidth, latency)
+        
+        Software:
+        - OS: 
+        - Go version: 
+        - Database version: 
+        - Container runtime (if applicable):
+    validations:
+      required: true
+
+  - type: dropdown
+    id: database-backend
+    attributes:
+      label: Database Backend
+      description: Which database backend are you using?
+      options:
+        - CockroachDB
+        - PostgreSQL
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: database-config
+    attributes:
+      label: Database Configuration
+      description: Relevant database configuration and performance settings
+      placeholder: |
+        - Database cluster size
+        - Connection pool settings
+        - Memory allocations
+        - Index configurations
+        - Storage configuration
+
+  - type: textarea
+    id: relay-config
+    attributes:
+      label: Relay Configuration
+      description: Share relevant relay configuration that might affect performance
+      placeholder: |
+        ```yaml
+        # Performance-related configuration
+        ```
+      render: yaml
+
+  - type: textarea
+    id: metrics-data
+    attributes:
+      label: Performance Metrics
+      description: Provide any performance metrics, monitoring data, or profiling results
+      placeholder: |
+        - CPU usage patterns
+        - Memory usage over time
+        - Database query performance
+        - Network I/O stats
+        - WebSocket connection metrics
+        - Response time percentiles
+        - Throughput measurements
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Reproduction Steps
+      description: How can we reproduce this performance issue?
+      placeholder: |
+        1. Set up relay with configuration...
+        2. Generate load with...
+        3. Monitor performance metrics...
+        4. Observe degradation after...
+    validations:
+      required: true
+
+  - type: textarea
+    id: load-testing
+    attributes:
+      label: Load Testing Details
+      description: If you've done load testing, please share the details
+      placeholder: |
+        - Load testing tools used
+        - Test scenarios and patterns
+        - Baseline vs degraded performance
+        - Load progression (how performance changes with increased load)
+
+  - type: textarea
+    id: nostr-context
+    attributes:
+      label: Nostr-Specific Context
+      description: Provide context about Nostr operations affecting performance
+      placeholder: |
+        - Event types and sizes
+        - Filter complexity and patterns
+        - NIP features being used
+        - Client connection patterns
+        - Subscription management details
+
+  - type: textarea
+    id: monitoring-data
+    attributes:
+      label: Monitoring and Logs
+      description: Include relevant monitoring data and log excerpts
+      placeholder: |
+        ```
+        Relevant log entries showing performance issues...
+        ```
+      render: shell
+
+  - type: textarea
+    id: profiling-data
+    attributes:
+      label: Profiling Data
+      description: If you have Go profiling data (pprof), please share relevant findings
+      placeholder: |
+        - CPU profile highlights
+        - Memory profile analysis
+        - Goroutine analysis
+        - Heap dump insights
+
+  - type: textarea
+    id: optimization-ideas
+    attributes:
+      label: Optimization Ideas
+      description: Do you have any ideas for potential optimizations?
+      placeholder: |
+        - Suspected bottlenecks
+        - Potential solutions
+        - Alternative approaches
+        - Configuration changes that might help
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information about this performance issue
+      placeholder: |
+        - Related issues or discussions
+        - Performance comparisons with other relays
+        - Historical performance trends
+        - Business impact
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Terms
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

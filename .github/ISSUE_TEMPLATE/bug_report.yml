@@ -1,0 +1,160 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in the Nostr relay
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug! Please fill out the information below to help us understand and reproduce the issue.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following before submitting this bug report
+      options:
+        - label: I have searched existing issues to ensure this bug hasn't been reported already
+          required: true
+        - label: I have read the [CONTRIBUTING.md](../CONTRIBUTING.md) guidelines
+          required: true
+        - label: I have tested this with the latest version of the relay
+          required: true
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is
+      placeholder: Describe the bug...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe what should have happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened instead?
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce
+      description: Please provide detailed steps to reproduce the bug
+      placeholder: |
+        1. Configure relay with...
+        2. Send event/request...
+        3. Observe behavior...
+      value: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+
+  - type: input
+    id: relay-version
+    attributes:
+      label: Relay Version
+      description: What version of the relay are you running?
+      placeholder: "v1.0.0 or commit hash"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment-type
+    attributes:
+      label: Deployment Type
+      description: How is the relay deployed?
+      options:
+        - Standalone
+        - Distributed/Clustered
+        - Docker
+        - Local Development
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database Backend
+      description: Which database backend are you using?
+      options:
+        - CockroachDB
+        - PostgreSQL
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Configuration
+      description: Please share relevant configuration (remove sensitive information)
+      placeholder: |
+        ```yaml
+        # Relevant configuration sections
+        ```
+      render: yaml
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Please provide relevant log output (remove sensitive information)
+      placeholder: |
+        ```
+        Paste log output here...
+        ```
+      render: shell
+
+  - type: textarea
+    id: nostr-context
+    attributes:
+      label: Nostr Context
+      description: If applicable, provide details about the Nostr events, queries, or NIPs involved
+      placeholder: |
+        - Event kind: 
+        - NIP involved: 
+        - Client used: 
+        - Specific filters or queries:
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System
+      description: What operating system is the relay running on?
+      placeholder: "Ubuntu 22.04, macOS 14.0, Windows 11, etc."
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here, such as screenshots, related issues, or potential solutions
+      placeholder: Any additional information that might help...
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Terms
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

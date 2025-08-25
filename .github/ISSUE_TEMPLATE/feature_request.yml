@@ -1,0 +1,168 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for the Nostr relay
+title: "[FEATURE] "
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! Please provide as much detail as possible to help us understand your request.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following before submitting this feature request
+      options:
+        - label: I have searched existing issues to ensure this feature hasn't been requested already
+          required: true
+        - label: I have read the [CONTRIBUTING.md](../CONTRIBUTING.md) guidelines
+          required: true
+        - label: I have checked the roadmap and project documentation
+          required: true
+
+  - type: textarea
+    id: feature-summary
+    attributes:
+      label: Feature Summary
+      description: A clear and concise description of the feature you'd like to see
+      placeholder: Briefly describe the feature...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What is the motivation?
+      placeholder: |
+        Is your feature request related to a problem? Please describe.
+        A clear and concise description of what the problem is.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see implemented
+      placeholder: |
+        A clear and concise description of what you want to happen.
+        How should this feature work?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: Feature Category
+      description: What category does this feature fall into?
+      options:
+        - Core Relay Functionality
+        - NIP Implementation
+        - Performance/Optimization
+        - Configuration/Management
+        - Security/Privacy
+        - API/Interface
+        - Documentation
+        - DevOps/Deployment
+        - Monitoring/Observability
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would be helpful
+        - High - Important for my use case
+        - Critical - Blocking my adoption
+    validations:
+      required: true
+
+  - type: textarea
+    id: nostr-context
+    attributes:
+      label: Nostr Context
+      description: If applicable, provide context about Nostr ecosystem compatibility
+      placeholder: |
+        - Related NIPs: 
+        - Client compatibility: 
+        - Network interoperability: 
+        - Nostr ecosystem impact:
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Describe any alternative solutions or features you've considered
+      placeholder: |
+        A clear and concise description of any alternative solutions or features you've considered.
+        Why might those alternatives not work as well?
+
+  - type: textarea
+    id: implementation-thoughts
+    attributes:
+      label: Implementation Thoughts
+      description: Do you have any ideas about how this could be implemented? (Optional)
+      placeholder: |
+        If you have technical insights or implementation ideas, please share them here.
+        This is optional but can be very helpful!
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases
+      description: Describe specific use cases or scenarios where this feature would be beneficial
+      placeholder: |
+        1. As a relay operator, I would use this to...
+        2. As a client developer, this would help me...
+        3. As an end user, this would enable me to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What would need to be true for this feature to be considered complete?
+      placeholder: |
+        - [ ] The feature should...
+        - [ ] It should support...
+        - [ ] Documentation should include...
+
+  - type: checkboxes
+    id: compatibility
+    attributes:
+      label: Compatibility Requirements
+      description: Check all that apply
+      options:
+        - label: Should work with existing Nostr clients
+        - label: Should be backward compatible
+        - label: Should follow existing NIPs
+        - label: May require new NIP specification
+        - label: Should work in distributed/clustered deployments
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, mockups, examples, or screenshots about the feature request
+      placeholder: |
+        Any additional information, links to related discussions, mockups, or examples
+        that would help understand this feature request.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Terms
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true

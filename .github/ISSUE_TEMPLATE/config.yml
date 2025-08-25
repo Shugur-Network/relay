@@ -1,0 +1,21 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 General Discussion
+    url: https://github.com/shugur-network/relay/discussions
+    about: Ask questions, share ideas, and discuss the relay with the community
+  
+  - name: 🔒 Security Vulnerability (Private)
+    url: https://github.com/shugur-network/relay/security/advisories/new
+    about: Report security vulnerabilities privately through GitHub Security Advisories
+  
+  - name: 📖 Documentation
+    url: https://github.com/shugur-network/relay/wiki
+    about: Check the project documentation and wiki for guides and information
+  
+  - name: 🌐 Nostr NIPs Specification
+    url: https://github.com/nostr-protocol/nips
+    about: Reference the official Nostr Implementation Possibilities (NIPs) specification
+  
+  - name: 💡 Community Support
+    url: https://github.com/shugur-network/relay/discussions/categories/q-a
+    about: Get help from the community for usage questions and troubleshooting

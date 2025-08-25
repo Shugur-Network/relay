@@ -1,0 +1,248 @@
+name: 📚 Documentation Improvement
+description: Suggest improvements, corrections, or additions to documentation
+title: "[DOCS] "
+labels: ["documentation", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve our documentation! Clear and comprehensive documentation is essential for the Nostr relay ecosystem.
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm the following before submitting this documentation request
+      options:
+        - label: I have searched existing issues to ensure this documentation issue hasn't been reported already
+          required: true
+        - label: I have checked the current documentation to confirm the issue exists
+          required: true
+        - label: I have read the [CONTRIBUTING.md](../CONTRIBUTING.md) guidelines
+          required: true
+
+  - type: dropdown
+    id: documentation-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation needs improvement?
+      options:
+        - README.md
+        - Installation/Setup Guide
+        - Configuration Documentation
+        - API Documentation
+        - NIP Implementation Guide
+        - Troubleshooting Guide
+        - Performance Tuning Guide
+        - Security Documentation
+        - Developer Documentation
+        - Deployment Guide
+        - Code Comments
+        - Examples/Tutorials
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-category
+    attributes:
+      label: Issue Category
+      description: What type of documentation issue is this?
+      options:
+        - Missing Information
+        - Incorrect Information
+        - Outdated Information
+        - Unclear/Confusing Content
+        - Typos/Grammar
+        - Broken Links
+        - Missing Examples
+        - Poor Organization
+        - Accessibility Issues
+        - Translation Issues
+        - New Documentation Needed
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-documentation
+    attributes:
+      label: Current Documentation
+      description: Link to or describe the current documentation that needs improvement
+      placeholder: |
+        - File path or URL: 
+        - Section/heading: 
+        - Specific location: 
+        - Current content (if applicable):
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: Issue Description
+      description: Describe the specific documentation problem
+      placeholder: |
+        Clear description of what's wrong or missing:
+        - What information is unclear?
+        - What is incorrect or outdated?
+        - What is missing that should be documented?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-improvement
+    attributes:
+      label: Suggested Improvement
+      description: How should the documentation be improved?
+      placeholder: |
+        Describe your suggested changes:
+        - What should be added, changed, or removed?
+        - How should it be organized?
+        - What examples or clarifications would help?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target-audience
+    attributes:
+      label: Target Audience
+      description: Who is the primary audience for this documentation?
+      options:
+        - End Users/Relay Operators
+        - Application Developers
+        - Contributors/Developers
+        - System Administrators
+        - Security Researchers
+        - Nostr Client Developers
+        - General Public
+        - All Audiences
+    validations:
+      required: true
+
+  - type: dropdown
+    id: user-experience-level
+    attributes:
+      label: User Experience Level
+      description: What experience level should this documentation target?
+      options:
+        - Beginner - New to Nostr/relays
+        - Intermediate - Some experience with Nostr
+        - Advanced - Experienced with Nostr and relays
+        - Expert - Deep technical knowledge
+        - All Levels
+    validations:
+      required: true
+
+  - type: textarea
+    id: nostr-context
+    attributes:
+      label: Nostr-Specific Context
+      description: Is this related to specific Nostr concepts or NIPs?
+      placeholder: |
+        If applicable:
+        - Related NIPs: 
+        - Nostr concepts involved: 
+        - Client compatibility concerns: 
+        - Ecosystem interoperability:
+
+  - type: textarea
+    id: examples-needed
+    attributes:
+      label: Examples Needed
+      description: What examples, code snippets, or tutorials would be helpful?
+      placeholder: |
+        - Configuration examples
+        - Code snippets
+        - Command-line examples
+        - API usage examples
+        - Common use case scenarios
+        - Step-by-step tutorials
+
+  - type: checkboxes
+    id: documentation-sections
+    attributes:
+      label: Related Documentation Sections
+      description: Check all sections that might need updates related to this issue
+      options:
+        - label: Installation instructions
+        - label: Configuration examples
+        - label: API reference
+        - label: NIP implementation details
+        - label: Troubleshooting guides
+        - label: Performance optimization
+        - label: Security considerations
+        - label: Development setup
+        - label: Deployment guides
+        - label: Migration guides
+
+  - type: textarea
+    id: current-confusion
+    attributes:
+      label: Current Confusion/Problems
+      description: What confusion or problems does the current documentation cause?
+      placeholder: |
+        - What did you expect to find but couldn't?
+        - What took longer than expected to understand?
+        - What questions weren't answered?
+        - What assumptions were made that weren't clear?
+
+  - type: textarea
+    id: proposed-content
+    attributes:
+      label: Proposed Content
+      description: If you have specific content suggestions, please share them here
+      placeholder: |
+        You can provide:
+        - Draft text improvements
+        - Outline of new sections
+        - Specific wording suggestions
+        - Link recommendations
+        - Example configurations
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this documentation improvement?
+      options:
+        - Low - Minor improvement
+        - Medium - Would help users
+        - High - Important for user success
+        - Critical - Blocking user adoption
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution-willingness
+    attributes:
+      label: Contribution Willingness
+      description: Are you willing to help with this documentation improvement?
+      options:
+        - label: I'd like to write the improved documentation myself
+        - label: I can provide content review and feedback
+        - label: I can test the documentation with real usage
+        - label: I can provide additional examples or use cases
+        - label: I prefer to just report the issue
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context, references, or information about this documentation issue
+      placeholder: |
+        - Links to external documentation for reference
+        - Screenshots of confusing areas
+        - Related community discussions
+        - Similar documentation from other projects
+        - User feedback or questions you've observed
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Terms
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
