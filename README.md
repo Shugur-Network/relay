@@ -102,7 +102,7 @@ For a single-node setup:
 curl -fsSL https://github.com/Shugur-Network/relay/raw/main/scripts/install.standalone.sh | sudo bash
 ```
 
-For manual setup or other installation methods, see our [Installation Guide](https://github.com/Shugur-Network/docs/blob/main/installation/INSTALLATION.md).
+For manual setup or other installation methods, see our [Installation Guide](https://docs.shugur.com/installation/).
 
 ## 🏗️ Build from Source
 
