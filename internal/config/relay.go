@@ -7,6 +7,7 @@ type RelayConfig struct {
 	Name             string           `mapstructure:"NAME"              json:"name"              validate:"required,min=1,max=30"`
 	Description      string           `mapstructure:"DESCRIPTION"       json:"description"       validate:"omitempty,max=200"`
 	Contact          string           `mapstructure:"CONTACT"           json:"contact"           validate:"omitempty,email"`
+	PublicKey        string           `mapstructure:"PUBLIC_KEY"        json:"public_key"        validate:"omitempty,len=64,hexadecimal"`
 	Icon             string           `mapstructure:"ICON"              json:"icon"              validate:"omitempty,url"`
 	Banner           string           `mapstructure:"BANNER"            json:"banner"            validate:"omitempty,url"`
 	WSAddr           string           `mapstructure:"WS_ADDR"           json:"ws_addr"           validate:"required"`

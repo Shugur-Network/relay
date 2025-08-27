@@ -64,8 +64,8 @@ const (
 
 // DefaultRelayMetadata returns the default relay metadata document
 func DefaultRelayMetadata(cfg *config.Config) nip11.RelayInformationDocument {
-	// Get or create relay identity
-	relayIdentity, err := identity.GetOrCreateRelayIdentity()
+	// Get or create relay identity, using configured public key if provided
+	relayIdentity, err := identity.GetOrCreateRelayIdentityWithConfig(cfg.Relay.PublicKey)
 	if err != nil {
 		// Fallback to default if identity system fails
 		relayIdentity = &identity.RelayIdentity{
