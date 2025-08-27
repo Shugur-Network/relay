@@ -52,3 +52,7 @@ DATABASE:
   SERVER: "localhost"            # Database server hostname
   PORT: 26257                    # Database port
 
+CAPSULES:
+  ENABLED: true                  # Enable time capsules feature
+  MAX_WITNESSES: 9              # Maximum number of witnesses per capsule
+

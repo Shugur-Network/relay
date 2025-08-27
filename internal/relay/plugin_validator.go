@@ -86,6 +86,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			1040:  true, // NIP-03 OpenTimestamps attestation
 			13194: true, // NIP-59 Wallet Connect events
 			30078: true, // NIP-78 Application-specific Data
+			// Time Capsules
+			11990: true, // Time capsule (immutable)
+			31990: true, // Time capsule (parameterized replaceable)
+			11991: true, // Time capsule unlock share
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -105,6 +109,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			1022:  {"e"},      // Bid confirmation events require "e" tag
 			1040:  {"e"},      // OpenTimestamps attestation requires "e" tag
 			30078: {"p"},      // NIP-78: Application-specific Data requires "p" tag
+			// Time Capsules
+			11990: {"x-cap", "u", "w"}, // Time capsule: vendor tag, unlock config, witnesses
+			31990: {"x-cap", "u", "w", "d"}, // Replaceable time capsule: + d tag
+			11991: {"x-cap", "e", "w", "T"}, // Unlock share: vendor tag, capsule ref, witness, time
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -284,6 +292,10 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateGiftWrapEvent(event)
 	case 10002:
 		return nips.ValidateKind10002(*event)
+	case 11990, 31990:
+		return nips.ValidateTimeCapsuleEvent(event)
+	case 11991:
+		return nips.ValidateTimeCapsuleUnlockShare(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
