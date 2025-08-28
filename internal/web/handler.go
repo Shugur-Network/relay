@@ -208,24 +208,24 @@ func (h *Handler) HandleMetricsAPI(w http.ResponseWriter, r *http.Request) {
 
 	// Create comprehensive metrics response
 	response := map[string]interface{}{
-		"relay_id":             relayID,
-		"name":                 fmt.Sprintf("SHU%s", relayID[len(relayID)-2:]), // Extract last 2 chars for name
-		"status":               status,
-		"uptime_seconds":       int64(uptime.Seconds()),
-		"uptime_human":         h.formatUptime(uptime),
-		"active_connections":   stats.ActiveConnections,
-		"messages_processed":   stats.MessagesProcessed,
-		"events_stored":        stats.EventsStored,
-		"active_subscriptions": stats.ActiveSubscriptions,
-		"messages_sent":        stats.MessagesSent,
-		"events_per_second":    stats.EventsPerSecond,
+		"relay_id":               relayID,
+		"name":                   fmt.Sprintf("SHU%s", relayID[len(relayID)-2:]), // Extract last 2 chars for name
+		"status":                 status,
+		"uptime_seconds":         int64(uptime.Seconds()),
+		"uptime_human":           h.formatUptime(uptime),
+		"active_connections":     stats.ActiveConnections,
+		"messages_processed":     stats.MessagesProcessed,
+		"events_stored":          stats.EventsStored,
+		"active_subscriptions":   stats.ActiveSubscriptions,
+		"messages_sent":          stats.MessagesSent,
+		"events_per_second":      stats.EventsPerSecond,
 		"connections_per_second": stats.ConnectionsPerSecond,
-		"average_response_time": stats.AverageResponseTime,
-		"error_rate":           stats.ErrorRate,
-		"load_percentage":      stats.LoadPercentage,
-		"memory_usage":         stats.MemoryUsage,
-		"cluster":              clusterInfo,
-		"timestamp":            time.Now().Unix(),
+		"average_response_time":  stats.AverageResponseTime,
+		"error_rate":             stats.ErrorRate,
+		"load_percentage":        stats.LoadPercentage,
+		"memory_usage":           stats.MemoryUsage,
+		"cluster":                clusterInfo,
+		"timestamp":              time.Now().Unix(),
 	}
 
 	// Encode and send response
@@ -311,7 +311,7 @@ func (h *Handler) getStatsData() *StatsData {
 	if h.config != nil && h.config.Relay.ThrottlingConfig.MaxConnections > 0 {
 		maxConnections = int64(h.config.Relay.ThrottlingConfig.MaxConnections)
 	}
-	
+
 	activeConns := metrics.GetActiveConnectionsCount()
 	loadPercentage := float64(activeConns) / float64(maxConnections) * 100
 	if loadPercentage > 100 {
@@ -419,6 +419,53 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// HandleCapsuleStatus serves the time capsule status endpoint
+func (h *Handler) HandleCapsuleStatus(w http.ResponseWriter, r *http.Request) {
+	// Set headers
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	// Handle preflight requests
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Only allow GET requests
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract capsule ID from URL path
+	// Path format: /.well-known/capsule/{id}
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 4 {
+		http.Error(w, "Invalid capsule ID", http.StatusBadRequest)
+		return
+	}
+	capsuleID := pathParts[3]
+
+	// For now, return a basic status response
+	// TODO: Implement actual database lookup when Phase 1 is complete
+	response := map[string]interface{}{
+		"capsule_id": capsuleID,
+		"status":     "pending",
+		"message":    "Time capsule status endpoint - database integration pending",
+		"timestamp":  time.Now().Unix(),
+		"relay":      "Shugur Relay",
+		"version":    "1.0.0",
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("Failed to encode capsule status response", zap.Error(err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+}
+
 // formatUptime formats duration as a human-readable string
 func (h *Handler) formatUptime(duration time.Duration) string {
 	days := int(duration.Hours()) / 24
@@ -440,17 +487,17 @@ func getMemoryUsage() map[string]int64 {
 	runtime.ReadMemStats(&m)
 
 	return map[string]int64{
-		"alloc":        int64(m.Alloc),           // Currently allocated bytes
-		"total_alloc":  int64(m.TotalAlloc),     // Total allocated bytes (cumulative)
-		"sys":          int64(m.Sys),            // System memory obtained from OS
-		"heap_alloc":   int64(m.HeapAlloc),      // Heap allocated bytes
-		"heap_sys":     int64(m.HeapSys),        // Heap system bytes
-		"heap_idle":    int64(m.HeapIdle),       // Heap idle bytes
-		"heap_inuse":   int64(m.HeapInuse),      // Heap in-use bytes
-		"heap_objects": int64(m.HeapObjects),    // Number of allocated heap objects
-		"stack_inuse":  int64(m.StackInuse),     // Stack in-use bytes
-		"stack_sys":    int64(m.StackSys),       // Stack system bytes
-		"num_gc":       int64(m.NumGC),          // Number of GC cycles
+		"alloc":           int64(m.Alloc),                   // Currently allocated bytes
+		"total_alloc":     int64(m.TotalAlloc),              // Total allocated bytes (cumulative)
+		"sys":             int64(m.Sys),                     // System memory obtained from OS
+		"heap_alloc":      int64(m.HeapAlloc),               // Heap allocated bytes
+		"heap_sys":        int64(m.HeapSys),                 // Heap system bytes
+		"heap_idle":       int64(m.HeapIdle),                // Heap idle bytes
+		"heap_inuse":      int64(m.HeapInuse),               // Heap in-use bytes
+		"heap_objects":    int64(m.HeapObjects),             // Number of allocated heap objects
+		"stack_inuse":     int64(m.StackInuse),              // Stack in-use bytes
+		"stack_sys":       int64(m.StackSys),                // Stack system bytes
+		"num_gc":          int64(m.NumGC),                   // Number of GC cycles
 		"gc_cpu_fraction": int64(m.GCCPUFraction * 1000000), // GC CPU fraction (scaled)
 	}
 }

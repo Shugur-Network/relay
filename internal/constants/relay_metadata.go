@@ -13,7 +13,7 @@ const (
 
 // Default relay metadata constants
 const (
-	DefaultRelayDescription = "High-performance, reliable, scalable Nostr relay for decentralized communication."
+	DefaultRelayDescription = "High-performance, reliable, scalable Nostr relay for decentralized communication. Supports time capsules with threshold witness mode and VDF timelock (coming soon)."
 	DefaultRelayContact     = "support@shugur.com"
 	DefaultRelaySoftware    = "shugur"
 	DefaultRelayVersion     = "2.0.0"
@@ -45,6 +45,10 @@ var DefaultSupportedNIPs = []interface{}{
 	59, // NIP-59: Gift Wrap
 	65, // NIP-65: Relay List Metadata
 	78, // NIP-78: Application-specific data
+	// Time Capsules (Custom NIP)
+	11990, // Time Capsule (immutable)
+	30095, // Time Capsule (parameterized replaceable)
+	11991, // Time Capsule Unlock Share
 }
 
 // Relay limitations and settings
@@ -118,17 +122,17 @@ func DefaultRelayMetadata(cfg *config.Config) nip11.RelayInformationDocument {
 		Icon:          relayIcon,
 		Banner:        relayBanner,
 		Limitation: &nip11.RelayLimitationDocument{
-			MaxMessageLength: maxContentLength,      // Use actual configured content length
-			MaxSubscriptions: MaxSubscriptions,      // Keep default for now (could be made configurable)
-			MaxFilters:       MaxFilters,            // Keep default for now (could be made configurable)
-			MaxLimit:         MaxLimit,              // Keep default for now (could be made configurable)
-			MaxSubidLength:   MaxSubIDLength,        // Keep default for now (could be made configurable)
-			MaxEventTags:     MaxEventTags,          // Keep default for now (could be made configurable)
-			MaxContentLength: maxContentLength,      // Use actual configured content length
-			MinPowDifficulty: MinPowDifficulty,      // Keep default for now (could be made configurable)
-			AuthRequired:     AuthRequired,          // Keep default for now (could be made configurable)
-			PaymentRequired:  PaymentRequired,       // Keep default for now (could be made configurable)
-			RestrictedWrites: RestrictedWrites,      // Keep default for now (could be made configurable)
+			MaxMessageLength: maxContentLength, // Use actual configured content length
+			MaxSubscriptions: MaxSubscriptions, // Keep default for now (could be made configurable)
+			MaxFilters:       MaxFilters,       // Keep default for now (could be made configurable)
+			MaxLimit:         MaxLimit,         // Keep default for now (could be made configurable)
+			MaxSubidLength:   MaxSubIDLength,   // Keep default for now (could be made configurable)
+			MaxEventTags:     MaxEventTags,     // Keep default for now (could be made configurable)
+			MaxContentLength: maxContentLength, // Use actual configured content length
+			MinPowDifficulty: MinPowDifficulty, // Keep default for now (could be made configurable)
+			AuthRequired:     AuthRequired,     // Keep default for now (could be made configurable)
+			PaymentRequired:  PaymentRequired,  // Keep default for now (could be made configurable)
+			RestrictedWrites: RestrictedWrites, // Keep default for now (could be made configurable)
 		},
 	}
 }

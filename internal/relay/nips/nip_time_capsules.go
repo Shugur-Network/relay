@@ -202,27 +202,40 @@ func extractUnlockConfig(evt *nostr.Event) (*UnlockConfig, error) {
 }
 
 func extractWitnesses(evt *nostr.Event) []string {
+	var witnesses []string
+	
 	for _, tag := range evt.Tags {
 		if len(tag) > 1 && tag[0] == constants.TagWitness {
-			// Handle both formats:
-			// Format 1: ["w", "npub1", "npub2", "npub3"]
-			// Format 2: ["w", "npub1,npub2,npub3"]
+			// Handle multiple formats:
+			// Format 1: ["w", "npub1", "npub2", "npub3"] (multiple witnesses in one tag)
+			// Format 2: ["w", "npub1,npub2,npub3"] (comma-separated string)
+			// Format 3: Multiple separate ["w", "npub1"], ["w", "npub2"], ["w", "npub3"] tags
 			
 			if len(tag) > 2 {
-				// Format 1: multiple elements
-				return tag[1:]
+				// Format 1: multiple elements in single tag
+				witnesses = append(witnesses, tag[1:]...)
 			} else if len(tag) == 2 {
-				// Format 2: comma-separated string
-				witnesses := strings.Split(tag[1], ",")
-				// Trim whitespace from each witness
-				for i, w := range witnesses {
-					witnesses[i] = strings.TrimSpace(w)
+				// Check if it's comma-separated (Format 2) or single witness (Format 3)
+				if strings.Contains(tag[1], ",") {
+					// Format 2: comma-separated string
+					csvWitnesses := strings.Split(tag[1], ",")
+					for _, w := range csvWitnesses {
+						w = strings.TrimSpace(w)
+						if w != "" {
+							witnesses = append(witnesses, w)
+						}
+					}
+				} else {
+					// Format 3: single witness in separate tag
+					if tag[1] != "" {
+						witnesses = append(witnesses, tag[1])
+					}
 				}
-				return witnesses
 			}
 		}
 	}
-	return nil
+	
+	return witnesses
 }
 
 func extractCapsuleReference(evt *nostr.Event) string {

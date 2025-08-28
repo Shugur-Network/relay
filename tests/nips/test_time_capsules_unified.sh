@@ -19,7 +19,7 @@ MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Test configuration
-RELAY="ws://localhost:8085"
+RELAY="ws://shu02.shugur.net:8085"
 CURRENT_TIME=$(date +%s)
 PAST_TIME=$((CURRENT_TIME - 3600))     # 1 hour ago
 CURRENT_UNLOCK=$CURRENT_TIME           # Current time (just unlocked)
