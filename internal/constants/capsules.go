@@ -5,7 +5,7 @@ const (
 	// KindTimeCapsule is for immutable time capsules (NIP-01 compatible)
 	KindTimeCapsule = 11990
 	// KindTimeCapsuleReplaceable is for parameterized replaceable time capsules
-	KindTimeCapsuleReplaceable = 31990
+	KindTimeCapsuleReplaceable = 30095
 	// KindTimeCapsuleUnlockShare is for witness unlock shares
 	KindTimeCapsuleUnlockShare = 11991
 	// KindTimeCapsuleVDFOutput is for VDF outputs (future use)
@@ -50,7 +50,7 @@ const (
 
 // Encryption algorithms
 const (
-	EncryptionNIP44XChaCha20Poly1305 = "nip44:xchacha20poly1305"
+	EncryptionNIP44v2 = "nip44:v2"
 )
 
 // Time Capsules status values
@@ -64,8 +64,8 @@ const (
 // Validation limits
 const (
 	MaxCapsuleContentLength = 2 * 1024 * 1024 // 2MB max content
-	MaxWitnessCount        = 20               // Max witnesses per capsule
-	MaxThresholdValue      = 20               // Max threshold value
+	MaxWitnessCount        = 10               // Max witnesses per capsule (aligned with config.yaml)
+	MaxThresholdValue      = 10               // Max threshold value (aligned with max witnesses)
 	MinThresholdValue      = 1                // Min threshold value
 	MaxUnlockTimeYears     = 10               // Max years in future for unlock time
 	MinClockSkewSeconds    = 60               // Min clock skew (1 minute)
