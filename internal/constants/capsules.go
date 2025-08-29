@@ -42,10 +42,10 @@ const (
 
 // Storage locations
 const (
-	LocationInline  = "inline"
-	LocationHTTPS   = "https"
+	LocationInline = "inline"
+	LocationHTTPS  = "https"
 	LocationBlossom = "blossom"
-	LocationIPFS    = "ipfs"
+	LocationIPFS   = "ipfs"
 )
 
 // Encryption algorithms
@@ -64,19 +64,19 @@ const (
 // Validation limits
 const (
 	MaxCapsuleContentLength = 2 * 1024 * 1024 // 2MB max content
-	MaxWitnessCount         = 10              // Max witnesses per capsule (aligned with config.yaml)
-	MaxThresholdValue       = 10              // Max threshold value (aligned with max witnesses)
-	MinThresholdValue       = 1               // Min threshold value
-	MaxUnlockTimeYears      = 10              // Max years in future for unlock time
-	MinClockSkewSeconds     = 60              // Min clock skew (1 minute)
-	MaxClockSkewSeconds     = 3600            // Max clock skew (1 hour)
+	MaxWitnessCount        = 10               // Max witnesses per capsule (aligned with config.yaml)
+	MaxThresholdValue      = 10               // Max threshold value (aligned with max witnesses)
+	MinThresholdValue      = 1                // Min threshold value
+	MaxUnlockTimeYears     = 10               // Max years in future for unlock time
+	MinClockSkewSeconds    = 60               // Min clock skew (1 minute)
+	MaxClockSkewSeconds    = 3600             // Max clock skew (1 hour)
 )
 
 // Default values
 const (
 	DefaultThreshold     = 3
 	DefaultWitnessCount  = 5
-	DefaultClockSkewSec  = 300        // 5 minutes
+	DefaultClockSkewSec  = 300 // 5 minutes
 	DefaultMaxInlineSize = 128 * 1024 // 128 KiB
 )
 
@@ -92,10 +92,4 @@ const (
 	ErrInvalidEncryption    = "invalid encryption configuration"
 	ErrContentTooLarge      = "content exceeds maximum size"
 	ErrUnsupportedLocation  = "unsupported storage location"
-)
-
-// NIP-11 extensions for time capsules
-const (
-	NIP11TimeCapsulesSupported = true
-	NIP11TimeCapsulesVersion   = "1.0.0"
 )
