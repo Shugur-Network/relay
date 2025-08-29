@@ -45,10 +45,7 @@ var DefaultSupportedNIPs = []interface{}{
 	59, // NIP-59: Gift Wrap
 	65, // NIP-65: Relay List Metadata
 	78, // NIP-78: Application-specific data
-	// Time Capsules (Custom NIP)
-	11990, // Time Capsule (immutable)
-	30095, // Time Capsule (parameterized replaceable)
-	11991, // Time Capsule Unlock Share
+
 }
 
 // Relay limitations and settings

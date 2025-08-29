@@ -3,7 +3,6 @@ package nips
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Shugur-Network/relay/internal/constants"
@@ -12,21 +11,10 @@ import (
 
 // ValidateTimeCapsuleEvent validates time capsule events (kinds 11990, 30095)
 func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
-	// Must have vendor tag
-	if !hasVendorTag(evt) {
-		return fmt.Errorf("missing vendor tag [\"x-cap\", \"v1\"]")
-	}
-
 	// Extract unlock configuration
 	unlockConfig, err := extractUnlockConfig(evt)
 	if err != nil {
 		return fmt.Errorf("invalid unlock config: %w", err)
-	}
-
-	// Validate unlock time (allow some tolerance for testing and clock skew)
-	tolerance := 60 * time.Second // Allow 1 minute tolerance for clock skew and testing
-	if unlockConfig.UnlockTime.Before(time.Now().Add(-tolerance)) {
-		return fmt.Errorf("unlock time is too far in the past")
 	}
 
 	// Validate threshold mode parameters
@@ -42,7 +30,7 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 				unlockConfig.WitnessCount, constants.MaxWitnessCount)
 		}
 
-		// Must have witness list
+		// Must have witness list (using 'p' tags as per NIP spec)
 		witnesses := extractWitnesses(evt)
 		if len(witnesses) == 0 {
 			return fmt.Errorf("missing witnesses")
@@ -51,11 +39,11 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 			return fmt.Errorf("witness count mismatch: expected %d, got %d", 
 				unlockConfig.WitnessCount, len(witnesses))
 		}
-	}
 
-	// Must have commitment (w-commit tag)
-	if !hasCommitment(evt) {
-		return fmt.Errorf("missing commitment")
+		// Must have commitment (w-commit tag)
+		if !hasCommitment(evt) {
+			return fmt.Errorf("missing witness commitment")
+		}
 	}
 
 	// Must have valid encryption info (enc tag)
@@ -80,21 +68,16 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 
 // ValidateTimeCapsuleUnlockShare validates unlock share events (kind 11991)
 func ValidateTimeCapsuleUnlockShare(evt *nostr.Event) error {
-	// Must have vendor tag
-	if !hasVendorTag(evt) {
-		return fmt.Errorf("missing vendor tag [\"x-cap\", \"v1\"]")
-	}
-
 	// Must reference a capsule event
 	capsuleID := extractCapsuleReference(evt)
 	if capsuleID == "" {
 		return fmt.Errorf("missing capsule reference in 'e' tag")
 	}
 
-	// Must specify witness
+	// Must specify witness (using 'p' tag as per NIP spec)
 	witness := extractWitnessFromShare(evt)
 	if witness == "" {
-		return fmt.Errorf("missing witness in 'w' tag")
+		return fmt.Errorf("missing witness in 'p' tag")
 	}
 
 	// Extract and validate unlock time
@@ -103,8 +86,8 @@ func ValidateTimeCapsuleUnlockShare(evt *nostr.Event) error {
 		return fmt.Errorf("invalid unlock time: %w", err)
 	}
 
-	// Share can only be posted at or after unlock time (with small tolerance)
-	tolerance := 5 * time.Minute // Allow 5 minutes early
+	// Share can only be posted at or after unlock time (with tolerance per NIP spec)
+	tolerance := 5 * time.Minute // Allow 5 minutes early (300 seconds per spec)
 	if time.Now().Before(unlockTime.Add(-tolerance)) {
 		return fmt.Errorf("share posted too early")
 	}
@@ -112,16 +95,53 @@ func ValidateTimeCapsuleUnlockShare(evt *nostr.Event) error {
 	return nil
 }
 
+// ValidateTimeCapsuleShareDistribution validates share distribution events (kind 11992)
+func ValidateTimeCapsuleShareDistribution(evt *nostr.Event) error {
+	// Must reference a capsule event
+	capsuleID := extractCapsuleReference(evt)
+	if capsuleID == "" {
+		return fmt.Errorf("missing capsule reference in 'e' tag")
+	}
+
+	// Must specify recipient witness (using 'p' tag as per NIP spec)
+	witness := extractWitnessFromShare(evt)
+	if witness == "" {
+		return fmt.Errorf("missing recipient witness in 'p' tag")
+	}
+
+	// Must have share index
+	shareIdx := extractShareIndex(evt)
+	if shareIdx < 0 {
+		return fmt.Errorf("missing or invalid share index")
+	}
+
+	// Must have encryption info for NIP-44 v2
+	if err := validateEncryption(evt); err != nil {
+		return fmt.Errorf("encryption validation failed: %w", err)
+	}
+
+	// Content should be non-empty (encrypted share)
+	if evt.Content == "" {
+		return fmt.Errorf("missing encrypted share content")
+	}
+
+	return nil
+}
+
 // IsTimeCapsuleEvent checks if an event is a time capsule
 func IsTimeCapsuleEvent(evt *nostr.Event) bool {
-	return (evt.Kind == constants.KindTimeCapsule || 
-			evt.Kind == constants.KindTimeCapsuleReplaceable) && 
-		   hasVendorTag(evt)
+	return evt.Kind == constants.KindTimeCapsule || 
+		   evt.Kind == constants.KindTimeCapsuleReplaceable
 }
 
 // IsTimeCapsuleUnlockShare checks if an event is an unlock share
 func IsTimeCapsuleUnlockShare(evt *nostr.Event) bool {
-	return evt.Kind == constants.KindTimeCapsuleUnlockShare && hasVendorTag(evt)
+	return evt.Kind == constants.KindTimeCapsuleUnlockShare
+}
+
+// IsTimeCapsuleShareDistribution checks if an event is a share distribution
+func IsTimeCapsuleShareDistribution(evt *nostr.Event) bool {
+	return evt.Kind == constants.KindTimeCapsuleShareDistribution
 }
 
 // Helper types
@@ -134,58 +154,48 @@ type UnlockConfig struct {
 
 // Helper functions
 
-func hasVendorTag(evt *nostr.Event) bool {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == constants.TagXCap && tag[1] == "v1" {
-			return true
-		}
-	}
-	return false
-}
-
 func extractUnlockConfig(evt *nostr.Event) (*UnlockConfig, error) {
 	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == constants.TagUnlock {
-			// Handle both formats:
-			// Format 1: ["u", "threshold", "t", "3", "n", "5", "T", "1735689600"]
-			// Format 2: ["u", "threshold,t,3,n,3,T,1756311650"]
-			
-			var parts []string
-			if len(tag) >= 8 {
-				// Format 1: separate elements
-				parts = tag[1:]
-			} else if len(tag) == 2 {
-				// Format 2: comma-separated string
-				parts = strings.Split(tag[1], ",")
-			} else {
-				return nil, fmt.Errorf("invalid unlock tag format")
-			}
-			
-			if len(parts) < 7 {
-				return nil, fmt.Errorf("insufficient unlock config parameters")
-			}
-			
-			mode := parts[0]
-			if mode != constants.ModeThreshold {
+		if len(tag) >= 8 && tag[0] == constants.TagUnlock {
+			// NIP format: ["u","threshold","t","<t>","n","<n>","T","<unix>"]
+			mode := tag[1]
+			if mode != constants.ModeThreshold && mode != constants.ModeScheduled {
 				return nil, fmt.Errorf("unsupported mode: %s", mode)
 			}
 
-			// Parse threshold and witness count
-			if parts[1] != "t" || parts[3] != "n" || parts[5] != "T" {
-				return nil, fmt.Errorf("invalid unlock config format")
+			// For scheduled mode, only need unlock time
+			if mode == constants.ModeScheduled {
+				if len(tag) < 4 || tag[2] != "T" {
+					return nil, fmt.Errorf("invalid scheduled mode format")
+				}
+				unlockTimestamp, err := strconv.ParseInt(tag[3], 10, 64)
+				if err != nil {
+					return nil, fmt.Errorf("invalid unlock timestamp: %s", tag[3])
+				}
+				return &UnlockConfig{
+					Mode:         mode,
+					Threshold:    0,
+					WitnessCount: 0,
+					UnlockTime:   time.Unix(unlockTimestamp, 0),
+				}, nil
 			}
 
-			threshold, err := strconv.Atoi(parts[2])
+			// For threshold mode, need all parameters
+			if len(tag) < 8 || tag[2] != "t" || tag[4] != "n" || tag[6] != "T" {
+				return nil, fmt.Errorf("invalid threshold mode format")
+			}
+
+			threshold, err := strconv.Atoi(tag[3])
 			if err != nil {
-				return nil, fmt.Errorf("invalid threshold: %s", parts[2])
+				return nil, fmt.Errorf("invalid threshold: %s", tag[3])
 			}
 
-			witnessCount, err := strconv.Atoi(parts[4])
+			witnessCount, err := strconv.Atoi(tag[5])
 			if err != nil {
-				return nil, fmt.Errorf("invalid witness count: %s", parts[4])
+				return nil, fmt.Errorf("invalid witness count: %s", tag[5])
 			}
 
-			unlockTimestamp, err := strconv.ParseInt(parts[6], 10, 64)
+			unlockTimestamp, err := strconv.ParseInt(tag[7], 10, 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid unlock timestamp: %s", tag[7])
 			}
@@ -204,34 +214,10 @@ func extractUnlockConfig(evt *nostr.Event) (*UnlockConfig, error) {
 func extractWitnesses(evt *nostr.Event) []string {
 	var witnesses []string
 	
+	// Use 'p' tags for witnesses as per NIP specification
 	for _, tag := range evt.Tags {
-		if len(tag) > 1 && tag[0] == constants.TagWitness {
-			// Handle multiple formats:
-			// Format 1: ["w", "npub1", "npub2", "npub3"] (multiple witnesses in one tag)
-			// Format 2: ["w", "npub1,npub2,npub3"] (comma-separated string)
-			// Format 3: Multiple separate ["w", "npub1"], ["w", "npub2"], ["w", "npub3"] tags
-			
-			if len(tag) > 2 {
-				// Format 1: multiple elements in single tag
-				witnesses = append(witnesses, tag[1:]...)
-			} else if len(tag) == 2 {
-				// Check if it's comma-separated (Format 2) or single witness (Format 3)
-				if strings.Contains(tag[1], ",") {
-					// Format 2: comma-separated string
-					csvWitnesses := strings.Split(tag[1], ",")
-					for _, w := range csvWitnesses {
-						w = strings.TrimSpace(w)
-						if w != "" {
-							witnesses = append(witnesses, w)
-						}
-					}
-				} else {
-					// Format 3: single witness in separate tag
-					if tag[1] != "" {
-						witnesses = append(witnesses, tag[1])
-					}
-				}
-			}
+		if len(tag) >= 2 && tag[0] == "p" {
+			witnesses = append(witnesses, tag[1])
 		}
 	}
 	
@@ -249,7 +235,7 @@ func extractCapsuleReference(evt *nostr.Event) string {
 
 func extractWitnessFromShare(evt *nostr.Event) string {
 	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == constants.TagWitness {
+		if len(tag) >= 2 && tag[0] == "p" {
 			return tag[1]
 		}
 	}
@@ -269,18 +255,20 @@ func extractUnlockTimeFromShare(evt *nostr.Event) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("missing unlock time")
 }
 
-func hasCommitment(evt *nostr.Event) bool {
+func extractShareIndex(evt *nostr.Event) int {
 	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == "w-commit" {
-			return true
+		if len(tag) >= 2 && tag[0] == constants.TagShareIndex {
+			if idx, err := strconv.Atoi(tag[1]); err == nil {
+				return idx
+			}
 		}
 	}
-	return false
+	return -1
 }
 
-func hasEncryption(evt *nostr.Event) bool {
+func hasCommitment(evt *nostr.Event) bool {
 	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == "enc" {
+		if len(tag) >= 2 && tag[0] == constants.TagWitnessCommit {
 			return true
 		}
 	}
@@ -289,7 +277,7 @@ func hasEncryption(evt *nostr.Event) bool {
 
 func validateEncryption(evt *nostr.Event) error {
 	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == "enc" {
+		if len(tag) >= 2 && tag[0] == constants.TagEncryption {
 			encType := tag[1]
 			// Validate encryption format
 			if !isValidEncryptionFormat(encType) {
@@ -317,7 +305,7 @@ func isValidEncryptionFormat(encType string) bool {
 
 func hasLocation(evt *nostr.Event) bool {
 	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == "loc" {
+		if len(tag) >= 2 && tag[0] == constants.TagLocation {
 			return true
 		}
 	}

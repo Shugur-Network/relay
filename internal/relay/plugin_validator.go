@@ -90,6 +90,7 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			11990: true, // Time capsule (immutable)
 			30095: true, // Time capsule (parameterized replaceable)
 			11991: true, // Time capsule unlock share
+			11992: true, // Time capsule share distribution
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -110,9 +111,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			1040:  {"e"},      // OpenTimestamps attestation requires "e" tag
 			30078: {"p"},      // NIP-78: Application-specific Data requires "p" tag
 			// Time Capsules
-			11990: {"x-cap", "u", "w"}, // Time capsule: vendor tag, unlock config, witnesses
-			30095: {"x-cap", "u", "w", "d"}, // Replaceable time capsule: + d tag
-			11991: {"x-cap", "e", "w", "T"}, // Unlock share: vendor tag, capsule ref, witness, time
+			11990: {"u", "p", "w-commit", "enc", "loc"}, // Time capsule: unlock config, witnesses, commitment, encryption, location
+			30095: {"u", "p", "w-commit", "enc", "loc", "d"}, // Replaceable time capsule: + d tag
+			11991: {"e", "p", "T"}, // Unlock share: capsule ref, witness, unlock time
+			11992: {"e", "p", "share-idx", "enc"}, // Share distribution: capsule ref, witness, share index, encryption
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -296,6 +298,8 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateTimeCapsuleEvent(event)
 	case 11991:
 		return nips.ValidateTimeCapsuleUnlockShare(event)
+	case 11992:
+		return nips.ValidateTimeCapsuleShareDistribution(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
