@@ -87,10 +87,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			13194: true, // NIP-59 Wallet Connect events
 			30078: true, // NIP-78 Application-specific Data
 			// Time Capsules
-			11990: true, // Time capsule (immutable)
+			1990: true, // Time capsule (immutable)
 			30095: true, // Time capsule (parameterized replaceable)
-			11991: true, // Time capsule unlock share
-			11992: true, // Time capsule share distribution
+			1991: true, // Time capsule unlock share
+			1992: true, // Time capsule share distribution
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -111,10 +111,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			1040:  {"e"},      // OpenTimestamps attestation requires "e" tag
 			30078: {"p"},      // NIP-78: Application-specific Data requires "p" tag
 			// Time Capsules
-			11990: {"u", "p", "w-commit", "enc", "loc"}, // Time capsule: unlock config, witnesses, commitment, encryption, location
+			1990: {"u", "p", "w-commit", "enc", "loc"}, // Time capsule: unlock config, witnesses, commitment, encryption, location
 			30095: {"u", "p", "w-commit", "enc", "loc", "d"}, // Replaceable time capsule: + d tag
-			11991: {"e", "p", "T"}, // Unlock share: capsule ref, witness, unlock time
-			11992: {"e", "p", "share-idx", "enc"}, // Share distribution: capsule ref, witness, share index, encryption
+			1991: {"e", "p", "T"}, // Unlock share: capsule ref, witness, unlock time
+			1992: {"e", "p", "share-idx", "enc"}, // Share distribution: capsule ref, witness, share index, encryption
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -221,7 +221,7 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 	// 8. Kind-specific required tags
 	if requiredTags, hasRequirements := pv.limits.RequiredTags[event.Kind]; hasRequirements {
 		// Skip generic tag validation for Time Capsules kinds - they have specialized validation
-		if event.Kind == 11990 || event.Kind == 30095 {
+		if event.Kind == 1990 || event.Kind == 30095 {
 			// Time Capsules have complex validation logic that varies by mode
 			// This is handled in the specialized NIP validation below
 		} else {
@@ -300,11 +300,11 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateGiftWrapEvent(event)
 	case 10002:
 		return nips.ValidateKind10002(*event)
-	case 11990, 30095:
+	case 1990, 30095:
 		return nips.ValidateTimeCapsuleEvent(event)
-	case 11991:
+	case 1991:
 		return nips.ValidateTimeCapsuleUnlockShare(event)
-	case 11992:
+	case 1992:
 		return nips.ValidateTimeCapsuleShareDistribution(event)
 	default:
 		// Check for NIP-16 ephemeral events

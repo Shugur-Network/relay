@@ -5,7 +5,7 @@
 # 
 # This test suite covers:
 # - Protocol validation (success/failure scenarios)
-# - All event kinds: 11990, 30095, 11991, 11992
+# - All event kinds: 1990, 30095, 1991, 1992
 # - Both threshold and scheduled unlock modes
 # - Cryptographic workflows (witness thresholds, time-based unlocking)
 # - End-to-end functionality (complete create→store→unlock→retrieve cycles)
@@ -45,7 +45,7 @@ echo -e "${BLUE}║  Protocol Validation Tests: $TOTAL_VALIDATION_TESTS         
 echo -e "${BLUE}║  Cryptographic Workflow Tests: $TOTAL_WORKFLOW_TESTS.                                    ║${NC}"
 echo -e "${BLUE}║  Total Tests: $TOTAL_TESTS                                                           ║${NC}"
 echo -e "${BLUE}║                                                                              ║${NC}"
-echo -e "${BLUE}║  Event Kinds Tested: 11990, 30095, 11991, 11992                              ║${NC}"
+echo -e "${BLUE}║  Event Kinds Tested: 1990, 30095, 1991, 1992                              ║${NC}"
 echo -e "${BLUE}║  Unlock Modes: threshold, scheduled                                          ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
@@ -206,11 +206,11 @@ log_info "Relay: $RELAY"
 
 log_section "SECTION 1: PROTOCOL VALIDATION TESTS"
 
-# Test V1: Valid Time Capsule Creation (Kind 11990, Threshold Mode)
-log_test "V1" "Create valid threshold time capsule (kind 11990)"
+# Test V1: Valid Time Capsule Creation (Kind 1990, Threshold Mode)
+log_test "V1" "Create valid threshold time capsule (kind 1990)"
 V1_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Test message for threshold capsule" | base64)" \
     -t u="threshold;t;2;n;3;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -243,7 +243,7 @@ expect_success "$V2_RESPONSE" "Valid parameterized replaceable time capsule crea
 log_test "V3" "Create valid scheduled mode time capsule"
 V3_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Scheduled release content" | base64)" \
     -t u="scheduled;T;$FUTURE_TIME" \
     -t enc="nip44:v2" \
@@ -256,7 +256,7 @@ expect_success "$V3_RESPONSE" "Valid scheduled mode time capsule creation"
 log_test "V4" "Missing unlock configuration - Should fail"
 V4_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Missing unlock config" | base64)" \
     -t p="$WITNESS1_PUBKEY" \
     -t p="$WITNESS2_PUBKEY" \
@@ -269,7 +269,7 @@ expect_failure "$V4_RESPONSE" "Missing unlock configuration rejection"
 log_test "V5" "Invalid threshold format - Should fail"
 V5_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Invalid threshold" | base64)" \
     -t u="threshold;t;invalid;n;3;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -284,7 +284,7 @@ expect_failure "$V5_RESPONSE" "Invalid threshold format rejection"
 log_test "V6" "Threshold greater than witness count - Should fail"
 V6_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Invalid threshold vs witnesses" | base64)" \
     -t u="threshold;t;5;n;3;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -299,7 +299,7 @@ expect_failure "$V6_RESPONSE" "Invalid threshold vs witness count rejection"
 log_test "V7" "Missing witnesses for threshold mode - Should fail"
 V7_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Missing witnesses" | base64)" \
     -t u="threshold;t;2;n;3;T;$FUTURE_TIME" \
     -t enc="nip44:v2" \
@@ -311,7 +311,7 @@ expect_failure "$V7_RESPONSE" "Missing witnesses rejection"
 log_test "V8" "Missing commitment for threshold mode - Should fail"
 V8_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Missing commitment" | base64)" \
     -t u="threshold;t;2;n;3;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -326,7 +326,7 @@ expect_failure "$V8_RESPONSE" "Missing commitment rejection"
 log_test "V9" "Missing encryption info - Should fail"
 V9_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Missing encryption" | base64)" \
     -t u="threshold;t;1;n;1;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -339,7 +339,7 @@ expect_failure "$V9_RESPONSE" "Missing encryption info rejection"
 log_test "V10" "Missing location info - Should fail"
 V10_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Missing location" | base64)" \
     -t u="threshold;t;1;n;1;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -366,7 +366,7 @@ expect_failure "$V11_RESPONSE" "Missing d tag for replaceable rejection"
 log_test "V12" "Invalid encryption format - Should fail"
 V12_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Invalid encryption" | base64)" \
     -t u="threshold;t;1;n;1;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -380,7 +380,7 @@ expect_failure "$V12_RESPONSE" "Invalid encryption format rejection"
 log_test "V13" "Zero threshold - Should fail"
 V13_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Zero threshold" | base64)" \
     -t u="threshold;t;0;n;2;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -394,7 +394,7 @@ expect_failure "$V13_RESPONSE" "Zero threshold rejection"
 log_test "V14" "External storage with URI"
 V14_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "" \
     -t u="threshold;t;1;n;1;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -406,14 +406,14 @@ V14_RESPONSE=$(nak event \
     $RELAY 2>&1)
 expect_success "$V14_RESPONSE" "External storage with URI"
 
-# Test V15: Valid unlock share (Kind 11991)
+# Test V15: Valid unlock share (Kind 1991)
 log_test "V15" "Create valid unlock share"
 if [[ -n "$V1_RESPONSE" ]]; then
     V1_EVENT_ID=$(echo "$V1_RESPONSE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4 | head -1)
     if [[ -n "$V1_EVENT_ID" ]]; then
         V15_RESPONSE=$(nak event \
             --sec $WITNESS1_PRIVKEY \
-            -k 11991 \
+            -k 1991 \
             --content "$(echo -n "test_share_data_witness1" | base64)" \
             -t e="$V1_EVENT_ID" \
             -t p="$WITNESS1_PUBKEY" \
@@ -433,7 +433,7 @@ fi
 log_test "V16" "Missing event reference in unlock share - Should fail"
 V16_RESPONSE=$(nak event \
     --sec $WITNESS1_PRIVKEY \
-    -k 11991 \
+    -k 1991 \
     --content "$(echo -n "missing_event_ref" | base64)" \
     -t p="$WITNESS1_PUBKEY" \
     -t T="$FUTURE_TIME" \
@@ -444,7 +444,7 @@ expect_failure "$V16_RESPONSE" "Missing event reference rejection"
 log_test "V17" "Missing witness in unlock share - Should fail"
 V17_RESPONSE=$(nak event \
     --sec $WITNESS1_PRIVKEY \
-    -k 11991 \
+    -k 1991 \
     --content "$(echo -n "missing_witness" | base64)" \
     -t e="dummy_event_id" \
     -t T="$FUTURE_TIME" \
@@ -455,19 +455,19 @@ expect_failure "$V17_RESPONSE" "Missing witness rejection"
 log_test "V18" "Missing unlock time in unlock share - Should fail"
 V18_RESPONSE=$(nak event \
     --sec $WITNESS1_PRIVKEY \
-    -k 11991 \
+    -k 1991 \
     --content "$(echo -n "missing_time" | base64)" \
     -t e="dummy_event_id" \
     -t p="$WITNESS1_PUBKEY" \
     $RELAY 2>&1)
 expect_failure "$V18_RESPONSE" "Missing unlock time rejection"
 
-# Test V19: Valid share distribution (Kind 11992)
+# Test V19: Valid share distribution (Kind 1992)
 log_test "V19" "Create valid share distribution"
 if [[ -n "$V1_EVENT_ID" ]]; then
     V19_RESPONSE=$(nak event \
         --sec $AUTHOR_PRIVKEY \
-        -k 11992 \
+        -k 1992 \
         --content "$(echo -n "encrypted_share_for_witness1" | base64)" \
         -t e="$V1_EVENT_ID" \
         -t p="$WITNESS1_PUBKEY" \
@@ -484,7 +484,7 @@ fi
 log_test "V20" "Missing share index in distribution - Should fail"
 V20_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11992 \
+    -k 1992 \
     --content "$(echo -n "missing_share_idx" | base64)" \
     -t e="dummy_event_id" \
     -t p="$WITNESS1_PUBKEY" \
@@ -496,7 +496,7 @@ expect_failure "$V20_RESPONSE" "Missing share index rejection"
 log_test "V21" "Invalid share index - Should fail"
 V21_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11992 \
+    -k 1992 \
     --content "$(echo -n "invalid_share_idx" | base64)" \
     -t e="dummy_event_id" \
     -t p="$WITNESS1_PUBKEY" \
@@ -509,7 +509,7 @@ expect_failure "$V21_RESPONSE" "Invalid share index rejection"
 log_test "V22" "Witness count mismatch - Should fail"
 V22_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Count mismatch" | base64)" \
     -t u="threshold;t;2;n;5;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -524,7 +524,7 @@ expect_failure "$V22_RESPONSE" "Witness count mismatch rejection"
 log_test "V23" "Maximum threshold equals witness count"
 V23_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Max threshold test" | base64)" \
     -t u="threshold;t;3;n;3;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -540,7 +540,7 @@ expect_success "$V23_RESPONSE" "Maximum threshold handling"
 log_test "V24" "Minimum valid threshold (1)"
 V24_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Min threshold test" | base64)" \
     -t u="threshold;t;1;n;1;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -554,7 +554,7 @@ expect_success "$V24_RESPONSE" "Minimum threshold handling"
 log_test "V25" "Large witness list (within limits)"
 V25_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Large witness list test" | base64)" \
     -t u="threshold;t;3;n;5;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -572,7 +572,7 @@ expect_success "$V25_RESPONSE" "Large witness list handling"
 log_test "V26" "Invalid unlock mode - Should fail"
 V26_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Invalid mode test" | base64)" \
     -t u="invalid_mode;T;$FUTURE_TIME" \
     -t enc="nip44:v2" \
@@ -584,7 +584,7 @@ expect_failure "$V26_RESPONSE" "Invalid unlock mode rejection"
 log_test "V27" "Malformed unlock configuration - Should fail"
 V27_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Malformed config test" | base64)" \
     -t u="threshold;invalid;format" \
     -t p="$WITNESS1_PUBKEY" \
@@ -597,7 +597,7 @@ expect_failure "$V27_RESPONSE" "Malformed unlock configuration rejection"
 log_test "V28" "Invalid time format - Should fail"
 V28_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Invalid time test" | base64)" \
     -t u="scheduled;T;invalid_time" \
     -t enc="nip44:v2" \
@@ -610,7 +610,7 @@ log_test "V29" "Very far future time (1 year)"
 VERY_FAR_FUTURE=$((CURRENT_TIME + 31536000))  # 1 year from now
 V29_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$(echo -n "Far future test" | base64)" \
     -t u="scheduled;T;$VERY_FAR_FUTURE" \
     -t enc="nip44:v2" \
@@ -645,7 +645,7 @@ if [[ -n "$V2_RESPONSE" ]]; then
     if [[ -n "$V2_EVENT_ID" && -n "$V2_D_TAG" ]]; then
         V31_RESPONSE=$(nak event \
             --sec $WITNESS1_PRIVKEY \
-            -k 11991 \
+            -k 1991 \
             --content "$(echo -n "addressable_share_data" | base64)" \
             -t e="$V2_EVENT_ID" \
             -t a="30095:$AUTHOR_PUBKEY:$V2_D_TAG" \
@@ -667,7 +667,7 @@ log_test "V32" "Share distribution with addressable reference"
 if [[ -n "$V2_EVENT_ID" && -n "$V2_D_TAG" ]]; then
     V32_RESPONSE=$(nak event \
         --sec $AUTHOR_PRIVKEY \
-        -k 11992 \
+        -k 1992 \
         --content "$(echo -n "addressable_distribution_share" | base64)" \
         -t e="$V2_EVENT_ID" \
         -t a="30095:$AUTHOR_PUBKEY:$V2_D_TAG" \
@@ -696,7 +696,7 @@ ENCRYPTED_CONTENT_1=$(echo -n "$SECRET_MESSAGE_1" | base64)
 
 W1_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$ENCRYPTED_CONTENT_1" \
     -t u="threshold;t;2;n;3;T;$CURRENT_UNLOCK" \
     -t p="$WITNESS1_PUBKEY" \
@@ -727,7 +727,7 @@ if [[ -n "$W1_CAPSULE_ID" ]]; then
     
     W2_RESPONSE=$(nak event \
         --sec $WITNESS1_PRIVKEY \
-        -k 11991 \
+        -k 1991 \
         --content "${SHARES_1[0]}" \
         -t e="$W1_CAPSULE_ID" \
         -t p="$WITNESS1_PUBKEY" \
@@ -761,7 +761,7 @@ if [[ -n "$W1_CAPSULE_ID" ]]; then
     
     W3_RESPONSE=$(nak event \
         --sec $WITNESS2_PRIVKEY \
-        -k 11991 \
+        -k 1991 \
         --content "${SHARES_1[1]}" \
         -t e="$W1_CAPSULE_ID" \
         -t p="$WITNESS2_PUBKEY" \
@@ -803,7 +803,7 @@ ENCRYPTED_CONTENT_2=$(echo -n "$SECRET_MESSAGE_2" | base64)
 
 W4_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$ENCRYPTED_CONTENT_2" \
     -t u="threshold;t;3;n;5;T;$CURRENT_UNLOCK" \
     -t p="$WITNESS1_PUBKEY" \
@@ -836,7 +836,7 @@ if [[ -n "$W4_CAPSULE_ID" ]]; then
     # Submit first two shares
     nak event \
         --sec $WITNESS1_PRIVKEY \
-        -k 11991 \
+        -k 1991 \
         --content "${SHARES_2[0]}" \
         -t e="$W4_CAPSULE_ID" \
         -t p="$WITNESS1_PUBKEY" \
@@ -845,7 +845,7 @@ if [[ -n "$W4_CAPSULE_ID" ]]; then
     
     nak event \
         --sec $WITNESS2_PRIVKEY \
-        -k 11991 \
+        -k 1991 \
         --content "${SHARES_2[1]}" \
         -t e="$W4_CAPSULE_ID" \
         -t p="$WITNESS2_PUBKEY" \
@@ -874,7 +874,7 @@ if [[ -n "$W4_CAPSULE_ID" ]]; then
     
     W6_RESPONSE=$(nak event \
         --sec $WITNESS3_PRIVKEY \
-        -k 11991 \
+        -k 1991 \
         --content "${SHARES_2[2]}" \
         -t e="$W4_CAPSULE_ID" \
         -t p="$WITNESS3_PUBKEY" \
@@ -916,7 +916,7 @@ ENCRYPTED_CONTENT_3=$(echo -n "$SECRET_MESSAGE_3" | base64)
 
 W7_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$ENCRYPTED_CONTENT_3" \
     -t u="scheduled;T;$CURRENT_UNLOCK" \
     -t enc="nip44:v2" \
@@ -943,7 +943,7 @@ if [[ -n "$W1_CAPSULE_ID" ]]; then
     # Distribute to first witness
     DIST1_RESPONSE=$(nak event \
         --sec $AUTHOR_PRIVKEY \
-        -k 11992 \
+        -k 1992 \
         --content "$(echo -n "encrypted_share_for_witness1" | base64)" \
         -t e="$W1_CAPSULE_ID" \
         -t p="$WITNESS1_PUBKEY" \
@@ -954,7 +954,7 @@ if [[ -n "$W1_CAPSULE_ID" ]]; then
     # Distribute to second witness
     DIST2_RESPONSE=$(nak event \
         --sec $AUTHOR_PRIVKEY \
-        -k 11992 \
+        -k 1992 \
         --content "$(echo -n "encrypted_share_for_witness2" | base64)" \
         -t e="$W1_CAPSULE_ID" \
         -t p="$WITNESS2_PUBKEY" \
@@ -965,7 +965,7 @@ if [[ -n "$W1_CAPSULE_ID" ]]; then
     # Distribute to third witness
     DIST3_RESPONSE=$(nak event \
         --sec $AUTHOR_PRIVKEY \
-        -k 11992 \
+        -k 1992 \
         --content "$(echo -n "encrypted_share_for_witness3" | base64)" \
         -t e="$W1_CAPSULE_ID" \
         -t p="$WITNESS3_PUBKEY" \
@@ -998,7 +998,7 @@ if [[ -n "$W1_CAPSULE_ID" ]]; then
     
     W9_RESPONSE=$(nak event \
         --sec $UNAUTHORIZED_PRIVKEY \
-        -k 11991 \
+        -k 1991 \
         --content "$(echo -n "unauthorized_share_attempt" | base64)" \
         -t e="$W1_CAPSULE_ID" \
         -t p="$UNAUTHORIZED_PUBKEY" \
@@ -1027,7 +1027,7 @@ ENCRYPTED_CONTENT_4=$(echo -n "$SECRET_MESSAGE_4" | base64)
 
 W10_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 11990 \
+    -k 1990 \
     --content "$ENCRYPTED_CONTENT_4" \
     -t u="threshold;t;1;n;2;T;$FUTURE_TIME" \
     -t p="$WITNESS1_PUBKEY" \
@@ -1055,7 +1055,7 @@ if [[ -n "$FUTURE_CAPSULE_ID" ]]; then
     
     W11_RESPONSE=$(nak event \
         --sec $WITNESS1_PRIVKEY \
-        -k 11991 \
+        -k 1991 \
         --content "$(echo -n "early_unlock_attempt" | base64)" \
         -t e="$FUTURE_CAPSULE_ID" \
         -t p="$WITNESS1_PUBKEY" \
@@ -1075,16 +1075,16 @@ else
     test_failed
 fi
 
-# Test W12: Query and retrieval test (Kind 11990)
-log_test "W12" "Query time capsules (kind 11990)"
+# Test W12: Query and retrieval test (Kind 1990)
+log_test "W12" "Query time capsules (kind 1990)"
 log_step "Retrieving all time capsules from relay..."
 
 sleep 1  # Give relay time to process
-W12_QUERY=$(nak req -k 11990 $RELAY 2>&1)
-CAPSULE_COUNT=$(echo "$W12_QUERY" | grep -c '"kind":11990' || echo "0")
+W12_QUERY=$(nak req -k 1990 $RELAY 2>&1)
+CAPSULE_COUNT=$(echo "$W12_QUERY" | grep -c '"kind":1990' || echo "0")
 
 if [[ $CAPSULE_COUNT -gt 0 ]]; then
-    log_success "Retrieved $CAPSULE_COUNT time capsules (kind 11990)"
+    log_success "Retrieved $CAPSULE_COUNT time capsules (kind 1990)"
     
     # Verify structure contains required NIP fields
     if echo "$W12_QUERY" | grep -q '"u"' && echo "$W12_QUERY" | grep -q '"enc"' && echo "$W12_QUERY" | grep -q '"loc"'; then
@@ -1095,7 +1095,7 @@ if [[ $CAPSULE_COUNT -gt 0 ]]; then
         test_failed
     fi
 else
-    log_failure "No time capsules retrieved (kind 11990)" "$W12_QUERY"
+    log_failure "No time capsules retrieved (kind 1990)" "$W12_QUERY"
     test_failed
 fi
 
@@ -1120,10 +1120,10 @@ else
     test_passed
 fi
 
-# Test W14: Query unlock shares (Kind 11991)
-log_test "W14" "Query unlock shares (kind 11991)"
-W14_QUERY=$(nak req -k 11991 $RELAY 2>&1)
-SHARE_COUNT=$(echo "$W14_QUERY" | grep -c '"kind":11991' || echo "0")
+# Test W14: Query unlock shares (Kind 1991)
+log_test "W14" "Query unlock shares (kind 1991)"
+W14_QUERY=$(nak req -k 1991 $RELAY 2>&1)
+SHARE_COUNT=$(echo "$W14_QUERY" | grep -c '"kind":1991' || echo "0")
 
 if [[ $SHARE_COUNT -gt 0 ]]; then
     log_success "Retrieved $SHARE_COUNT unlock shares"
@@ -1141,10 +1141,10 @@ else
     test_failed
 fi
 
-# Test W15: Query share distributions (Kind 11992)
-log_test "W15" "Query share distributions (kind 11992)"
-W15_QUERY=$(nak req -k 11992 $RELAY 2>&1)
-DIST_COUNT=$(echo "$W15_QUERY" | grep -c '"kind":11992' || echo "0")
+# Test W15: Query share distributions (Kind 1992)
+log_test "W15" "Query share distributions (kind 1992)"
+W15_QUERY=$(nak req -k 1992 $RELAY 2>&1)
+DIST_COUNT=$(echo "$W15_QUERY" | grep -c '"kind":1992' || echo "0")
 
 if [[ $DIST_COUNT -gt 0 ]]; then
     log_success "Retrieved $DIST_COUNT share distributions"
@@ -1197,10 +1197,10 @@ echo ""
 echo -e "${BLUE}New NIP Implementation Test Coverage:${NC}"
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║ PROTOCOL VALIDATION (32 tests)                                                 ║${NC}"
-echo -e "${BLUE}║ • Kind 11990: Immutable time capsules                                          ║${NC}"
+echo -e "${BLUE}║ • Kind 1990: Immutable time capsules                                          ║${NC}"
 echo -e "${BLUE}║ • Kind 30095: Parameterized replaceable time capsules                          ║${NC}"
-echo -e "${BLUE}║ • Kind 11991: Unlock shares                                                    ║${NC}"
-echo -e "${BLUE}║ • Kind 11992: Share distributions                                              ║${NC}"
+echo -e "${BLUE}║ • Kind 1991: Unlock shares                                                    ║${NC}"
+echo -e "${BLUE}║ • Kind 1992: Share distributions                                              ║${NC}"
 echo -e "${BLUE}║ • Threshold and scheduled unlock modes                                         ║${NC}"
 echo -e "${BLUE}║ • Tag validation (u, p, w-commit, enc, loc, etc.)                             ║${NC}"
 echo -e "${BLUE}║ • Edge cases and error conditions                                              ║${NC}"
@@ -1221,7 +1221,7 @@ echo -e "${MAGENTA}📝 Key Improvements in New NIP Implementation:${NC}"
 echo -e "${MAGENTA}   ✅ Removed proprietary vendor tags (x-cap)${NC}"
 echo -e "${MAGENTA}   ✅ Standard Nostr tag conventions (p for witnesses)${NC}"
 echo -e "${MAGENTA}   ✅ Support for scheduled unlock mode${NC}"
-echo -e "${MAGENTA}   ✅ Share distribution mechanism (kind 11992)${NC}"
+echo -e "${MAGENTA}   ✅ Share distribution mechanism (kind 1992)${NC}"
 echo -e "${MAGENTA}   ✅ Proper NIP-11 capability advertisement${NC}"
 echo -e "${MAGENTA}   ✅ Enhanced validation and error handling${NC}"
 

@@ -3,13 +3,13 @@ package constants
 // Time Capsules event kinds
 const (
 	// KindTimeCapsule is for immutable time capsules (NIP-01 compatible)
-	KindTimeCapsule = 11990
+	KindTimeCapsule = 1990
 	// KindTimeCapsuleReplaceable is for parameterized replaceable time capsules
 	KindTimeCapsuleReplaceable = 30095
 	// KindTimeCapsuleUnlockShare is for witness unlock shares
-	KindTimeCapsuleUnlockShare = 11991
+	KindTimeCapsuleUnlockShare = 1991
 	// KindTimeCapsuleShareDistribution is for share distribution events
-	KindTimeCapsuleShareDistribution = 11992
+	KindTimeCapsuleShareDistribution = 1992
 )
 
 // Time Capsules tag names

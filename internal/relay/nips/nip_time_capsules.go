@@ -9,7 +9,7 @@ import (
 	nostr "github.com/nbd-wtf/go-nostr"
 )
 
-// ValidateTimeCapsuleEvent validates time capsule events (kinds 11990, 30095)
+// ValidateTimeCapsuleEvent validates time capsule events (kinds 1990, 30095)
 func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 	// Extract unlock configuration
 	unlockConfig, err := extractUnlockConfig(evt)
@@ -72,7 +72,7 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 	return nil
 }
 
-// ValidateTimeCapsuleUnlockShare validates unlock share events (kind 11991)
+// ValidateTimeCapsuleUnlockShare validates unlock share events (kind 1991)
 func ValidateTimeCapsuleUnlockShare(evt *nostr.Event) error {
 	// Must reference a capsule event
 	capsuleID := extractCapsuleReference(evt)
@@ -101,7 +101,7 @@ func ValidateTimeCapsuleUnlockShare(evt *nostr.Event) error {
 	return nil
 }
 
-// ValidateTimeCapsuleShareDistribution validates share distribution events (kind 11992)
+// ValidateTimeCapsuleShareDistribution validates share distribution events (kind 1992)
 func ValidateTimeCapsuleShareDistribution(evt *nostr.Event) error {
 	// Must reference a capsule event
 	capsuleID := extractCapsuleReference(evt)
