@@ -220,19 +220,25 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 
 	// 8. Kind-specific required tags
 	if requiredTags, hasRequirements := pv.limits.RequiredTags[event.Kind]; hasRequirements {
-		for _, requiredTag := range requiredTags {
-			found := false
-			for _, tag := range event.Tags {
-				if len(tag) > 0 && tag[0] == requiredTag {
-					found = true
-					break
+		// Skip generic tag validation for Time Capsules kinds - they have specialized validation
+		if event.Kind == 11990 || event.Kind == 30095 {
+			// Time Capsules have complex validation logic that varies by mode
+			// This is handled in the specialized NIP validation below
+		} else {
+			for _, requiredTag := range requiredTags {
+				found := false
+				for _, tag := range event.Tags {
+					if len(tag) > 0 && tag[0] == requiredTag {
+						found = true
+						break
+					}
 				}
-			}
-			if !found {
-				if event.Kind == 30018 && requiredTag == "t" {
-					return false, "product must have at least one category tag"
+				if !found {
+					if event.Kind == 30018 && requiredTag == "t" {
+						return false, "product must have at least one category tag"
+					}
+					return false, fmt.Sprintf("missing required '%s' tag", requiredTag)
 				}
-				return false, fmt.Sprintf("missing required '%s' tag", requiredTag)
 			}
 		}
 	}

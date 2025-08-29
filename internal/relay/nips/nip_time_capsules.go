@@ -17,7 +17,7 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 		return fmt.Errorf("invalid unlock config: %w", err)
 	}
 
-	// Validate threshold mode parameters
+	// Validate mode-specific parameters
 	if unlockConfig.Mode == constants.ModeThreshold {
 		if unlockConfig.Threshold < 1 || unlockConfig.WitnessCount < unlockConfig.Threshold {
 			return fmt.Errorf("invalid threshold configuration: t=%d, n=%d", 
@@ -43,6 +43,12 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 		// Must have commitment (w-commit tag)
 		if !hasCommitment(evt) {
 			return fmt.Errorf("missing witness commitment")
+		}
+	} else if unlockConfig.Mode == constants.ModeScheduled {
+		// Scheduled mode doesn't require witnesses or commitments
+		// Just validate the time is valid
+		if unlockConfig.UnlockTime.IsZero() {
+			return fmt.Errorf("invalid unlock time for scheduled mode")
 		}
 	}
 
@@ -156,8 +162,9 @@ type UnlockConfig struct {
 
 func extractUnlockConfig(evt *nostr.Event) (*UnlockConfig, error) {
 	for _, tag := range evt.Tags {
-		if len(tag) >= 8 && tag[0] == constants.TagUnlock {
-			// NIP format: ["u","threshold","t","<t>","n","<n>","T","<unix>"]
+		if len(tag) >= 2 && tag[0] == constants.TagUnlock {
+			// NIP format: ["u","threshold","t","<t>","n","<n>","T","<unix>"] for threshold
+			// NIP format: ["u","scheduled","T","<unix>"] for scheduled
 			mode := tag[1]
 			if mode != constants.ModeThreshold && mode != constants.ModeScheduled {
 				return nil, fmt.Errorf("unsupported mode: %s", mode)
