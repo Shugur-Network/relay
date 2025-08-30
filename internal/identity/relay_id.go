@@ -127,3 +127,36 @@ func loadRelayIdentity(path string) (*RelayIdentity, error) {
 		RelayID:    relayID,
 	}, nil
 }
+
+// GetOrCreateRelayIdentityWithConfig loads existing relay identity or creates a new one,
+// but uses the configured public key if provided instead of generating/loading one
+func GetOrCreateRelayIdentityWithConfig(configuredPublicKey string) (*RelayIdentity, error) {
+	// If a public key is configured, use it directly
+	if configuredPublicKey != "" {
+		// Validate the public key format
+		if len(configuredPublicKey) != 64 {
+			return nil, fmt.Errorf("configured public key must be 64 hex characters, got %d", len(configuredPublicKey))
+		}
+
+		pubKeyBytes, err := hex.DecodeString(configuredPublicKey)
+		if err != nil {
+			return nil, fmt.Errorf("configured public key is not valid hex: %w", err)
+		}
+
+		if len(pubKeyBytes) != 32 {
+			return nil, fmt.Errorf("configured public key must be 32 bytes when decoded, got %d", len(pubKeyBytes))
+		}
+
+		// Generate relay ID from configured public key
+		relayID := fmt.Sprintf("relay-%s", configuredPublicKey[:16])
+
+		return &RelayIdentity{
+			PublicKey:  configuredPublicKey,
+			PrivateKey: "", // No private key when using configured public key
+			RelayID:    relayID,
+		}, nil
+	}
+
+	// Fall back to the original behavior if no public key is configured
+	return GetOrCreateRelayIdentity()
+}

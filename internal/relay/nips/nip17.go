@@ -13,11 +13,11 @@ import (
 
 // ValidatePrivateDirectMessage validates NIP-17 private direct message events
 func ValidatePrivateDirectMessage(evt *nostr.Event) error {
-	logger.Debug("NIP-17: Validating private direct message", 
+	logger.Debug("NIP-17: Validating private direct message",
 		zap.String("event_id", evt.ID),
 		zap.Int("kind", evt.Kind),
 		zap.String("pubkey", evt.PubKey))
-		
+
 	switch evt.Kind {
 	case 14:
 		return validateChatMessage(evt)
@@ -28,7 +28,7 @@ func ValidatePrivateDirectMessage(evt *nostr.Event) error {
 	case 10050:
 		return validateDMRelayList(evt)
 	default:
-		logger.Warn("NIP-17: Invalid event kind for private direct message", 
+		logger.Warn("NIP-17: Invalid event kind for private direct message",
 			zap.String("event_id", evt.ID),
 			zap.Int("kind", evt.Kind))
 		return fmt.Errorf("invalid event kind for private direct message: %d", evt.Kind)
@@ -38,7 +38,7 @@ func ValidatePrivateDirectMessage(evt *nostr.Event) error {
 // validateChatMessage validates chat messages (kind 14)
 func validateChatMessage(evt *nostr.Event) error {
 	if evt.Kind != 14 {
-		logger.Warn("NIP-17: Invalid event kind for chat message", 
+		logger.Warn("NIP-17: Invalid event kind for chat message",
 			zap.String("event_id", evt.ID),
 			zap.Int("kind", evt.Kind))
 		return fmt.Errorf("invalid event kind for chat message: %d", evt.Kind)
@@ -51,7 +51,7 @@ func validateChatMessage(evt *nostr.Event) error {
 			hasPTag = true
 			// Validate pubkey format
 			if len(tag[1]) != 64 {
-				logger.Warn("NIP-17: Invalid pubkey in 'p' tag", 
+				logger.Warn("NIP-17: Invalid pubkey in 'p' tag",
 					zap.String("event_id", evt.ID),
 					zap.String("invalid_pubkey", tag[1]))
 				return fmt.Errorf("invalid pubkey in 'p' tag: %s", tag[1])
@@ -61,7 +61,7 @@ func validateChatMessage(evt *nostr.Event) error {
 	}
 
 	if !hasPTag {
-		logger.Warn("NIP-17: Chat message missing required 'p' tag", 
+		logger.Warn("NIP-17: Chat message missing required 'p' tag",
 			zap.String("event_id", evt.ID))
 		return fmt.Errorf("chat message should have 'p' tag with recipient")
 	}
@@ -118,7 +118,7 @@ func validateGiftWrap(evt *nostr.Event) error {
 			}
 		}
 	}
-	
+
 	if recipientCount != 1 {
 		return fmt.Errorf("gift wrap events must have exactly one recipient")
 	}

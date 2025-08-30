@@ -39,7 +39,7 @@ func ValidateKind10002(evt nostr.Event) error {
 		if len(tag) == 0 {
 			continue
 		}
-		
+
 		if tag[0] == "r" {
 			if err := validateRelayTag(tag); err != nil {
 				return fmt.Errorf("invalid r tag: %w", err)
@@ -57,7 +57,7 @@ func validateRelayTag(tag []string) error {
 	}
 
 	relayURL := tag[1]
-	
+
 	// Validate URL format
 	if err := validateRelayURL(relayURL); err != nil {
 		return fmt.Errorf("invalid relay URL '%s': %w", relayURL, err)
@@ -144,20 +144,20 @@ func validateRelayMarker(marker string) error {
 // ExtractRelayList extracts relay information from a kind 10002 event
 func ExtractRelayList(evt nostr.Event) map[string]string {
 	relays := make(map[string]string)
-	
+
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "r" {
 			relayURL := tag[1]
 			marker := "read,write" // default if no marker specified
-			
+
 			if len(tag) >= 3 {
 				marker = tag[2]
 			}
-			
+
 			relays[relayURL] = marker
 		}
 	}
-	
+
 	return relays
 }
 

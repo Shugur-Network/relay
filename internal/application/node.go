@@ -23,13 +23,13 @@ type Node struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	db             *storage.DB
-	config         *config.Config
-	WorkerPool     *workers.WorkerPool
-	EventProcessor *storage.EventProcessor
+	db              *storage.DB
+	config          *config.Config
+	WorkerPool      *workers.WorkerPool
+	EventProcessor  *storage.EventProcessor
 	EventDispatcher *storage.EventDispatcher
-	Validator      domain.EventValidator
-	EventValidator *relay.EventValidator
+	Validator       domain.EventValidator
+	EventValidator  *relay.EventValidator
 
 	wsConns   map[domain.WebSocketConnection]bool
 	wsConnsMu sync.RWMutex

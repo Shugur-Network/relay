@@ -14,10 +14,10 @@ import (
 
 // ChangefeedEvent represents a changefeed event from CockroachDB
 type ChangefeedEvent struct {
-	Table string          `json:"table"`
-	Key   []interface{}   `json:"key"`
-	Value *EventRowData   `json:"value"`
-	After *EventRowData   `json:"after"`
+	Table string        `json:"table"`
+	Key   []interface{} `json:"key"`
+	Value *EventRowData `json:"value"`
+	After *EventRowData `json:"after"`
 }
 
 // EventRowData represents the event data structure from the database
@@ -67,7 +67,7 @@ type EventDispatcher struct {
 // NewEventDispatcher creates a new event dispatcher for real-time events
 func NewEventDispatcher(db *DB) *EventDispatcher {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	return &EventDispatcher{
 		db:              db,
 		clients:         make(map[string]chan *nostr.Event),
@@ -103,7 +103,7 @@ func (ed *EventDispatcher) Start() error {
 func (ed *EventDispatcher) Stop() {
 	logger.Info("Stopping event dispatcher...")
 	ed.cancel()
-	
+
 	// Close all client channels
 	ed.clientsMu.Lock()
 	for clientID, clientChan := range ed.clients {
@@ -190,14 +190,14 @@ func (ed *EventDispatcher) listenToChangefeed() {
 // runChangefeed implements cross-node event synchronization using polling
 func (ed *EventDispatcher) runChangefeed() error {
 	logger.Info("Starting cross-node event polling for distributed synchronization...")
-	
+
 	// Track the latest timestamp we've seen to avoid duplicates
 	var lastSeen = time.Now().Unix()
-	
+
 	// Create a ticker for polling new events
 	ticker := time.NewTicker(2 * time.Second) // Poll every 2 seconds
 	defer ticker.Stop()
-	
+
 	logger.Info("✅ Cross-node polling started, checking for events every 2s...")
 
 	for {
@@ -208,13 +208,13 @@ func (ed *EventDispatcher) runChangefeed() error {
 		case <-ticker.C:
 			// Query for events created after our last seen timestamp
 			currentTime := time.Now().Unix()
-			
+
 			query := `
 				SELECT id, pubkey, kind, created_at, content, tags, sig 
 				FROM events 
 				WHERE created_at > $1 AND created_at <= $2
 				ORDER BY created_at ASC`
-			
+
 			rows, err := ed.db.Pool.Query(ed.ctx, query, lastSeen, currentTime)
 			if err != nil {
 				logger.Error("Failed to query for new events", zap.Error(err))
@@ -245,7 +245,7 @@ func (ed *EventDispatcher) runChangefeed() error {
 					continue
 				}
 
-				logger.Debug("Found new cross-node event", 
+				logger.Debug("Found new cross-node event",
 					zap.String("event_id", event.ID),
 					zap.String("pubkey", event.PubKey),
 					zap.Int("kind", event.Kind),
@@ -262,7 +262,7 @@ func (ed *EventDispatcher) runChangefeed() error {
 			rows.Close()
 
 			if newEventsCount > 0 {
-				logger.Info("Synchronized cross-node events", 
+				logger.Info("Synchronized cross-node events",
 					zap.Int("count", newEventsCount),
 					zap.Int64("time_range", currentTime-lastSeen))
 			}
@@ -302,7 +302,7 @@ func (ed *EventDispatcher) broadcastEvents(events []*nostr.Event) {
 	ed.clientsMu.RUnlock()
 
 	if len(events) > 0 {
-		logger.Info("Broadcasting events to clients", 
+		logger.Info("Broadcasting events to clients",
 			zap.Int("event_count", len(events)),
 			zap.Int("client_count", clientCount))
 	}

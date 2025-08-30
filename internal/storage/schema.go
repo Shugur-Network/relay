@@ -110,7 +110,7 @@ func (db *DB) InitializeChangefeed(ctx context.Context) error {
 	// 1. The EventDispatcher creates its own changefeed when needed
 	// 2. Multiple persistent changefeeds can cause resource issues
 	// 3. Internal changefeeds (used by EventDispatcher) don't need pre-creation
-	
+
 	// Test changefeed permissions by checking if the user has CHANGEFEED privileges
 	// We'll try to create a temporary changefeed that we immediately cancel
 	testChangefeedSQL := "CREATE CHANGEFEED FOR events WITH format='json', envelope='row', updated, initial_scan='no', resolved='10s'"
@@ -119,11 +119,11 @@ func (db *DB) InitializeChangefeed(ctx context.Context) error {
 	// or if changefeeds aren't properly configured
 	ctx_test, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	
+
 	// Try to create a changefeed (it will start running, so we need to close it immediately)
 	rows, err := db.Pool.Query(ctx_test, testChangefeedSQL)
 	if err != nil {
-		logger.Warn("Changefeed test failed", 
+		logger.Warn("Changefeed test failed",
 			zap.Error(err),
 			zap.String("note", "This is expected in single-node or test environments without changefeed support"))
 		return fmt.Errorf("changefeed permissions test failed: %w", err)

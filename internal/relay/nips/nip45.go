@@ -57,7 +57,7 @@ func ValidateCountFilter(filter nostr.Filter) error {
 	if len(filter.Authors) > 100 {
 		return fmt.Errorf("too many authors in filter (max 100)")
 	}
-	
+
 	if len(filter.Kinds) > 20 {
 		return fmt.Errorf("too many kinds in filter (max 20)")
 	}

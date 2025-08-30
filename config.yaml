@@ -47,6 +47,10 @@ RELAY_POLICY:
   WHITELIST:
     PUBKEYS: [] # List of pubkeys to whitelist (hex format)
 
+CAPSULES:
+  ENABLED: true # Enable Time Capsules feature
+  MAX_WITNESSES: 10 # Maximum number of witnesses allowed per time capsule
+
 DATABASE:
   SERVER: "cockroachdb" # Database server hostname
   PORT: 26257 # Database port
