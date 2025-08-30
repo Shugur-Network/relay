@@ -10,9 +10,9 @@ import (
 // This embeds the standard Nostr event structure and adds helper methods
 type TimeCapsuleEvent struct {
 	nostr.Event
-	
+
 	// Cached parsed values for performance (computed from tags)
-	UnlockTime    *time.Time `json:"unlock_time,omitempty"`
+	UnlockTime   *time.Time `json:"unlock_time,omitempty"`
 	Mode         string     `json:"mode,omitempty"`          // "threshold" or "vdf"
 	Threshold    int        `json:"threshold,omitempty"`     // t value
 	WitnessCount int        `json:"witness_count,omitempty"` // n value
@@ -25,12 +25,12 @@ type TimeCapsuleEvent struct {
 // UnlockShareEvent represents a witness unlock share using the existing events table
 type UnlockShareEvent struct {
 	nostr.Event
-	
+
 	// Cached parsed values for performance (computed from tags)
-	CapsuleID    string     `json:"capsule_id,omitempty"`    // referenced capsule event ID
-	WitnessNpub  string     `json:"witness_npub,omitempty"`  // witness posting the share
-	UnlockTime   *time.Time `json:"unlock_time,omitempty"`   // capsule unlock time
-	ProofData    string     `json:"proof_data,omitempty"`    // optional auxiliary proof
+	CapsuleID   string     `json:"capsule_id,omitempty"`   // referenced capsule event ID
+	WitnessNpub string     `json:"witness_npub,omitempty"` // witness posting the share
+	UnlockTime  *time.Time `json:"unlock_time,omitempty"`  // capsule unlock time
+	ProofData   string     `json:"proof_data,omitempty"`   // optional auxiliary proof
 }
 
 // CapsuleStatusResponse represents the API response for capsule status queries
@@ -51,8 +51,8 @@ type CapsuleStatusResponse struct {
 // CapsuleFilter represents query filters for finding capsules
 type CapsuleFilter struct {
 	PubKey       string     `json:"pubkey,omitempty"`
-	Status       string     `json:"status,omitempty"`       // "locked", "unlocked", "expired"
-	Mode         string     `json:"mode,omitempty"`         // "threshold", "vdf"
+	Status       string     `json:"status,omitempty"` // "locked", "unlocked", "expired"
+	Mode         string     `json:"mode,omitempty"`   // "threshold", "vdf"
 	UnlockedOnly bool       `json:"unlocked_only,omitempty"`
 	LockedOnly   bool       `json:"locked_only,omitempty"`
 	Before       *time.Time `json:"before,omitempty"`

@@ -25,7 +25,7 @@ type CapsulesCapability struct {
 // Nip11Handler handles NIP-11 requests
 func Nip11Handler(w http.ResponseWriter, r *http.Request, cfg *config.Config) {
 	baseMetadata := constants.DefaultRelayMetadata(cfg)
-	
+
 	// Create custom metadata with Time Capsules capability
 	customMetadata := CustomRelayInformationDocument{
 		RelayInformationDocument: baseMetadata,
@@ -35,7 +35,7 @@ func Nip11Handler(w http.ResponseWriter, r *http.Request, cfg *config.Config) {
 			MaxInlineBytes: constants.DefaultMaxInlineSize,
 		},
 	}
-	
+
 	ServeCustomRelayMetadata(w, customMetadata)
 }
 

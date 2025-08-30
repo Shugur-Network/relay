@@ -137,12 +137,12 @@ func GetOrCreateRelayIdentityWithConfig(configuredPublicKey string) (*RelayIdent
 		if len(configuredPublicKey) != 64 {
 			return nil, fmt.Errorf("configured public key must be 64 hex characters, got %d", len(configuredPublicKey))
 		}
-		
+
 		pubKeyBytes, err := hex.DecodeString(configuredPublicKey)
 		if err != nil {
 			return nil, fmt.Errorf("configured public key is not valid hex: %w", err)
 		}
-		
+
 		if len(pubKeyBytes) != 32 {
 			return nil, fmt.Errorf("configured public key must be 32 bytes when decoded, got %d", len(pubKeyBytes))
 		}

@@ -22,10 +22,10 @@ import (
 
 // ValidatePublicChat validates NIP-28 public chat events
 func ValidatePublicChat(evt *nostr.Event) error {
-	logger.Debug("NIP-28: Validating public chat event", 
+	logger.Debug("NIP-28: Validating public chat event",
 		zap.String("event_id", evt.ID),
 		zap.Int("kind", evt.Kind))
-		
+
 	switch evt.Kind {
 	case 40:
 		return validateChannelCreate(evt)
@@ -228,7 +228,7 @@ func findChannelReference(evt *nostr.Event) string {
 			}
 		}
 	}
-	
+
 	// Fallback: look for any "e" tag if no "root" marker found
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "e" {
@@ -266,10 +266,10 @@ func findUserReference(evt *nostr.Event) string {
 func isReply(evt *nostr.Event) bool {
 	rootCount := 0
 	replyCount := 0
-	
+
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "e" {
-			// Handle both standard format ["e", "id", "relay", "marker"] 
+			// Handle both standard format ["e", "id", "relay", "marker"]
 			// and comma-separated format ["e", "id,relay,marker"]
 			if len(tag) >= 4 && tag[3] == "reply" {
 				replyCount++
@@ -290,7 +290,7 @@ func isReply(evt *nostr.Event) bool {
 			}
 		}
 	}
-	
+
 	// It's a reply if there's any reply tag (proper or improper structure)
 	// This allows us to validate reply structure even for malformed replies
 	return replyCount > 0
@@ -301,10 +301,10 @@ func validateReplyStructure(evt *nostr.Event) error {
 	hasRoot := false
 	hasReply := false
 	hasPTag := false
-	
+
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "e" {
-			// Handle both standard format ["e", "id", "relay", "marker"] 
+			// Handle both standard format ["e", "id", "relay", "marker"]
 			// and comma-separated format ["e", "id,relay,marker"]
 			if len(tag) >= 4 {
 				switch tag[3] {
@@ -331,7 +331,7 @@ func validateReplyStructure(evt *nostr.Event) error {
 			hasPTag = true
 		}
 	}
-	
+
 	if !hasRoot {
 		return fmt.Errorf("reply must have 'e' tag marked as 'root'")
 	}
@@ -342,7 +342,7 @@ func validateReplyStructure(evt *nostr.Event) error {
 	if !hasPTag {
 		return fmt.Errorf("reply must have 'p' tag referencing the author being replied to (NIP-28 SHOULD requirement)")
 	}
-	
+
 	return nil
 }
 
@@ -373,10 +373,10 @@ func GetPublicChatEventType(kind int) string {
 
 // ChannelMetadata represents channel metadata structure
 type ChannelMetadata struct {
-	Name     string   `json:"name"`
-	About    string   `json:"about,omitempty"`
-	Picture  string   `json:"picture,omitempty"`
-	Relays   []string `json:"relays,omitempty"`
+	Name    string   `json:"name"`
+	About   string   `json:"about,omitempty"`
+	Picture string   `json:"picture,omitempty"`
+	Relays  []string `json:"relays,omitempty"`
 }
 
 // HideReason represents the reason for hiding a message

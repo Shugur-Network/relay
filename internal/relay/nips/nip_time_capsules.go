@@ -18,15 +18,16 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 	}
 
 	// Validate mode-specific parameters
-	if unlockConfig.Mode == constants.ModeThreshold {
+	switch unlockConfig.Mode {
+	case constants.ModeThreshold:
 		if unlockConfig.Threshold < 1 || unlockConfig.WitnessCount < unlockConfig.Threshold {
-			return fmt.Errorf("invalid threshold configuration: t=%d, n=%d", 
+			return fmt.Errorf("invalid threshold configuration: t=%d, n=%d",
 				unlockConfig.Threshold, unlockConfig.WitnessCount)
 		}
 
 		// Enforce maximum witness count
 		if unlockConfig.WitnessCount > constants.MaxWitnessCount {
-			return fmt.Errorf("witness count exceeds maximum: %d > %d", 
+			return fmt.Errorf("witness count exceeds maximum: %d > %d",
 				unlockConfig.WitnessCount, constants.MaxWitnessCount)
 		}
 
@@ -36,7 +37,7 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 			return fmt.Errorf("missing witnesses")
 		}
 		if len(witnesses) != unlockConfig.WitnessCount {
-			return fmt.Errorf("witness count mismatch: expected %d, got %d", 
+			return fmt.Errorf("witness count mismatch: expected %d, got %d",
 				unlockConfig.WitnessCount, len(witnesses))
 		}
 
@@ -44,7 +45,7 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 		if !hasCommitment(evt) {
 			return fmt.Errorf("missing witness commitment")
 		}
-	} else if unlockConfig.Mode == constants.ModeScheduled {
+	case constants.ModeScheduled:
 		// Scheduled mode doesn't require witnesses or commitments
 		// Just validate the time is valid
 		if unlockConfig.UnlockTime.IsZero() {
@@ -136,8 +137,8 @@ func ValidateTimeCapsuleShareDistribution(evt *nostr.Event) error {
 
 // IsTimeCapsuleEvent checks if an event is a time capsule
 func IsTimeCapsuleEvent(evt *nostr.Event) bool {
-	return evt.Kind == constants.KindTimeCapsule || 
-		   evt.Kind == constants.KindTimeCapsuleReplaceable
+	return evt.Kind == constants.KindTimeCapsule ||
+		evt.Kind == constants.KindTimeCapsuleReplaceable
 }
 
 // IsTimeCapsuleUnlockShare checks if an event is an unlock share
@@ -220,14 +221,14 @@ func extractUnlockConfig(evt *nostr.Event) (*UnlockConfig, error) {
 
 func extractWitnesses(evt *nostr.Event) []string {
 	var witnesses []string
-	
+
 	// Use 'p' tags for witnesses as per NIP specification
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "p" {
 			witnesses = append(witnesses, tag[1])
 		}
 	}
-	
+
 	return witnesses
 }
 
@@ -301,7 +302,7 @@ func isValidEncryptionFormat(encType string) bool {
 		"nip44:v2",
 		"nip44:v1", // Legacy support
 	}
-	
+
 	for _, format := range validFormats {
 		if encType == format {
 			return true

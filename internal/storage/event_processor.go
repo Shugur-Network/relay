@@ -56,7 +56,7 @@ func (ep *EventProcessor) QueueDeletion(evt nostr.Event) bool {
 	case ep.eventChan <- evt:
 		return true
 	default:
-		logger.Warn("Deletion queue full, dropping event", 
+		logger.Warn("Deletion queue full, dropping event",
 			zap.String("event_id", evt.ID),
 			zap.String("pubkey", evt.PubKey),
 			zap.Int("kind", evt.Kind))
@@ -134,7 +134,7 @@ func (ep *EventProcessor) processEvents(ctx context.Context) {
 								zap.String("event_id", evt.ID),
 								zap.String("pubkey", evt.PubKey),
 								zap.Int("kind", evt.Kind))
-							
+
 							// Send event to local event dispatcher for immediate broadcasting
 							select {
 							case ep.db.eventDispatcher.eventBuffer <- &evt:
@@ -150,7 +150,7 @@ func (ep *EventProcessor) processEvents(ctx context.Context) {
 						// Increment the stored events metric only for new events
 						if err == nil {
 							metrics.EventsStored.Inc()
-							
+
 							// Broadcast event immediately to local clients for real-time streaming
 							// This ensures same-node clients get events instantly without waiting for changefeed
 							if ep.db.eventDispatcher != nil {
@@ -158,7 +158,7 @@ func (ep *EventProcessor) processEvents(ctx context.Context) {
 									zap.String("event_id", evt.ID),
 									zap.String("pubkey", evt.PubKey),
 									zap.Int("kind", evt.Kind))
-								
+
 								// Send event to local event dispatcher for immediate broadcasting
 								select {
 								case ep.db.eventDispatcher.eventBuffer <- &evt:

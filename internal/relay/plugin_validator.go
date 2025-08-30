@@ -55,7 +55,7 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 	}
 
 	defaultLimits := ValidationLimits{
-		MaxContentLength:  maxContentLength,  // Use configured value
+		MaxContentLength:  maxContentLength, // Use configured value
 		MaxTagsLength:     10000,
 		MaxTagsPerEvent:   256,
 		MaxTagElements:    16,
@@ -87,10 +87,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			13194: true, // NIP-59 Wallet Connect events
 			30078: true, // NIP-78 Application-specific Data
 			// Time Capsules
-			1990: true, // Time capsule (immutable)
+			1990:  true, // Time capsule (immutable)
 			30095: true, // Time capsule (parameterized replaceable)
-			1991: true, // Time capsule unlock share
-			1992: true, // Time capsule share distribution
+			1991:  true, // Time capsule unlock share
+			1992:  true, // Time capsule share distribution
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -111,10 +111,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			1040:  {"e"},      // OpenTimestamps attestation requires "e" tag
 			30078: {"p"},      // NIP-78: Application-specific Data requires "p" tag
 			// Time Capsules
-			1990: {"u", "p", "w-commit", "enc", "loc"}, // Time capsule: unlock config, witnesses, commitment, encryption, location
+			1990:  {"u", "p", "w-commit", "enc", "loc"},      // Time capsule: unlock config, witnesses, commitment, encryption, location
 			30095: {"u", "p", "w-commit", "enc", "loc", "d"}, // Replaceable time capsule: + d tag
-			1991: {"e", "p", "T"}, // Unlock share: capsule ref, witness, unlock time
-			1992: {"e", "p", "share-idx", "enc"}, // Share distribution: capsule ref, witness, share index, encryption
+			1991:  {"e", "p", "T"},                           // Unlock share: capsule ref, witness, unlock time
+			1992:  {"e", "p", "share-idx", "enc"},            // Share distribution: capsule ref, witness, share index, encryption
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
