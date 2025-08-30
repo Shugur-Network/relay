@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Time Capsules Feature (NIP Implementation)**:
+  - Implemented complete Time Capsules protocol with event kinds 1990, 30095, 1991, 1992
+  - Added threshold-based and scheduled unlock mechanisms
+  - Support for Shamir's secret sharing with configurable witness thresholds
+  - Comprehensive validation for time-locked events and unlock shares
+  - Share distribution system for witness coordination
+  - External storage support with integrity verification (URI, SHA256)
+  - NIP-11 capability advertisement for Time Capsules support
+  - Created extensive test suite with 47 comprehensive tests (100% pass rate)
+  - Standard Nostr tag conventions (p for witnesses, e for references)
+
+- **Enhanced Build System**:
+  - Completely refactored build script with improved functionality and user experience
+  - Added support for multiple build targets and configurations
+  - Enhanced error handling and logging in build process
+  - Improved cross-platform compatibility
+
+- **Configurable Relay Identity**:
+  - Added PUBLIC_KEY configuration field with validation
+  - Support for 64-character hex public keys with automatic fallback
+  - Enhanced relay metadata generation with configured identity
+  - Improved relay identification and discovery capabilities
+
+- **Relay Status and Monitoring**:
+  - Added Time Capsules status endpoint for monitoring active capsules
+  - Enhanced relay metadata with Time Capsules capability information
+  - Improved event processing metrics and monitoring
+
+### Changed
+
+- **Event Kind Updates**:
+  - Updated Time Capsules event kinds from 1199x to 199x range for better compatibility
+  - Improved event kind validation and processing
+  - Enhanced parameterized replaceable event support (kind 30095)
+
+- **Code Quality Improvements**:
+  - Applied comprehensive code formatting (go fmt) across all Go files
+  - Fixed staticcheck linting issues (converted if-else to switch statements)
+  - Improved code structure and readability
+  - Enhanced error handling and validation throughout the codebase
+
+### Fixed
+
+- **Repository Cleanup**:
+  - Removed deprecated Time Capsules documentation and test files
+  - Cleaned up repository structure and removed unused portal integration files
+  - Fixed formatting inconsistencies and linting issues
+
 ## [1.2.0] - 2025-08-24
 
 ### Added
