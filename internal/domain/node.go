@@ -37,7 +37,7 @@ type NodeInterface interface {
 type EventDispatcherClient interface {
 	// AddEventDispatcherClient registers the client for real-time event notifications
 	AddEventDispatcherClient(clientID string) chan *nostr.Event
-	
+
 	// RemoveEventDispatcherClient unregisters the client from real-time event notifications
 	RemoveEventDispatcherClient(clientID string)
 }

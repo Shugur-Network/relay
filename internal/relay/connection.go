@@ -164,10 +164,10 @@ type WsConnection struct {
 	backpressureChan   chan struct{} // Channel for backpressure handling
 
 	// Event dispatcher integration
-	clientID       string
-	eventChan      chan *nostr.Event
-	eventCtx       context.Context
-	eventCancel    context.CancelFunc
+	clientID    string
+	eventChan   chan *nostr.Event
+	eventCtx    context.Context
+	eventCancel context.CancelFunc
 }
 
 // Ensure WsConnection implements domain.WebSocketConnection
@@ -219,7 +219,7 @@ func NewWsConnection(
 
 	// Deadlines + read limit
 	_ = ws.SetReadDeadline(time.Now().Add(60 * time.Second)) // nolint:errcheck // deadline is non-critical
-	
+
 	// Set WebSocket read limit based on configured content length with buffer for JSON overhead
 	readLimitBytes := int64(cfg.ThrottlingConfig.MaxContentLen * 2) // 2x buffer for JSON overhead
 	if readLimitBytes < 1024*1024 {                                 // Minimum 1MB
@@ -526,7 +526,7 @@ func (c *WsConnection) processDispatcherEvents() {
 			if event == nil {
 				return // Channel closed
 			}
-			
+
 			// Check if connection is still active
 			if c.isClosed.Load() {
 				return

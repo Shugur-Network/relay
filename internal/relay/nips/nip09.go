@@ -13,12 +13,12 @@ import (
 
 // ValidateEventDeletion validates NIP-09 event deletion events (kind 5)
 func ValidateEventDeletion(evt *nostr.Event) error {
-	logger.Debug("NIP-09: Validating event deletion", 
+	logger.Debug("NIP-09: Validating event deletion",
 		zap.String("event_id", evt.ID),
 		zap.String("pubkey", evt.PubKey))
-		
+
 	if evt.Kind != 5 {
-		logger.Warn("NIP-09: Invalid event kind for deletion", 
+		logger.Warn("NIP-09: Invalid event kind for deletion",
 			zap.String("event_id", evt.ID),
 			zap.Int("kind", evt.Kind))
 		return fmt.Errorf("invalid event kind for event deletion: %d", evt.Kind)
@@ -33,7 +33,7 @@ func ValidateEventDeletion(evt *nostr.Event) error {
 			eventCount++
 			// Validate event ID format (should be 64-char hex)
 			if len(tag[1]) != 64 {
-				logger.Warn("NIP-09: Invalid event ID in 'e' tag", 
+				logger.Warn("NIP-09: Invalid event ID in 'e' tag",
 					zap.String("deletion_event_id", evt.ID),
 					zap.String("invalid_event_id", tag[1]))
 				return fmt.Errorf("invalid event ID in 'e' tag: %s", tag[1])
@@ -42,12 +42,12 @@ func ValidateEventDeletion(evt *nostr.Event) error {
 	}
 
 	if !hasEventTag {
-		logger.Warn("NIP-09: Deletion event missing required 'e' tags", 
+		logger.Warn("NIP-09: Deletion event missing required 'e' tags",
 			zap.String("event_id", evt.ID))
 		return fmt.Errorf("deletion event must reference at least one event with 'e' tag")
 	}
-	
-	logger.Debug("NIP-09: Valid deletion event", 
+
+	logger.Debug("NIP-09: Valid deletion event",
 		zap.String("event_id", evt.ID),
 		zap.Int("target_events", eventCount))
 

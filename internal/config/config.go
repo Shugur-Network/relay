@@ -28,6 +28,7 @@ type Config struct {
 	Relay       RelayConfig       `mapstructure:"relay"        validate:"required"`
 	RelayPolicy RelayPolicyConfig `mapstructure:"relay_policy" validate:"required"`
 	Database    DatabaseConfig    `mapstructure:"database"     validate:"required"`
+	Capsules    CapsulesConfig    `mapstructure:"capsules"     validate:"required"`
 }
 
 // Register custom validation rules
@@ -53,6 +54,9 @@ func init() {
 		}
 		if err := validate.Struct(cfg.Database); err != nil {
 			sl.ReportError(cfg.Database, "Database", "Database", "required", "")
+		}
+		if err := validate.Struct(cfg.Capsules); err != nil {
+			sl.ReportError(cfg.Capsules, "Capsules", "Capsules", "required", "")
 		}
 	}, Config{})
 }
