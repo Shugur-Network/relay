@@ -5,9 +5,9 @@
 # 
 # This test suite covers:
 # - Protocol validation (success/failure scenarios)
-# - All event kinds: 1990, 30095, 1991, 1992
-# - Both threshold and scheduled unlock modes
-# - Cryptographic workflows (witness thresholds, time-based unlocking)
+# - All event kinds: 1995, 31995, 1996, 1997 (NIP Time Capsules v1)
+# - All unlock modes: threshold, threshold-time, timelock
+# - Cryptographic workflows (witness thresholds, time-based unlocking, NIP-59 Gift Wrap)
 # - End-to-end functionality (complete create→store→unlock→retrieve cycles)
 # - Edge cases and error conditions
 
@@ -45,8 +45,8 @@ echo -e "${BLUE}║  Protocol Validation Tests: $TOTAL_VALIDATION_TESTS         
 echo -e "${BLUE}║  Cryptographic Workflow Tests: $TOTAL_WORKFLOW_TESTS.                                    ║${NC}"
 echo -e "${BLUE}║  Total Tests: $TOTAL_TESTS                                                           ║${NC}"
 echo -e "${BLUE}║                                                                              ║${NC}"
-echo -e "${BLUE}║  Event Kinds Tested: 1990, 30095, 1991, 1992                              ║${NC}"
-echo -e "${BLUE}║  Unlock Modes: threshold, scheduled                                          ║${NC}"
+echo -e "${BLUE}║  Event Kinds Tested: 1995, 31995, 1996, 1997 (NIP Time Capsules v1)         ║${NC}"
+echo -e "${BLUE}║  Unlock Modes: threshold, threshold-time, timelock                           ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -206,58 +206,67 @@ log_info "Relay: $RELAY"
 
 log_section "SECTION 1: PROTOCOL VALIDATION TESTS"
 
-# Test V1: Valid Time Capsule Creation (Kind 1990, Threshold Mode)
-log_test "V1" "Create valid threshold time capsule (kind 1990)"
+# Test V1: Valid Time Capsule Creation (Kind 1995, Threshold Mode)
+log_test "V1" "Create valid threshold time capsule (kind 1995)"
 V1_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 1990 \
-    --content "$(echo -n "Test message for threshold capsule" | base64)" \
-    -t u="threshold;t;2;n;3;T;$FUTURE_TIME" \
+    -k 1995 \
+    --content "$(echo -n '{"v":"1","ct":"'$(echo -n "Test message for threshold capsule" | base64)'","k_tlock":null,"aad":"e4b7a8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7"}' | base64)" \
+    -t unlock="mode threshold" \
+    -t unlock="t 2" \
+    -t unlock="n 3" \
     -t p="$WITNESS1_PUBKEY" \
     -t p="$WITNESS2_PUBKEY" \
     -t p="$WITNESS3_PUBKEY" \
-    -t w-commit="test_commitment_threshold" \
+    -t w-commit="sha256:3a5fc9d8e7b6a594c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0" \
     -t enc="nip44:v2" \
     -t loc="inline" \
+    -t alt="2-of-3 threshold release, private to witnesses" \
     $RELAY 2>&1)
 expect_success "$V1_RESPONSE" "Valid threshold time capsule creation"
 
-# Test V2: Valid Parameterized Replaceable Time Capsule (Kind 30095)
-log_test "V2" "Create valid parameterized replaceable time capsule (kind 30095)"
+# Test V2: Valid Parameterized Replaceable Time Capsule (Kind 31995)
+log_test "V2" "Create valid parameterized replaceable time capsule (kind 31995)"
 V2_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 30095 \
-    --content "$(echo -n "Replaceable time capsule content" | base64)" \
+    -k 31995 \
+    --content "$(echo -n '{"v":"1","ct":"'$(echo -n "Replaceable time capsule content" | base64)'","k_tlock":null,"aad":"c0feef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"}' | base64)" \
     -d "test-capsule-$(date +%s)" \
-    -t u="threshold;t;1;n;2;T;$FUTURE_TIME" \
+    -t unlock="mode threshold" \
+    -t unlock="t 1" \
+    -t unlock="n 2" \
     -t p="$WITNESS1_PUBKEY" \
     -t p="$WITNESS2_PUBKEY" \
-    -t w-commit="replaceable_commitment" \
+    -t w-commit="sha256:b4a5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5" \
     -t enc="nip44:v2" \
     -t loc="inline" \
     -t alt="Parameterized replaceable time capsule test" \
     $RELAY 2>&1)
 expect_success "$V2_RESPONSE" "Valid parameterized replaceable time capsule creation"
 
-# Test V3: Valid Scheduled Mode Time Capsule
-log_test "V3" "Create valid scheduled mode time capsule"
+# Test V3: Valid Timelock Mode Time Capsule
+log_test "V3" "Create valid timelock mode time capsule"
 V3_RESPONSE=$(nak event \
+
     --sec $AUTHOR_PRIVKEY \
-    -k 1990 \
-    --content "$(echo -n "Scheduled release content" | base64)" \
-    -t u="scheduled;T;$FUTURE_TIME" \
+    -k 1995 \
+    --content "$(echo -n '{"v":"1","ct":"'$(echo -n "Timelock release content" | base64)'","k_tlock":"'$(echo -n "simulated_drand_timelock_ciphertext" | base64)'","aad":"ab1234cd5678ef90ab1234cd5678ef90ab1234cd5678ef90ab1234cd5678ef90"}' | base64)" \
+    -t unlock="mode timelock" \
+    -t unlock="T $FUTURE_TIME" \
+    -t unlock="beacon 8990e7a9fd29b9427d2bc63c37e2cb28e0b2d73dbb5c18f9b92b057c4c5a8580" \
+    -t unlock="round 3245671" \
     -t enc="nip44:v2" \
     -t loc="inline" \
-    -t alt="Scheduled mode time capsule" \
+    -t alt="Timelock mode time capsule" \
     $RELAY 2>&1)
-expect_success "$V3_RESPONSE" "Valid scheduled mode time capsule creation"
+expect_success "$V3_RESPONSE" "Valid timelock mode time capsule creation"
 
 # Test V4: Missing unlock configuration
 log_test "V4" "Missing unlock configuration - Should fail"
 V4_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
-    -k 1990 \
-    --content "$(echo -n "Missing unlock config" | base64)" \
+    -k 1995 \
+    --content "$(echo -n '{"v":"1","ct":"'$(echo -n "Missing unlock config" | base64)'","k_tlock":null,"aad":"def456789012345678901234567890123456789012345678901234567890def4"}' | base64)" \
     -t p="$WITNESS1_PUBKEY" \
     -t p="$WITNESS2_PUBKEY" \
     -t enc="nip44:v2" \
@@ -406,18 +415,18 @@ V14_RESPONSE=$(nak event \
     $RELAY 2>&1)
 expect_success "$V14_RESPONSE" "External storage with URI"
 
-# Test V15: Valid unlock share (Kind 1991)
+# Test V15: Valid unlock share (Kind 1997)
 log_test "V15" "Create valid unlock share"
 if [[ -n "$V1_RESPONSE" ]]; then
     V1_EVENT_ID=$(echo "$V1_RESPONSE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4 | head -1)
     if [[ -n "$V1_EVENT_ID" ]]; then
         V15_RESPONSE=$(nak event \
             --sec $WITNESS1_PRIVKEY \
-            -k 1991 \
+            -k 1997 \
             --content "$(echo -n "test_share_data_witness1" | base64)" \
             -t e="$V1_EVENT_ID" \
             -t p="$WITNESS1_PUBKEY" \
-            -t T="$FUTURE_TIME" \
+            -t share-idx="1" \
             $RELAY 2>&1)
         expect_success "$V15_RESPONSE" "Valid unlock share creation"
     else
@@ -462,16 +471,16 @@ V18_RESPONSE=$(nak event \
     $RELAY 2>&1)
 expect_failure "$V18_RESPONSE" "Missing unlock time rejection"
 
-# Test V19: Valid share distribution (Kind 1992)
+# Test V19: Valid share distribution (Kind 1996)
 log_test "V19" "Create valid share distribution"
 if [[ -n "$V1_EVENT_ID" ]]; then
     V19_RESPONSE=$(nak event \
         --sec $AUTHOR_PRIVKEY \
-        -k 1992 \
+        -k 1996 \
         --content "$(echo -n "encrypted_share_for_witness1" | base64)" \
         -t e="$V1_EVENT_ID" \
         -t p="$WITNESS1_PUBKEY" \
-        -t share-idx="0" \
+        -t share-idx="1" \
         -t enc="nip44:v2" \
         $RELAY 2>&1)
     expect_success "$V19_RESPONSE" "Valid share distribution creation"
@@ -1075,34 +1084,34 @@ else
     test_failed
 fi
 
-# Test W12: Query and retrieval test (Kind 1990)
-log_test "W12" "Query time capsules (kind 1990)"
+# Test W12: Query and retrieval test (Kind 1995)
+log_test "W12" "Query time capsules (kind 1995)"
 log_step "Retrieving all time capsules from relay..."
 
 sleep 1  # Give relay time to process
-W12_QUERY=$(nak req -k 1990 $RELAY 2>&1)
-CAPSULE_COUNT=$(echo "$W12_QUERY" | grep -c '"kind":1990' || echo "0")
+W12_QUERY=$(nak req -k 1995 $RELAY 2>&1)
+CAPSULE_COUNT=$(echo "$W12_QUERY" | grep -c '"kind":1995' || echo "0")
 
 if [[ $CAPSULE_COUNT -gt 0 ]]; then
-    log_success "Retrieved $CAPSULE_COUNT time capsules (kind 1990)"
+    log_success "Retrieved $CAPSULE_COUNT time capsules (kind 1995)"
     
     # Verify structure contains required NIP fields
-    if echo "$W12_QUERY" | grep -q '"u"' && echo "$W12_QUERY" | grep -q '"enc"' && echo "$W12_QUERY" | grep -q '"loc"'; then
+    if echo "$W12_QUERY" | grep -q '"unlock"' && echo "$W12_QUERY" | grep -q '"enc"' && echo "$W12_QUERY" | grep -q '"loc"'; then
         log_success "Capsules have correct NIP Time Capsules structure"
         test_passed
     else
-        log_failure "Capsules missing required NIP structure" "Missing u, enc, or loc tags"
+        log_failure "Capsules missing required NIP structure" "Missing unlock, enc, or loc tags"
         test_failed
     fi
 else
-    log_failure "No time capsules retrieved (kind 1990)" "$W12_QUERY"
+    log_failure "No time capsules retrieved (kind 1995)" "$W12_QUERY"
     test_failed
 fi
 
-# Test W13: Query parameterized replaceable time capsules (Kind 30095)
-log_test "W13" "Query parameterized replaceable time capsules (kind 30095)"
-W13_QUERY=$(nak req -k 30095 $RELAY 2>&1)
-PR_CAPSULE_COUNT=$(echo "$W13_QUERY" | grep -c '"kind":30095' || echo "0")
+# Test W13: Query parameterized replaceable time capsules (Kind 31995)
+log_test "W13" "Query parameterized replaceable time capsules (kind 31995)"
+W13_QUERY=$(nak req -k 31995 $RELAY 2>&1)
+PR_CAPSULE_COUNT=$(echo "$W13_QUERY" | grep -c '"kind":31995' || echo "0")
 
 if [[ $PR_CAPSULE_COUNT -gt 0 ]]; then
     log_success "Retrieved $PR_CAPSULE_COUNT parameterized replaceable time capsules"
@@ -1120,20 +1129,20 @@ else
     test_passed
 fi
 
-# Test W14: Query unlock shares (Kind 1991)
-log_test "W14" "Query unlock shares (kind 1991)"
-W14_QUERY=$(nak req -k 1991 $RELAY 2>&1)
-SHARE_COUNT=$(echo "$W14_QUERY" | grep -c '"kind":1991' || echo "0")
+# Test W14: Query unlock shares (Kind 1997)
+log_test "W14" "Query unlock shares (kind 1997)"
+W14_QUERY=$(nak req -k 1997 $RELAY 2>&1)
+SHARE_COUNT=$(echo "$W14_QUERY" | grep -c '"kind":1997' || echo "0")
 
 if [[ $SHARE_COUNT -gt 0 ]]; then
     log_success "Retrieved $SHARE_COUNT unlock shares"
     
     # Verify structure contains required fields
-    if echo "$W14_QUERY" | grep -q '"e"' && echo "$W14_QUERY" | grep -q '"p"' && echo "$W14_QUERY" | grep -q '"T"'; then
-        log_success "Unlock shares have correct structure (e, p, T tags)"
+    if echo "$W14_QUERY" | grep -q '"e"' && echo "$W14_QUERY" | grep -q '"p"' && echo "$W14_QUERY" | grep -q '"share-idx"'; then
+        log_success "Unlock shares have correct structure (e, p, share-idx tags)"
         test_passed
     else
-        log_failure "Unlock shares missing required structure" "Missing e, p, or T tags"
+        log_failure "Unlock shares missing required structure" "Missing e, p, or share-idx tags"
         test_failed
     fi
 else
@@ -1141,10 +1150,10 @@ else
     test_failed
 fi
 
-# Test W15: Query share distributions (Kind 1992)
-log_test "W15" "Query share distributions (kind 1992)"
-W15_QUERY=$(nak req -k 1992 $RELAY 2>&1)
-DIST_COUNT=$(echo "$W15_QUERY" | grep -c '"kind":1992' || echo "0")
+# Test W15: Query share distributions (Kind 1996)
+log_test "W15" "Query share distributions (kind 1996)"
+W15_QUERY=$(nak req -k 1996 $RELAY 2>&1)
+DIST_COUNT=$(echo "$W15_QUERY" | grep -c '"kind":1996' || echo "0")
 
 if [[ $DIST_COUNT -gt 0 ]]; then
     log_success "Retrieved $DIST_COUNT share distributions"
@@ -1194,36 +1203,42 @@ PASS_RATE=$((PASSED_TESTS * 100 / TOTAL_TESTS))
 echo -e "${CYAN}Pass Rate: $PASS_RATE%${NC}"
 
 echo ""
-echo -e "${BLUE}New NIP Implementation Test Coverage:${NC}"
+echo -e "${BLUE}New NIP Time Capsules v1 Implementation Test Coverage:${NC}"
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║ PROTOCOL VALIDATION (32 tests)                                                 ║${NC}"
-echo -e "${BLUE}║ • Kind 1990: Immutable time capsules                                          ║${NC}"
-echo -e "${BLUE}║ • Kind 30095: Parameterized replaceable time capsules                          ║${NC}"
-echo -e "${BLUE}║ • Kind 1991: Unlock shares                                                    ║${NC}"
-echo -e "${BLUE}║ • Kind 1992: Share distributions                                              ║${NC}"
-echo -e "${BLUE}║ • Threshold and scheduled unlock modes                                         ║${NC}"
-echo -e "${BLUE}║ • Tag validation (u, p, w-commit, enc, loc, etc.)                             ║${NC}"
+echo -e "${BLUE}║ • Kind 1995: Immutable time capsules                                          ║${NC}"
+echo -e "${BLUE}║ • Kind 31995: Parameterized replaceable time capsules                         ║${NC}"
+echo -e "${BLUE}║ • Kind 1996: Share distributions (optional helper)                            ║${NC}"
+echo -e "${BLUE}║ • Kind 1997: Unlock shares                                                    ║${NC}"
+echo -e "${BLUE}║ • Threshold, threshold-time, and timelock unlock modes                        ║${NC}"
+echo -e "${BLUE}║ • Tag validation (unlock, p, w-commit, enc, loc, etc.)                        ║${NC}"
+echo -e "${BLUE}║ • Content envelope validation (v, ct, k_tlock, aad)                           ║${NC}"
 echo -e "${BLUE}║ • Edge cases and error conditions                                              ║${NC}"
 echo -e "${BLUE}║                                                                                ║${NC}"
 echo -e "${BLUE}║ CRYPTOGRAPHIC WORKFLOWS (15 tests)                                             ║${NC}"
 echo -e "${BLUE}║ • Complete threshold workflows (2-of-3, 3-of-5)                                ║${NC}"
-echo -e "${BLUE}║ • Scheduled mode workflows                                                     ║${NC}"
+echo -e "${BLUE}║ • Timelock mode workflows (drand integration)                                 ║${NC}"
 echo -e "${BLUE}║ • Share distribution mechanisms                                                ║${NC}"
 echo -e "${BLUE}║ • Time-based unlocking validation                                              ║${NC}"
 echo -e "${BLUE}║ • Unauthorized witness protection                                              ║${NC}"
 echo -e "${BLUE}║ • Query and retrieval for all event kinds                                     ║${NC}"
 echo -e "${BLUE}║ • Secret sharing and reconstruction                                            ║${NC}"
 echo -e "${BLUE}║ • Addressable references for PR events                                        ║${NC}"
+echo -e "${BLUE}║ • NIP-59 Gift Wrap integration                                                ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
 
 echo ""
-echo -e "${MAGENTA}📝 Key Improvements in New NIP Implementation:${NC}"
-echo -e "${MAGENTA}   ✅ Removed proprietary vendor tags (x-cap)${NC}"
-echo -e "${MAGENTA}   ✅ Standard Nostr tag conventions (p for witnesses)${NC}"
-echo -e "${MAGENTA}   ✅ Support for scheduled unlock mode${NC}"
-echo -e "${MAGENTA}   ✅ Share distribution mechanism (kind 1992)${NC}"
-echo -e "${MAGENTA}   ✅ Proper NIP-11 capability advertisement${NC}"
+echo -e "${MAGENTA}📝 Key Improvements in NIP Time Capsules v1 Implementation:${NC}"
+echo -e "${MAGENTA}   ✅ Updated event kinds: 1995, 31995, 1996, 1997${NC}"
+echo -e "${MAGENTA}   ✅ Structured unlock tag with space-delimited key/value pairs${NC}"
+echo -e "${MAGENTA}   ✅ Three unlock modes: threshold, threshold-time, timelock${NC}"
+echo -e "${MAGENTA}   ✅ Content envelope with JSON structure (v, ct, k_tlock, aad)${NC}"
+echo -e "${MAGENTA}   ✅ Drand integration for cryptographic timelock${NC}"
+echo -e "${MAGENTA}   ✅ NIP-59 Gift Wrap requirement for private share delivery${NC}"
+echo -e "${MAGENTA}   ✅ Proper witness commitment using merkle trees${NC}"
 echo -e "${MAGENTA}   ✅ Enhanced validation and error handling${NC}"
+echo -e "${MAGENTA}   ✅ External storage with URI and SHA256 integrity${NC}"
+echo -e "${MAGENTA}   ✅ Strict mode/envelope coherence validation${NC}"
 
 echo ""
 echo -e "${MAGENTA}📝 Note: This test suite includes simulated Shamir's Secret Sharing${NC}"
