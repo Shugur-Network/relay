@@ -1,12 +1,15 @@
 package nips
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Shugur-Network/relay/internal/constants"
 	nostr "github.com/nbd-wtf/go-nostr"
@@ -32,6 +35,14 @@ type ContentEnvelope struct {
 
 // ValidateTimeCapsuleEvent validates time capsule events (kinds 1995, 31995)
 func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
+	// 0. Validate basic size and structure limits
+	if len(evt.Content) > constants.MaxEnvelopeSize {
+		return fmt.Errorf("content exceeds maximum size: %d bytes (max %d)", len(evt.Content), constants.MaxEnvelopeSize)
+	}
+	if len(evt.Tags) > constants.MaxTagCount {
+		return fmt.Errorf("too many tags: %d (max %d)", len(evt.Tags), constants.MaxTagCount)
+	}
+
 	// 1. Validate exactly one unlock tag
 	unlockTags := getTagsByName(evt, constants.TagUnlock)
 	if len(unlockTags) != 1 {
@@ -39,6 +50,12 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 			return fmt.Errorf("missing unlock tag")
 		}
 		return fmt.Errorf("multiple unlock tags not allowed")
+	}
+
+	// Validate unlock tag size
+	unlockTagData := strings.Join(unlockTags[0][1:], " ")
+	if len(unlockTagData) > constants.MaxUnlockTagLength {
+		return fmt.Errorf("unlock tag too large: %d bytes (max %d)", len(unlockTagData), constants.MaxUnlockTagLength)
 	}
 
 	// 2. Parse unlock configuration
@@ -152,13 +169,21 @@ func ValidateTimeCapsuleUnlockShare(evt *nostr.Event) error {
 	if err != nil || shareIdx < 1 {
 		return fmt.Errorf("invalid share index: must be >= 1")
 	}
+	if shareIdx > constants.MaxWitnessCount {
+		return fmt.Errorf("share index too large: %d (max %d)", shareIdx, constants.MaxWitnessCount)
+	}
 
 	// 4. Validate content format (Base64 share or NIP-44 v2 encrypted)
 	if evt.Content == "" {
 		return fmt.Errorf("missing share content")
 	}
 
-	// 5. Check for optional inner encryption
+	// 5. Validate share content format and size
+	if err := validateShareContent(evt.Content); err != nil {
+		return fmt.Errorf("invalid share content: %w", err)
+	}
+
+	// 6. Check for optional inner encryption
 	encTags := getTagsByName(evt, constants.TagEncryption)
 	if len(encTags) > 1 {
 		return fmt.Errorf("multiple enc tags not allowed")
@@ -169,9 +194,14 @@ func ValidateTimeCapsuleUnlockShare(evt *nostr.Event) error {
 		}
 	}
 
-	// 6. Author must equal the witness pubkey
+	// 7. Author must equal the witness pubkey
 	if evt.PubKey != pTags[0][1] {
 		return fmt.Errorf("author must equal witness pubkey")
+	}
+
+	// 8. Validate event size limits
+	if len(evt.Content) > constants.MaxEnvelopeSize {
+		return fmt.Errorf("share content too large: %d bytes (max %d)", len(evt.Content), constants.MaxEnvelopeSize)
 	}
 
 	return nil
@@ -214,13 +244,21 @@ func ValidateTimeCapsuleShareDistribution(evt *nostr.Event) error {
 	if err != nil || shareIdx < 1 {
 		return fmt.Errorf("invalid share index: must be >= 1")
 	}
+	if shareIdx > constants.MaxWitnessCount {
+		return fmt.Errorf("share index too large: %d (max %d)", shareIdx, constants.MaxWitnessCount)
+	}
 
 	// 4. Content validation (encrypted share)
 	if evt.Content == "" {
 		return fmt.Errorf("missing encrypted share content")
 	}
 
-	// 5. Optional inner encryption validation
+	// 5. Validate share content format and size
+	if err := validateShareContent(evt.Content); err != nil {
+		return fmt.Errorf("invalid share content: %w", err)
+	}
+
+	// 6. Optional inner encryption validation
 	encTags := getTagsByName(evt, constants.TagEncryption)
 	if len(encTags) > 1 {
 		return fmt.Errorf("multiple enc tags not allowed")
@@ -229,6 +267,11 @@ func ValidateTimeCapsuleShareDistribution(evt *nostr.Event) error {
 		if encTags[0][1] != constants.EncryptionNIP44v2 {
 			return fmt.Errorf("inner enc tag must be 'nip44:v2'")
 		}
+	}
+
+	// 7. Validate event size limits
+	if len(evt.Content) > constants.MaxEnvelopeSize {
+		return fmt.Errorf("share content too large: %d bytes (max %d)", len(evt.Content), constants.MaxEnvelopeSize)
 	}
 
 	return nil
@@ -353,9 +396,12 @@ func extractTimeParams(kv map[string]string, config *UnlockConfig) error {
 	}
 
 	// Validate beacon format (32-byte hex)
-	if len(beaconStr) != 64 || !isHexString(beaconStr) {
-		return fmt.Errorf("invalid beacon format: must be 64 lowercase hex chars")
+	if len(beaconStr) != constants.DrandChainHashLength || !isHexString(beaconStr) {
+		return fmt.Errorf("invalid beacon format: must be %d lowercase hex chars", constants.DrandChainHashLength)
 	}
+
+	// Accept any valid chain hash format (relay is chain-agnostic)
+	// Chain validation is performed by clients during actual drand operations
 
 	config.UnlockTime = T
 	config.Beacon = beaconStr
@@ -377,6 +423,13 @@ func hasTimeParams(kv map[string]string) bool {
 }
 
 func validateContentEnvelope(evt *nostr.Event, config *UnlockConfig) error {
+	// Get location for frame validation
+	locTags := getTagsByName(evt, constants.TagLocation)
+	if len(locTags) == 0 {
+		return fmt.Errorf("missing location tag")
+	}
+	location := locTags[0][1]
+
 	// Parse envelope JSON
 	var envelope ContentEnvelope
 	if err := json.Unmarshal([]byte(evt.Content), &envelope); err != nil {
@@ -396,7 +449,12 @@ func validateContentEnvelope(evt *nostr.Event, config *UnlockConfig) error {
 		return fmt.Errorf("AAD must be 64 lowercase hex chars")
 	}
 
-	// 3. Validate mode/envelope coherence
+	// 3. Validate content format and frame size
+	if err := validateContentFrame(envelope, location); err != nil {
+		return fmt.Errorf("content frame validation failed: %w", err)
+	}
+
+	// 4. Validate mode/envelope coherence
 	switch config.Mode {
 	case constants.ModeThreshold:
 		// k_tlock must be null
@@ -419,6 +477,18 @@ func validateContentEnvelope(evt *nostr.Event, config *UnlockConfig) error {
 		if !isValidBase64(ktlockStr) {
 			return fmt.Errorf("k_tlock must be valid Base64")
 		}
+		
+		// Validate k_tlock size limit
+		ktlockBytes, err := base64.StdEncoding.DecodeString(ktlockStr)
+		if err != nil {
+			return fmt.Errorf("k_tlock decode failed: %w", err)
+		}
+		if len(ktlockBytes) == 0 {
+			return fmt.Errorf("k_tlock decodes to empty bytes")
+		}
+		if len(ktlockBytes) > constants.MaxKTlockSize {
+			return fmt.Errorf("k_tlock too large: %d bytes (max %d)", len(ktlockBytes), constants.MaxKTlockSize)
+		}
 	}
 
 	return nil
@@ -434,7 +504,23 @@ func validateThresholdMode(evt *nostr.Event, config *UnlockConfig) error {
 		return fmt.Errorf("witness count mismatch: expected %d, got %d", config.WitnessCount, len(witnesses))
 	}
 
-	// 2. Must have witness commitment
+	// 2. Validate witness pubkeys format and check for duplicates
+	witnessSet := make(map[string]bool)
+	for i, witness := range witnesses {
+		if len(witness) < 2 {
+			return fmt.Errorf("witness %d: missing pubkey", i+1)
+		}
+		pubkey := witness[1]
+		if len(pubkey) != 64 || !isHexString(pubkey) {
+			return fmt.Errorf("witness %d: invalid pubkey format", i+1)
+		}
+		if witnessSet[pubkey] {
+			return fmt.Errorf("witness %d: duplicate pubkey %s", i+1, pubkey)
+		}
+		witnessSet[pubkey] = true
+	}
+
+	// 3. Must have witness commitment
 	commitTags := getTagsByName(evt, constants.TagWitnessCommit)
 	if len(commitTags) != 1 {
 		return fmt.Errorf("exactly one w-commit tag required")
@@ -443,7 +529,12 @@ func validateThresholdMode(evt *nostr.Event, config *UnlockConfig) error {
 		return fmt.Errorf("invalid witness commitment: %w", err)
 	}
 
-	// 3. Must not have time-related tags
+	// 4. Verify witness commitment against actual witness list
+	if err := verifyWitnessCommitment(witnesses, commitTags[0]); err != nil {
+		return fmt.Errorf("witness commitment verification failed: %w", err)
+	}
+
+	// 5. Must not have time-related tags
 	if hasAnyTimeTag(evt) {
 		return fmt.Errorf("threshold mode must not have time-related tags")
 	}
@@ -461,7 +552,23 @@ func validateThresholdTimeMode(evt *nostr.Event, config *UnlockConfig) error {
 		return fmt.Errorf("witness count mismatch: expected %d, got %d", config.WitnessCount, len(witnesses))
 	}
 
-	// 2. Must have witness commitment
+	// 2. Validate witness pubkeys format and check for duplicates
+	witnessSet := make(map[string]bool)
+	for i, witness := range witnesses {
+		if len(witness) < 2 {
+			return fmt.Errorf("witness %d: missing pubkey", i+1)
+		}
+		pubkey := witness[1]
+		if len(pubkey) != 64 || !isHexString(pubkey) {
+			return fmt.Errorf("witness %d: invalid pubkey format", i+1)
+		}
+		if witnessSet[pubkey] {
+			return fmt.Errorf("witness %d: duplicate pubkey %s", i+1, pubkey)
+		}
+		witnessSet[pubkey] = true
+	}
+
+	// 3. Must have witness commitment
 	commitTags := getTagsByName(evt, constants.TagWitnessCommit)
 	if len(commitTags) != 1 {
 		return fmt.Errorf("exactly one w-commit tag required")
@@ -470,7 +577,15 @@ func validateThresholdTimeMode(evt *nostr.Event, config *UnlockConfig) error {
 		return fmt.Errorf("invalid witness commitment: %w", err)
 	}
 
-	// 3. Time validation is done in parseUnlockTag
+	// 4. Verify witness commitment against actual witness list
+	if err := verifyWitnessCommitment(witnesses, commitTags[0]); err != nil {
+		return fmt.Errorf("witness commitment verification failed: %w", err)
+	}
+
+	// 5. Validate drand parameters
+	if err := validateDrandParameters(config); err != nil {
+		return fmt.Errorf("drand validation failed: %w", err)
+	}
 
 	return nil
 }
@@ -488,7 +603,10 @@ func validateTimelockMode(evt *nostr.Event, config *UnlockConfig) error {
 		return fmt.Errorf("timelock mode must not have witness commitment")
 	}
 
-	// 3. Time validation is done in parseUnlockTag
+	// 3. Validate drand parameters
+	if err := validateDrandParameters(config); err != nil {
+		return fmt.Errorf("drand validation failed: %w", err)
+	}
 
 	return nil
 }
@@ -502,6 +620,11 @@ func validateExternalStorage(evt *nostr.Event) error {
 	uri := uriTags[0][1]
 	if uri == "" {
 		return fmt.Errorf("uri cannot be empty")
+	}
+
+	// Validate URI is absolute
+	if !isAbsoluteURI(uri) {
+		return fmt.Errorf("uri must be absolute")
 	}
 
 	// 2. Must have SHA256 tag
@@ -573,6 +696,11 @@ func validateWitnessCommit(tag nostr.Tag) error {
 	return nil
 }
 
+func isAbsoluteURI(uri string) bool {
+	// Simple check for absolute URI - contains scheme://
+	return strings.Contains(uri, "://") && len(strings.Split(uri, "://")) == 2
+}
+
 func validateURIScheme(uri, location string) bool {
 	switch location {
 	case constants.LocationHTTPS:
@@ -635,10 +763,16 @@ func isHexString(s string) bool {
 }
 
 func isValidBase64(s string) bool {
-	// Basic Base64 validation - just check it can decode
-	// More thorough validation would check RFC 4648 compliance
+	// RFC 4648 compliant Base64 validation
+	// Check both pattern and actual decoding
 	matched, _ := regexp.MatchString(`^[A-Za-z0-9+/]*={0,2}$`, s)
-	return matched
+	if !matched {
+		return false
+	}
+	
+	// RFC 4648 compliant Base64 validation (standard encoding only for NIP-44)
+	_, err := base64.StdEncoding.DecodeString(s)
+	return err == nil
 }
 
 // IsTimeCapsuleEvent checks if an event is a time capsule
@@ -655,4 +789,215 @@ func IsTimeCapsuleUnlockShare(evt *nostr.Event) bool {
 // IsTimeCapsuleShareDistribution checks if an event is a share distribution
 func IsTimeCapsuleShareDistribution(evt *nostr.Event) bool {
 	return evt.Kind == constants.KindTimeCapsuleShareDistribution
+}
+
+// verifyWitnessCommitment verifies that the witness commitment matches the actual witness list
+func verifyWitnessCommitment(witnesses []nostr.Tag, commitTag nostr.Tag) error {
+	if len(commitTag) < 2 {
+		return fmt.Errorf("invalid commit tag format")
+	}
+	
+	expectedHash, err := computeWitnessCommitment(witnesses)
+	if err != nil {
+		return fmt.Errorf("failed to compute expected commitment: %w", err)
+	}
+	
+	actualCommit := strings.TrimPrefix(commitTag[1], "sha256:")
+	if actualCommit != expectedHash {
+		return fmt.Errorf("commitment mismatch: expected %s, got %s", expectedHash, actualCommit)
+	}
+	
+	return nil
+}
+
+// computeWitnessCommitment computes the merkle tree commitment for witnesses
+func computeWitnessCommitment(witnesses []nostr.Tag) (string, error) {
+	if len(witnesses) == 0 {
+		return "", fmt.Errorf("no witnesses provided")
+	}
+	
+	// Create leaves using the domain string and witness index
+	leaves := make([][]byte, len(witnesses))
+	for i, witness := range witnesses {
+		if len(witness) < 2 {
+			return "", fmt.Errorf("invalid witness tag at index %d", i)
+		}
+		pubkey := witness[1]
+		if len(pubkey) != 64 {
+			return "", fmt.Errorf("invalid pubkey length at index %d", i)
+		}
+		
+		// Leaf = SHA256(domain || LE32(x) || pubkey_bytes)
+		// where x is 1-based witness index (share-idx)
+		domain := []byte(constants.WitnessMerkleLeafDomain)
+		indexBytes := make([]byte, 4)
+		// Little-endian encoding of (i+1) as specified in NIP
+		indexBytes[0] = byte(i + 1)
+		indexBytes[1] = byte((i + 1) >> 8)
+		indexBytes[2] = byte((i + 1) >> 16)
+		indexBytes[3] = byte((i + 1) >> 24)
+		
+		pubkeyBytes, err := hex.DecodeString(pubkey)
+		if err != nil {
+			return "", fmt.Errorf("invalid pubkey hex at index %d: %w", i, err)
+		}
+		
+		leafData := append(domain, indexBytes...)
+		leafData = append(leafData, pubkeyBytes...)
+		
+		hash := sha256Sum(leafData)
+		leaves[i] = hash[:]
+	}
+	
+	// Build merkle tree
+	root, err := buildMerkleTree(leaves)
+	if err != nil {
+		return "", fmt.Errorf("failed to build merkle tree: %w", err)
+	}
+	
+	return hex.EncodeToString(root), nil
+}
+
+// buildMerkleTree builds a merkle tree from leaves
+func buildMerkleTree(leaves [][]byte) ([]byte, error) {
+	if len(leaves) == 0 {
+		return nil, fmt.Errorf("no leaves provided")
+	}
+	
+	if len(leaves) == 1 {
+		return leaves[0], nil
+	}
+	
+	// Build tree level by level
+	currentLevel := make([][]byte, len(leaves))
+	copy(currentLevel, leaves)
+	
+	for len(currentLevel) > 1 {
+		var nextLevel [][]byte
+		
+		for i := 0; i < len(currentLevel); i += 2 {
+			var combined []byte
+			
+			if i+1 < len(currentLevel) {
+				// Combine two hashes: left || right
+				combined = append(currentLevel[i], currentLevel[i+1]...)
+			} else {
+				// Odd number of nodes: combine with itself (duplicate)
+				combined = append(currentLevel[i], currentLevel[i]...)
+			}
+			
+			hash := sha256Sum(combined)
+			nextLevel = append(nextLevel, hash[:])
+		}
+		
+		currentLevel = nextLevel
+	}
+	
+	return currentLevel[0], nil
+}
+
+// validateDrandParameters validates drand beacon parameters
+func validateDrandParameters(config *UnlockConfig) error {
+	// 1. Validate unlock time is reasonable (not too far in past/future)
+	now := time.Now().Unix()
+	maxFuture := now + int64(constants.MaxUnlockTimeYears*365*24*3600)
+	
+	if config.UnlockTime < now-86400 { // Allow 1 day in past for clock skew
+		return fmt.Errorf("unlock time too far in past")
+	}
+	if config.UnlockTime > maxFuture {
+		return fmt.Errorf("unlock time too far in future (max %d years)", constants.MaxUnlockTimeYears)
+	}
+	
+	// 2. Validate beacon hash format (but allow any valid hash)
+	if len(config.Beacon) != constants.DrandChainHashLength {
+		return fmt.Errorf("invalid beacon hash length: expected %d hex chars", constants.DrandChainHashLength)
+	}
+	if !isHexString(config.Beacon) {
+		return fmt.Errorf("beacon hash must be hex string")
+	}
+	
+	// 3. Basic round validation (cannot validate specific chain without genesis/period info)
+	if config.Round < 1 {
+		return fmt.Errorf("drand round must be positive")
+	}
+	
+	// Note: Specific round calculation validation is left to clients since different
+	// drand networks have different genesis times and periods. The relay accepts
+	// any valid chain hash and round number.
+	
+	return nil
+}
+
+// validateContentFrame validates the content frame size and format
+func validateContentFrame(envelope ContentEnvelope, location string) error {
+	if location == constants.LocationInline {
+		// Inline content: ct must be non-empty and within size limits
+		if envelope.CT == "" {
+			return fmt.Errorf("inline content: ct cannot be empty")
+		}
+		
+		// Decode to check frame size
+		ctBytes, err := base64.StdEncoding.DecodeString(envelope.CT)
+		if err != nil {
+			return fmt.Errorf("invalid ct Base64: %w", err)
+		}
+		
+		// Validate minimum frame size (NIP-44 v2 minimum)
+		if len(ctBytes) < 40 {
+			return fmt.Errorf("content frame too small: %d bytes (minimum 40)", len(ctBytes))
+		}
+		
+		// Validate maximum inline size
+		if len(ctBytes) > constants.MaxInlineBytes {
+			return fmt.Errorf("inline content too large: %d bytes (max %d)", len(ctBytes), constants.MaxInlineBytes)
+		}
+	} else {
+		// External content: ct must be empty
+		if envelope.CT != "" {
+			return fmt.Errorf("external content: ct must be empty")
+		}
+	}
+	
+	return nil
+}
+
+// validateShareContent validates the format and size of share content
+func validateShareContent(content string) error {
+	// Content should be valid Base64
+	if !isValidBase64(content) {
+		return fmt.Errorf("content must be valid Base64")
+	}
+	
+	// Decode to check actual size
+	shareBytes, err := base64.StdEncoding.DecodeString(content)
+	if err != nil {
+		return fmt.Errorf("failed to decode Base64 content: %w", err)
+	}
+	
+	// For raw shares, expect exactly 32 bytes (Shamir share size)
+	// For encrypted shares (NIP-44 v2), expect minimum frame size
+	if len(shareBytes) == constants.ShamirShareSize {
+		// Raw 32-byte share - valid
+		return nil
+	} else if len(shareBytes) >= 40 {
+		// Could be NIP-44 v2 encrypted share - validate minimum frame size
+		return nil
+	} else {
+		return fmt.Errorf("invalid share size: %d bytes (expected %d for raw share or >=40 for encrypted)", 
+			len(shareBytes), constants.ShamirShareSize)
+	}
+}
+
+// sha256Sum computes SHA256 hash
+func sha256Sum(data []byte) [32]byte {
+	return sha256.Sum256(data)
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

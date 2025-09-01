@@ -77,18 +77,21 @@ const (
 	EnvelopeVersion = "1"
 )
 
-// Drand constants (NIP Time Capsules v1)
+// Drand validation constants (NIP Time Capsules v1)
 const (
-	// DrandMainnetChainHash is the mainnet drand chain hash
-	DrandMainnetChainHash = "8990e7a9fd29b9427d2bc63c37e2cb28e0b2d73dbb5c18f9b92b057c4c5a8580"
-	// DrandTestnetChainHash is the testnet drand chain hash
-	DrandTestnetChainHash = "7672797f548f3f4748ac4bf3352fc6c6b6468c9ad40ad456a397545c6e2df5bf"
-	// DrandDefaultPeriod is the default period in seconds
+	// DrandDefaultPeriod is the standard drand period in seconds
 	DrandDefaultPeriod = 30
-	// DrandGenesisMainnet is the mainnet genesis time
-	DrandGenesisMainnet = 1672531200 // 2023-01-01 00:00:00 UTC
-	// DrandGenesisTestnet is the testnet genesis time  
-	DrandGenesisTestnet = 1651677600 // 2022-05-05 00:00:00 UTC
+	// DrandChainHashLength is the expected length of chain hashes (64 hex chars)
+	DrandChainHashLength = 64
+	// DrandMinGenesisTime is the earliest reasonable genesis time (2020-01-01)
+	DrandMinGenesisTime = 1577836800
+	// DrandMaxPeriod is the maximum reasonable beacon period (10 minutes)
+	DrandMaxPeriod = 600
+	// DrandMinPeriod is the minimum reasonable beacon period (1 second)  
+	DrandMinPeriod = 1
+	// DrandLeagueOfEntropyChain is the League of Entropy mainnet chain hash (for reference)
+	// The relay accepts any valid drand chain hash, not limited to this one
+	DrandLeagueOfEntropyChain = "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce"
 )
 
 // HKDF constants (NIP Time Capsules v1)
