@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Shugur-Network/relay/internal/constants"
 	nostr "github.com/nbd-wtf/go-nostr"
@@ -20,7 +19,6 @@ type UnlockConfig struct {
 	Mode         string
 	Threshold    int
 	WitnessCount int
-	UnlockTime   int64
 	Beacon       string
 	Round        int64
 }
@@ -377,17 +375,11 @@ func extractThresholdParams(kv map[string]string, config *UnlockConfig) error {
 }
 
 func extractTimeParams(kv map[string]string, config *UnlockConfig) error {
-	TStr, hasT := kv["T"]
 	beaconStr, hasBeacon := kv["beacon"]
 	roundStr, hasRound := kv["round"]
 
-	if !hasT || !hasBeacon || !hasRound {
-		return fmt.Errorf("time mode requires T, beacon, and round parameters")
-	}
-
-	T, err := strconv.ParseInt(TStr, 10, 64)
-	if err != nil || T <= 0 {
-		return fmt.Errorf("invalid unlock time T: %s", TStr)
+	if !hasBeacon || !hasRound {
+		return fmt.Errorf("time mode requires beacon and round parameters")
 	}
 
 	round, err := strconv.ParseInt(roundStr, 10, 64)
@@ -403,7 +395,6 @@ func extractTimeParams(kv map[string]string, config *UnlockConfig) error {
 	// Accept any valid chain hash format (relay is chain-agnostic)
 	// Chain validation is performed by clients during actual drand operations
 
-	config.UnlockTime = T
 	config.Beacon = beaconStr
 	config.Round = round
 	return nil
@@ -416,10 +407,9 @@ func hasThresholdParams(kv map[string]string) bool {
 }
 
 func hasTimeParams(kv map[string]string) bool {
-	_, hasT := kv["T"]
 	_, hasBeacon := kv["beacon"]
 	_, hasRound := kv["round"]
-	return hasT || hasBeacon || hasRound
+	return hasBeacon || hasRound
 }
 
 func validateContentEnvelope(evt *nostr.Event, config *UnlockConfig) error {
@@ -731,7 +721,7 @@ func isValidLocation(loc string) bool {
 }
 
 func hasAnyTimeTag(evt *nostr.Event) bool {
-	timeTagNames := []string{constants.TagBeacon, constants.TagRound, "T"}
+	timeTagNames := []string{constants.TagBeacon, constants.TagRound}
 	for _, tagName := range timeTagNames {
 		if len(getTagsByName(evt, tagName)) > 0 {
 			return true
@@ -898,18 +888,7 @@ func buildMerkleTree(leaves [][]byte) ([]byte, error) {
 
 // validateDrandParameters validates drand beacon parameters
 func validateDrandParameters(config *UnlockConfig) error {
-	// 1. Validate unlock time is reasonable (not too far in past/future)
-	now := time.Now().Unix()
-	maxFuture := now + int64(constants.MaxUnlockTimeYears*365*24*3600)
-	
-	if config.UnlockTime < now-86400 { // Allow 1 day in past for clock skew
-		return fmt.Errorf("unlock time too far in past")
-	}
-	if config.UnlockTime > maxFuture {
-		return fmt.Errorf("unlock time too far in future (max %d years)", constants.MaxUnlockTimeYears)
-	}
-	
-	// 2. Validate beacon hash format (but allow any valid hash)
+	// 1. Validate beacon hash format (but allow any valid hash)
 	if len(config.Beacon) != constants.DrandChainHashLength {
 		return fmt.Errorf("invalid beacon hash length: expected %d hex chars", constants.DrandChainHashLength)
 	}
@@ -917,7 +896,7 @@ func validateDrandParameters(config *UnlockConfig) error {
 		return fmt.Errorf("beacon hash must be hex string")
 	}
 	
-	// 3. Basic round validation (cannot validate specific chain without genesis/period info)
+	// 2. Basic round validation (cannot validate specific chain without genesis/period info)
 	if config.Round < 1 {
 		return fmt.Errorf("drand round must be positive")
 	}

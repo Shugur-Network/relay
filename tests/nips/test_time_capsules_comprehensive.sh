@@ -735,7 +735,7 @@ V3_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 1995 \
     --content '{"v":"1","ct":"'$(echo -n "Timelock release content - extended for minimum 40 bytes requirement per NIP spec" | base64 -w 0)'","k_tlock":"'$(echo -n "simulated_drand_timelock_ciphertext_non_empty" | base64 -w 0)'","aad":"'$(generate_aad "timelock_test")'"}' \
-    -t unlock="mode timelock T $FUTURE_TIME beacon $DRAND_CHAIN_HASH round $TIMELOCK_ROUND" \
+    -t unlock="mode timelock beacon $DRAND_CHAIN_HASH round $TIMELOCK_ROUND" \
     -t enc="nip44:v2" \
     -t loc="inline" \
     -t alt="Timelock mode time capsule" \
@@ -750,7 +750,7 @@ V3A_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 1995 \
     --content '{"v":"1","ct":"'$(echo -n "Threshold-time mode content - requires both witness threshold AND time gate" | base64 -w 0)'","k_tlock":"'$(echo -n "simulated_drand_timelock_for_threshold_time" | base64 -w 0)'","aad":"'$(generate_aad "threshold_time_test")'"}' \
-    -t unlock="mode threshold-time t 2 n 2 T $FAR_FUTURE beacon $DRAND_CHAIN_HASH round $THRESHOLD_TIME_ROUND" \
+    -t unlock="mode threshold-time t 2 n 2 beacon $DRAND_CHAIN_HASH round $THRESHOLD_TIME_ROUND" \
     -t p="$WITNESS1_PUBKEY" \
     -t p="$WITNESS2_PUBKEY" \
     -t w-commit="sha256:$THRESHOLD_TIME_COMMITMENT" \
@@ -1125,7 +1125,7 @@ V29_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 1995 \
     --content "$(generate_content_envelope "Far future test - extended content for NIP-44 v2 compliance" "far_future_test" "true")" \
-    -t unlock="mode timelock T $VERY_FAR_FUTURE beacon $DRAND_CHAIN_HASH round $VERY_FAR_FUTURE_ROUND" \
+    -t unlock="mode timelock beacon $DRAND_CHAIN_HASH round $VERY_FAR_FUTURE_ROUND" \
     -t enc="nip44:v2" \
     -t loc="inline" \
     $RELAY 2>&1)
@@ -1201,7 +1201,7 @@ V33_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 1995 \
     --content '{"v":"1","ct":"'$(echo -n "Timelock should not have witnesses - extended for minimum 40 bytes" | base64 -w 0)'","k_tlock":"'$(echo -n "timelock_with_invalid_witnesses" | base64 -w 0)'","aad":"'$(generate_aad "invalid_timelock_test")'"}' \
-    -t unlock="mode timelock T $FUTURE_TIME beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
+    -t unlock="mode timelock beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
     -t p="$WITNESS1_PUBKEY" \
     -t p="$WITNESS2_PUBKEY" \
     -t w-commit="sha256:invalid" \
@@ -1217,7 +1217,7 @@ V34_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 1995 \
     --content '{"v":"1","ct":"'$(echo -n "Threshold should not have timelock fields - extended for 40 bytes" | base64 -w 0)'","k_tlock":"'$(echo -n "invalid_timelock_in_threshold" | base64 -w 0)'","aad":"'$(generate_aad "invalid_threshold_test")'"}' \
-    -t unlock="mode threshold t 1 n 2 T $FUTURE_TIME beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
+    -t unlock="mode threshold t 1 n 2 beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
     -t p="$WITNESS1_PUBKEY" \
     -t p="$WITNESS2_PUBKEY" \
     -t w-commit="sha256:$V34_COMMITMENT" \
@@ -1264,7 +1264,7 @@ S1_2_RESPONSE=$(nak event \
     --sec $JOHN_PRIVKEY \
     -k 1995 \
     --content "$(echo -n '{"ceo_transition":"Transfer CEO role to CTO after 30-day cooling period","board_vote":"Require unanimous board approval for external CEO hire","stock_options":"Accelerate vesting for all employees","severance":"18 months for all affected employees"}' | base64 -w 0 | jq -Rc '{v:"1",ct:.,k_tlock:"'$(echo -n "simulated_business_timelock_30days" | base64 -w 0)'",aad:"'$(generate_aad "ceo_transition_scenario")'"}')" \
-    -t unlock="mode threshold-time t 2 n 3 T $INHERITANCE_TIME beacon $DRAND_CHAIN_HASH round $(get_drand_round $INHERITANCE_TIME)" \
+    -t unlock="mode threshold-time t 2 n 3 beacon $DRAND_CHAIN_HASH round $(get_drand_round $INHERITANCE_TIME)" \
     -t p="$CTO_PUBKEY" -t p="$CFO_PUBKEY" -t p="$CHAIRMAN_PUBKEY" \
     -t w-commit="sha256:$S1_2_COMMITMENT" \
     -t enc="nip44:v2" \
@@ -1320,7 +1320,7 @@ S2_2_RESPONSE=$(nak event \
     --sec $CFO_PRIVKEY \
     -k 1995 \
     --content "$(echo -n '{"quarter":"Q3 2025","revenue":"$2.4B","profit":"$485M","eps":"$2.85","guidance":"Raising full-year guidance to $9.8B-$10.2B","highlights":["Cloud revenue up 35% YoY","AI products exceed $500M ARR","International expansion to 15 new markets"]}' | base64 -w 0 | jq -Rc '{v:"1",ct:.,k_tlock:"'$(echo -n "simulated_earnings_timelock" | base64 -w 0)'",aad:"'$(generate_aad "earnings_announcement_scenario")'"}')" \
-    -t unlock="mode timelock T $FUTURE_TIME beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
+    -t unlock="mode timelock beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
     -t enc="nip44:v2" \
     -t loc="inline" \
     -t alt="Q3 2025 earnings release - public at market close" \
@@ -1342,7 +1342,7 @@ S3_1_RESPONSE=$(nak event \
     --sec $RESEARCHER_PRIVKEY \
     -k 1995 \
     --content "$(echo -n "$RESEARCH_CONTENT" | base64 -w 0 | jq -Rc '{v:"1",ct:.,k_tlock:"'$(echo -n "simulated_academic_embargo_timelock" | base64 -w 0)'",aad:"'$(generate_aad "research_embargo_scenario")'"}')" \
-    -t unlock="mode threshold-time t 2 n 3 T $RESEARCH_EMBARGO beacon $DRAND_CHAIN_HASH round $(get_drand_round $RESEARCH_EMBARGO)" \
+    -t unlock="mode threshold-time t 2 n 3 beacon $DRAND_CHAIN_HASH round $(get_drand_round $RESEARCH_EMBARGO)" \
     -t p="$REVIEWER1_PUBKEY" -t p="$REVIEWER2_PUBKEY" -t p="$REVIEWER3_PUBKEY" \
     -t w-commit="sha256:$S3_1_COMMITMENT" \
     -t enc="nip44:v2" \
@@ -1389,7 +1389,7 @@ S5_1_RESPONSE=$(nak event \
     --sec $PATIENT_PRIVKEY \
     -k 1995 \
     --content "$(echo -n "$MEDICAL_CONTENT" | base64 -w 0 | jq -Rc '{v:"1",ct:.,k_tlock:"'$(echo -n "simulated_medical_window_timelock" | base64 -w 0)'",aad:"b7b8b9c0d1d2e3e4f5f6a7a8b9b0c1c2d3d4e5e6f7f8a9a0b1b2c3c4d5d6e7e8"}')" \
-    -t unlock="mode threshold-time t 2 n 3 T $MEDICAL_CONSENT beacon $DRAND_CHAIN_HASH round $(get_drand_round $MEDICAL_CONSENT)" \
+    -t unlock="mode threshold-time t 2 n 3 beacon $DRAND_CHAIN_HASH round $(get_drand_round $MEDICAL_CONSENT)" \
     -t p="$DOCTOR1_PUBKEY" -t p="$NURSE_PUBKEY" -t p="$FAMILYDOC_PUBKEY" \
     -t w-commit="sha256:$(python3 compute_commitment.py "$DOCTOR1_PUBKEY" "$NURSE_PUBKEY" "$FAMILYDOC_PUBKEY")" \
     -t enc="nip44:v2" \
@@ -1521,7 +1521,7 @@ MERGER_CAPSULE_RESPONSE=$(nak event \
     --sec $CEO_PRIVKEY \
     -k 1995 \
     --content "$(echo -n "$BOARD_CONTENT" | base64 -w 0 | jq -Rc '{v:"1",ct:.,k_tlock:"'$(echo -n "merger_announcement_timelock_prevent_insider_trading" | base64 -w 0)'",aad:"'$(generate_aad "board_meeting_scenario")'"}')" \
-    -t unlock="mode timelock T $FUTURE_TIME beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
+    -t unlock="mode timelock beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
     -t enc="nip44:v2" \
     -t loc="inline" \
     -t alt="TechCorp merger announcement - releases at earnings call" \
@@ -1850,7 +1850,7 @@ W7_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 1995 \
     --content "$ENCRYPTED_CONTENT_3" \
-    -t unlock="mode timelock T $CURRENT_UNLOCK beacon $DRAND_CHAIN_HASH round $(get_drand_round $CURRENT_UNLOCK)" \
+    -t unlock="mode timelock beacon $DRAND_CHAIN_HASH round $(get_drand_round $CURRENT_UNLOCK)" \
     -t enc="nip44:v2" \
     -t loc="inline" \
     -t alt="Scheduled mode workflow test" \
@@ -1962,7 +1962,7 @@ W10_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 1995 \
     --content "$ENCRYPTED_CONTENT_4" \
-    -t unlock="mode threshold-time t 1 n 2 T $FUTURE_TIME beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
+    -t unlock="mode threshold-time t 1 n 2 beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
     -t p="$WITNESS1_PUBKEY" \
     -t p="$WITNESS2_PUBKEY" \
     -t w-commit="sha256:$W10_COMMITMENT" \

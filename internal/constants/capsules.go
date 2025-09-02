@@ -134,7 +134,6 @@ const (
 	MaxWitnessCount         = 256             // Max witnesses per capsule (per NIP DoS limits)
 	MaxThresholdValue       = 256             // Max threshold value (aligned with max witnesses)
 	MinThresholdValue       = 1               // Min threshold value
-	MaxUnlockTimeYears      = 10              // Max years in future for unlock time
 	MinClockSkewSeconds     = 60              // Min clock skew (1 minute)
 	MaxClockSkewSeconds     = 3600            // Max clock skew (1 hour)
 	MaxInlineBytes          = 131072          // Max inline content (128 KiB per NIP)
