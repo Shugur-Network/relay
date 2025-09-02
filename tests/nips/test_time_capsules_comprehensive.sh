@@ -49,12 +49,32 @@ MEDICAL_CONSENT=$((CURRENT_TIME + 86400))       # 24 hours (medical decision win
 DRAND_CHAIN_HASH="8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce"
 DRAND_ENDPOINT="https://api.drand.sh"
 DRAND_PERIOD=30  # Default network has 30-second rounds
+DRAND_GENESIS=1672531200  # League of Entropy mainnet genesis time
 
-# Compute proper drand round numbers for time locks
-# Round number = unix_timestamp / drand_period
+# Compute proper drand round numbers for time locks per NIP spec
+# Round = ceil((T - genesis_time) / period_seconds) + 1
 get_drand_round() {
     local timestamp=$1
-    echo $((timestamp / DRAND_PERIOD))
+    local genesis_time=$DRAND_GENESIS
+    local period_seconds=$DRAND_PERIOD
+    
+    # Ensure T >= genesis_time
+    if [[ $timestamp -lt $genesis_time ]]; then
+        echo "Error: Timestamp before drand genesis" >&2
+        return 1
+    fi
+    
+    # Compute: ceil((T - genesis_time) / period_seconds) + 1
+    # Using integer arithmetic: ((T - genesis + period - 1) / period) + 1
+    local diff=$((timestamp - genesis_time))
+    local round=$(((diff + period_seconds - 1) / period_seconds + 1))
+    
+    # Ensure round >= 1
+    if [[ $round -lt 1 ]]; then
+        echo 1
+    else
+        echo $round
+    fi
 }
 
 # Verify drand network connectivity (optional)
@@ -70,7 +90,7 @@ verify_drand_connectivity() {
 }
 
 # Test counters - actual implemented tests
-TOTAL_VALIDATION_TESTS=32  # V1-V32 protocol validation tests
+TOTAL_VALIDATION_TESTS=35  # V1-V34 + V3a protocol validation tests
 TOTAL_SCENARIO_TESTS=8     # S1.1-S5.1 real-world scenario tests  
 TOTAL_WORKFLOW_TESTS=15    # W1-W15 cryptographic workflow tests
 TOTAL_TESTS=$((TOTAL_VALIDATION_TESTS + TOTAL_SCENARIO_TESTS + TOTAL_WORKFLOW_TESTS))
@@ -82,16 +102,16 @@ declare -a TEST_RESULTS
 declare -a COMPLETED_TESTS
 
 echo -e "${BLUE}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║            Time Capsules Real-World Scenarios Test Suite                    ║${NC}"
+echo -e "${BLUE}║            Time Capsules Real-World Scenarios Test Suite                     ║${NC}"
 echo -e "${BLUE}║                                                                              ║${NC}"
-echo -e "${BLUE}║  Protocol Validation: $TOTAL_VALIDATION_TESTS tests                                        ║${NC}"
-echo -e "${BLUE}║  Real-World Scenarios: $TOTAL_SCENARIO_TESTS tests                                       ║${NC}"
-echo -e "${BLUE}║  End-to-End Workflows: $TOTAL_WORKFLOW_TESTS tests                                       ║${NC}"
-echo -e "${BLUE}║  Total Tests: $TOTAL_TESTS                                                            ║${NC}"
+echo -e "${BLUE}║  Protocol Validation: $TOTAL_VALIDATION_TESTS tests                                               ║${NC}"
+echo -e "${BLUE}║  Real-World Scenarios: $TOTAL_SCENARIO_TESTS tests                                               ║${NC}"
+echo -e "${BLUE}║  End-to-End Workflows: $TOTAL_WORKFLOW_TESTS tests                                              ║${NC}"
+echo -e "${BLUE}║  Total Tests: $TOTAL_TESTS                                                             ║${NC}"
 echo -e "${BLUE}║                                                                              ║${NC}"
-echo -e "${BLUE}║  Scenarios: Inheritance, Corporate, Legal, Research, Medical, Crypto        ║${NC}"
-echo -e "${BLUE}║  Event Kinds: 1995, 31995, 1996, 1997 (NIP Time Capsules v1)               ║${NC}"
-echo -e "${BLUE}║  Unlock Modes: threshold, threshold-time, timelock                          ║${NC}"
+echo -e "${BLUE}║  Scenarios: Inheritance, Corporate, Legal, Research, Medical, Crypto         ║${NC}"
+echo -e "${BLUE}║  Event Kinds: 1995, 31995, 1996, 1997 (NIP Time Capsules v1)                 ║${NC}"
+echo -e "${BLUE}║  Unlock Modes: threshold, threshold-time, timelock                           ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -233,7 +253,23 @@ reconstruct_test_secret() {
     return 1
 }
 
+# Generate proper AAD according to NIP-XX spec
+# AAD is computed over the event as signed, with content="" and no ["aad",...] tag
+compute_aad() {
+    local pubkey="$1"
+    local created_at="$2"
+    local kind="$3"
+    local tags_json="$4"  # JSON array of tags without aad tags
+    
+    # Create canonical NIP-01 event array: [0, pubkey, created_at, kind, tags, ""]
+    local event_array='[0,"'$pubkey'",'$created_at','$kind','$tags_json',""]'
+    
+    # Compute SHA256 and return hex
+    echo -n "$event_array" | sha256sum | cut -d' ' -f1
+}
+
 # Generate runtime AAD (Additional Authenticated Data) - 64 hex characters
+# This is a simplified version for testing - real implementation should use compute_aad
 generate_aad() {
     local context="${1:-default}"
     # Use openssl to generate 32 random bytes, then convert to 64 hex chars
@@ -269,6 +305,66 @@ generate_content_envelope() {
 generate_sha256_hash() {
     local input="${1:-random_data_$(date +%s)_$RANDOM}"
     echo -n "$input" | sha256sum | cut -d' ' -f1
+}
+
+# Create NIP-59 Gift Wrap for private share distribution
+create_gift_wrap() {
+    local inner_event_json="$1"
+    local recipient_pubkey="$2" 
+    local sender_privkey="$3"
+    local capsule_event_id="$4"
+    local relay_url="$5"
+    
+    # Create outer 1059 Gift Wrap event
+    nak event \
+        --sec "$sender_privkey" \
+        -k 1059 \
+        --content "$(echo -n "$inner_event_json" | base64 -w 0)" \
+        -t p="$recipient_pubkey" \
+        -t e="$capsule_event_id" \
+        --pow 0 \
+        "$relay_url"
+}
+
+# Create inner 1997 unlock share event
+create_unlock_share() {
+    local capsule_event_id="$1"
+    local witness_pubkey="$2"
+    local witness_privkey="$3"
+    local share_idx="$4"
+    local share_data="$5"  # 32-byte share as base64
+    
+    # Create inner 1997 event structure (no relay = just print JSON)
+    nak event \
+        --sec "$witness_privkey" \
+        -k 1997 \
+        --content "$share_data" \
+        -t e="$capsule_event_id" \
+        -t p="$witness_pubkey" \
+        -t share-idx="$share_idx" \
+        2>/dev/null
+}
+
+# Create inner 1996 share distribution event  
+create_share_distribution() {
+    local capsule_event_id="$1"
+    local witness_pubkey="$2"
+    local author_privkey="$3"
+    local share_idx="$4"
+    local share_data="$5"  # 32-byte share as base64
+    
+    # Create inner 1996 event structure
+    local inner_event=$(nak event \
+        --sec "$author_privkey" \
+        -k 1996 \
+        --content "$share_data" \
+        -t e="$capsule_event_id" \
+        -t p="$witness_pubkey" \
+        -t share-idx="$share_idx" \
+        --print-event-only \
+        2>/dev/null)
+    
+    echo "$inner_event"
 }
 
 # ============================================================================
@@ -601,7 +697,7 @@ COMMITMENT=$(python3 compute_commitment.py "$WITNESS1_PUBKEY" "$WITNESS2_PUBKEY"
 V1_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 1995 \
-    --content '{"v":"1","ct":"'$(echo -n "Test message for threshold capsule - extended content for NIP-44 v2 compliance" | base64 -w 0)'","k_tlock":null,"aad":"'$(generate_aad "threshold_test")'"}' \
+    --content '{"v":"1","ct":"'$(echo -n "Test message for threshold capsule - extended content for NIP-44 v2 compliance with minimum 40 bytes" | base64 -w 0)'","k_tlock":null,"aad":"'$(generate_aad "threshold_test")'"}' \
     -t unlock="mode threshold t 2 n 3" \
     -t p="$WITNESS1_PUBKEY" \
     -t p="$WITNESS2_PUBKEY" \
@@ -620,7 +716,7 @@ COMMITMENT_V2=$(python3 compute_commitment.py "$WITNESS1_PUBKEY" "$WITNESS2_PUBK
 V2_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 31995 \
-    --content '{"v":"1","ct":"'$(echo -n "Replaceable time capsule content - extended for minimum 40 bytes" | base64 -w 0)'","k_tlock":null,"aad":"'$(generate_aad "replaceable_test")'"}' \
+    --content '{"v":"1","ct":"'$(echo -n "Replaceable time capsule content - extended for minimum 40 bytes requirement" | base64 -w 0)'","k_tlock":null,"aad":"'$(generate_aad "replaceable_test")'"}' \
     -d "test-capsule-$(date +%s)" \
     -t unlock="mode threshold t 1 n 2" \
     -t p="$WITNESS1_PUBKEY" \
@@ -634,23 +730,42 @@ expect_success "$V2_RESPONSE" "Valid parameterized replaceable time capsule crea
 
 # Test V3: Valid Timelock Mode Time Capsule
 log_test "V3" "Create valid timelock mode time capsule"
+TIMELOCK_ROUND=$(get_drand_round $FUTURE_TIME)
 V3_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 1995 \
-    --content '{"v":"1","ct":"'$(echo -n "Timelock release content - extended for minimum 40 bytes requirement" | base64 -w 0)'","k_tlock":"'$(echo -n "simulated_drand_timelock_ciphertext" | base64 -w 0)'","aad":"'$(generate_aad "timelock_test")'"}' \
-    -t unlock="mode timelock T $FUTURE_TIME beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
+    --content '{"v":"1","ct":"'$(echo -n "Timelock release content - extended for minimum 40 bytes requirement per NIP spec" | base64 -w 0)'","k_tlock":"'$(echo -n "simulated_drand_timelock_ciphertext_non_empty" | base64 -w 0)'","aad":"'$(generate_aad "timelock_test")'"}' \
+    -t unlock="mode timelock T $FUTURE_TIME beacon $DRAND_CHAIN_HASH round $TIMELOCK_ROUND" \
     -t enc="nip44:v2" \
     -t loc="inline" \
     -t alt="Timelock mode time capsule" \
     $RELAY 2>&1)
 expect_success "$V3_RESPONSE" "Valid timelock mode time capsule creation"
 
+# Test V3a: Valid Threshold-Time Mode Time Capsule
+log_test "V3a" "Create valid threshold-time mode time capsule"
+THRESHOLD_TIME_COMMITMENT=$(python3 compute_commitment.py "$WITNESS1_PUBKEY" "$WITNESS2_PUBKEY")
+THRESHOLD_TIME_ROUND=$(get_drand_round $FAR_FUTURE)
+V3A_RESPONSE=$(nak event \
+    --sec $AUTHOR_PRIVKEY \
+    -k 1995 \
+    --content '{"v":"1","ct":"'$(echo -n "Threshold-time mode content - requires both witness threshold AND time gate" | base64 -w 0)'","k_tlock":"'$(echo -n "simulated_drand_timelock_for_threshold_time" | base64 -w 0)'","aad":"'$(generate_aad "threshold_time_test")'"}' \
+    -t unlock="mode threshold-time t 2 n 2 T $FAR_FUTURE beacon $DRAND_CHAIN_HASH round $THRESHOLD_TIME_ROUND" \
+    -t p="$WITNESS1_PUBKEY" \
+    -t p="$WITNESS2_PUBKEY" \
+    -t w-commit="sha256:$THRESHOLD_TIME_COMMITMENT" \
+    -t enc="nip44:v2" \
+    -t loc="inline" \
+    -t alt="Threshold-time mode requiring both conditions" \
+    $RELAY 2>&1)
+expect_success "$V3A_RESPONSE" "Valid threshold-time mode time capsule creation"
+
 # Test V4: Missing unlock configuration
 log_test "V4" "Missing unlock configuration - Should fail"
 V4_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 1995 \
-    --content '{"v":"1","ct":"'$(echo -n "Missing unlock config - extended for minimum 40 bytes" | base64 -w 0)'","k_tlock":null,"aad":"'$(generate_aad "missing_config_test")'"}' \
+    --content '{"v":"1","ct":"'$(echo -n "Missing unlock config - extended for minimum 40 bytes per NIP requirement" | base64 -w 0)'","k_tlock":null,"aad":"'$(generate_aad "missing_config_test")'"}' \
     -t p="$WITNESS1_PUBKEY" \
     -t p="$WITNESS2_PUBKEY" \
     -t enc="nip44:v2" \
@@ -800,26 +915,26 @@ V14_RESPONSE=$(nak event \
 expect_success "$V14_RESPONSE" "External storage with URI"
 
 # Test V15: Valid unlock share (Kind 1997)
-log_test "V15" "Create valid unlock share"
+log_test "V15" "Create valid unlock share with NIP-59 Gift Wrap"
 if [[ -n "$V1_RESPONSE" ]]; then
     V1_EVENT_ID=$(echo "$V1_RESPONSE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4 | head -1)
     if [[ -n "$V1_EVENT_ID" ]]; then
-        V15_RESPONSE=$(nak event \
-            --sec $WITNESS1_PRIVKEY \
-            -k 1997 \
-            --content "$(generate_witness_share "witness1" "unlock_test" | base64 -w 0)" \
-            -t e="$V1_EVENT_ID" \
-            -t p="$WITNESS1_PUBKEY" \
-            -t share-idx="3" \
-            -t T="$FUTURE_TIME" \
-            $RELAY 2>&1)
-        expect_success "$V15_RESPONSE" "Valid unlock share creation"
+        # Generate a test share (32 bytes base64 encoded)
+        TEST_SHARE=$(echo -n "12345678901234567890123456789012" | base64 -w 0)
+        
+        # Create inner 1997 unlock share event
+        INNER_SHARE=$(create_unlock_share "$V1_EVENT_ID" "$WITNESS1_PUBKEY" "$WITNESS1_PRIVKEY" "1" "$TEST_SHARE")
+        
+        # Wrap it in NIP-59 Gift Wrap to witness 2
+        V15_RESPONSE=$(create_gift_wrap "$INNER_SHARE" "$WITNESS2_PUBKEY" "$WITNESS1_PRIVKEY" "$V1_EVENT_ID" $RELAY 2>&1)
+        
+        expect_success "$V15_RESPONSE" "Valid unlock share with Gift Wrap"
     else
-        log_failure "Valid unlock share creation" "Could not extract event ID from V1"
+        log_failure "Valid unlock share with Gift Wrap" "Could not extract event ID from V1"
         test_failed
     fi
 else
-    log_failure "Valid unlock share creation" "V1 capsule not available"
+    log_failure "Valid unlock share with Gift Wrap" "V1 capsule not available"
     test_failed
 fi
 
@@ -1079,6 +1194,37 @@ else
     log_failure "Share distribution with addressable reference" "V2 capsule details not available"
     test_failed
 fi
+
+# Test V33: Timelock mode with witness tags - Should fail per spec
+log_test "V33" "Timelock mode with witness tags - Should fail"
+V33_RESPONSE=$(nak event \
+    --sec $AUTHOR_PRIVKEY \
+    -k 1995 \
+    --content '{"v":"1","ct":"'$(echo -n "Timelock should not have witnesses - extended for minimum 40 bytes" | base64 -w 0)'","k_tlock":"'$(echo -n "timelock_with_invalid_witnesses" | base64 -w 0)'","aad":"'$(generate_aad "invalid_timelock_test")'"}' \
+    -t unlock="mode timelock T $FUTURE_TIME beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
+    -t p="$WITNESS1_PUBKEY" \
+    -t p="$WITNESS2_PUBKEY" \
+    -t w-commit="sha256:invalid" \
+    -t enc="nip44:v2" \
+    -t loc="inline" \
+    $RELAY 2>&1)
+expect_failure "$V33_RESPONSE" "Timelock mode with witnesses rejection"
+
+# Test V34: Threshold mode with timelock fields - Should fail per spec  
+log_test "V34" "Threshold mode with timelock fields - Should fail"
+V34_COMMITMENT=$(python3 compute_commitment.py "$WITNESS1_PUBKEY" "$WITNESS2_PUBKEY")
+V34_RESPONSE=$(nak event \
+    --sec $AUTHOR_PRIVKEY \
+    -k 1995 \
+    --content '{"v":"1","ct":"'$(echo -n "Threshold should not have timelock fields - extended for 40 bytes" | base64 -w 0)'","k_tlock":"'$(echo -n "invalid_timelock_in_threshold" | base64 -w 0)'","aad":"'$(generate_aad "invalid_threshold_test")'"}' \
+    -t unlock="mode threshold t 1 n 2 T $FUTURE_TIME beacon $DRAND_CHAIN_HASH round $(get_drand_round $FUTURE_TIME)" \
+    -t p="$WITNESS1_PUBKEY" \
+    -t p="$WITNESS2_PUBKEY" \
+    -t w-commit="sha256:$V34_COMMITMENT" \
+    -t enc="nip44:v2" \
+    -t loc="inline" \
+    $RELAY 2>&1)
+expect_failure "$V34_RESPONSE" "Threshold mode with timelock fields rejection"
 
 # ============================================================================
 # SECTION 2: REAL-WORLD SCENARIO TESTS (25 tests)
@@ -1984,25 +2130,25 @@ echo ""
 echo -e "${BLUE}New NIP Time Capsules v1 Implementation Test Coverage:${NC}"
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║ PROTOCOL VALIDATION (32 tests)                                                 ║${NC}"
-echo -e "${BLUE}║ • Kind 1995: Immutable time capsules                                          ║${NC}"
-echo -e "${BLUE}║ • Kind 31995: Parameterized replaceable time capsules                         ║${NC}"
-echo -e "${BLUE}║ • Kind 1996: Share distributions (optional helper)                            ║${NC}"
-echo -e "${BLUE}║ • Kind 1997: Unlock shares                                                    ║${NC}"
-echo -e "${BLUE}║ • Threshold, threshold-time, and timelock unlock modes                        ║${NC}"
-echo -e "${BLUE}║ • Tag validation (unlock, p, w-commit, enc, loc, etc.)                        ║${NC}"
-echo -e "${BLUE}║ • Content envelope validation (v, ct, k_tlock, aad)                           ║${NC}"
+echo -e "${BLUE}║ • Kind 1995: Immutable time capsules                                           ║${NC}"
+echo -e "${BLUE}║ • Kind 31995: Parameterized replaceable time capsules                          ║${NC}"
+echo -e "${BLUE}║ • Kind 1996: Share distributions (optional helper)                             ║${NC}"
+echo -e "${BLUE}║ • Kind 1997: Unlock shares                                                     ║${NC}"
+echo -e "${BLUE}║ • Threshold, threshold-time, and timelock unlock modes                         ║${NC}"
+echo -e "${BLUE}║ • Tag validation (unlock, p, w-commit, enc, loc, etc.)                         ║${NC}"
+echo -e "${BLUE}║ • Content envelope validation (v, ct, k_tlock, aad)                            ║${NC}"
 echo -e "${BLUE}║ • Edge cases and error conditions                                              ║${NC}"
 echo -e "${BLUE}║                                                                                ║${NC}"
 echo -e "${BLUE}║ CRYPTOGRAPHIC WORKFLOWS (15 tests)                                             ║${NC}"
 echo -e "${BLUE}║ • Complete threshold workflows (2-of-3, 3-of-5)                                ║${NC}"
-echo -e "${BLUE}║ • Timelock mode workflows (drand integration)                                 ║${NC}"
+echo -e "${BLUE}║ • Timelock mode workflows (drand integration)                                  ║${NC}"
 echo -e "${BLUE}║ • Share distribution mechanisms                                                ║${NC}"
 echo -e "${BLUE}║ • Time-based unlocking validation                                              ║${NC}"
 echo -e "${BLUE}║ • Unauthorized witness protection                                              ║${NC}"
-echo -e "${BLUE}║ • Query and retrieval for all event kinds                                     ║${NC}"
+echo -e "${BLUE}║ • Query and retrieval for all event kinds                                      ║${NC}"
 echo -e "${BLUE}║ • Secret sharing and reconstruction                                            ║${NC}"
-echo -e "${BLUE}║ • Addressable references for PR events                                        ║${NC}"
-echo -e "${BLUE}║ • NIP-59 Gift Wrap integration                                                ║${NC}"
+echo -e "${BLUE}║ • Addressable references for PR events                                         ║${NC}"
+echo -e "${BLUE}║ • NIP-59 Gift Wrap integration                                                 ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
 
 echo ""
