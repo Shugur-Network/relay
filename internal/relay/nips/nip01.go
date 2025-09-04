@@ -44,7 +44,9 @@ func VerifyEventJSON(rawEvent []byte) error {
 }
 
 func IsAddressable(evt nostr.Event) bool {
-	return evt.Kind >= 30000 && evt.Kind < 40000 && GetTagValue(evt, "d") != ""
+	// Parameterized replaceable events (30000-39999) with d tag
+	// This includes Time Capsule Replaceable events (kind 31995)
+	return (evt.Kind >= 30000 && evt.Kind <= 39999) && GetTagValue(evt, "d") != ""
 }
 
 // GetTagValue returns the first t[1] found for the given key, or "" if not found

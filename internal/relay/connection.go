@@ -197,7 +197,7 @@ func NewWsConnection(
 		startTime:        time.Now(),
 		lastActivity:     time.Now(),
 		subscriptions:    make(map[string][]nostr.Filter),
-		pingTicker:       time.NewTicker(15 * time.Second),
+		pingTicker:       time.NewTicker(30 * time.Second), // Reduced frequency to prevent disconnections
 		limiter:          limiter,
 		backpressureChan: make(chan struct{}, 100), // Buffer for backpressure
 		// Event dispatcher integration
@@ -217,8 +217,8 @@ func NewWsConnection(
 	ws.EnableWriteCompression(true)
 	_ = ws.SetCompressionLevel(2) // nolint:errcheck // compression level is non-critical
 
-	// Deadlines + read limit
-	_ = ws.SetReadDeadline(time.Now().Add(60 * time.Second)) // nolint:errcheck // deadline is non-critical
+	// Deadlines + read limit - generous initial timeout for connection setup
+	_ = ws.SetReadDeadline(time.Now().Add(2 * time.Minute)) // nolint:errcheck // deadline is non-critical
 
 	// Set WebSocket read limit based on configured content length with buffer for JSON overhead
 	readLimitBytes := int64(cfg.ThrottlingConfig.MaxContentLen * 2) // 2x buffer for JSON overhead
@@ -235,8 +235,8 @@ func NewWsConnection(
 		conn.lastActivity = time.Now()
 		conn.writeMu.Lock()
 		defer conn.writeMu.Unlock()
-		// Echo back the same ping data in the pong response
-		_ = conn.ws.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(5*time.Second))
+		// Echo back the same ping data in the pong response with generous timeout
+		_ = conn.ws.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(10*time.Second))
 		return nil
 	})
 
@@ -408,9 +408,9 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 			// Keep going
 		}
 
-		_ = c.ws.SetReadDeadline(time.Now().Add(60 * time.Second)) // nolint:errcheck // deadline is non-critical
-		if time.Since(lastPong) > 90*time.Second {
-			logger.Debug("No pong response in 90s, closing connection",
+		_ = c.ws.SetReadDeadline(time.Now().Add(90 * time.Second)) // nolint:errcheck // deadline is non-critical
+		if time.Since(lastPong) > 2*time.Minute { // Increased tolerance for slower clients
+			logger.Debug("No pong response in 2 minutes, closing connection",
 				zap.String("client", c.ws.RemoteAddr().String()))
 			c.closeReason = "no pong response"
 			return
@@ -703,7 +703,7 @@ func (c *WsConnection) Close() {
 
 // monitorConnection handles connection timeouts and cleanup
 func (c *WsConnection) monitorConnection(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(2 * time.Minute) // Reduced monitoring frequency to save resources
 	defer ticker.Stop()
 
 	for {
@@ -715,19 +715,26 @@ func (c *WsConnection) monitorConnection(ctx context.Context) {
 			// Send ping to keep connection alive
 			c.writeMu.Lock()
 			if !c.isClosed.Load() {
-				_ = c.ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
-				err := c.ws.WriteControl(websocket.PingMessage, []byte("keepalive"), time.Now().Add(5*time.Second))
+				_ = c.ws.SetWriteDeadline(time.Now().Add(10 * time.Second)) // Increased timeout for reliability
+				err := c.ws.WriteControl(websocket.PingMessage, []byte("keepalive"), time.Now().Add(10*time.Second))
 				_ = c.ws.SetWriteDeadline(time.Time{})
 				if err != nil {
-					logger.Debug("Failed to send ping, closing connection",
+					logger.Info("Failed to send ping, closing connection",
 						zap.Error(err),
-						zap.String("client", c.ws.RemoteAddr().String()))
+						zap.String("client", c.ws.RemoteAddr().String()),
+						zap.Duration("connection_age", time.Since(c.startTime)),
+						zap.Duration("last_activity", time.Since(c.lastActivity)))
 					c.writeMu.Unlock()
 					c.closeReason = "ping failed"
 					c.Close()
 					return
 				}
-				logger.Debug("Sent ping to client", zap.String("client", c.ws.RemoteAddr().String()))
+				// Reduced ping logging frequency to avoid spam
+				if time.Since(c.startTime)%(5*time.Minute) < 30*time.Second {
+					logger.Debug("Sent ping to client", 
+						zap.String("client", c.ws.RemoteAddr().String()),
+						zap.Duration("connection_age", time.Since(c.startTime)))
+				}
 			}
 			c.writeMu.Unlock()
 		case <-ticker.C:

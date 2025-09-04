@@ -44,7 +44,7 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 		WriteBufferSize:   1024 * 1024,
 		CheckOrigin:       func(r *http.Request) bool { return true },
 		EnableCompression: true,
-		HandshakeTimeout:  10 * time.Second,
+		HandshakeTimeout:  30 * time.Second, // Increased for slower connections/networks
 	}
 
 	// Start background task to clean expired bans

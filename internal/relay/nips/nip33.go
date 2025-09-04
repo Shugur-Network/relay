@@ -35,9 +35,9 @@ func ValidateParameterizedReplaceableEvent(evt *nostr.Event) error {
 
 // IsParameterizedReplaceableKind checks if a kind is parameterized replaceable
 func IsParameterizedReplaceableKind(kind int) bool {
-	// Parameterized replaceable events are in ranges:
-	// 30000-39999: Parameterized replaceable events
-	return (kind >= 30000 && kind <= 39999)
+	// Parameterized replaceable events are in range 30000-39999
+	// This includes Time Capsule Replaceable events (kind 31995)
+	return kind >= 30000 && kind <= 39999
 }
 
 // IsParameterizedReplaceableEvent checks if an event is parameterized replaceable
