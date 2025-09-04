@@ -34,15 +34,15 @@ print_result() {
 
 echo -e "${BLUE}Starting Shugur Relay NIP-33 Tests${NC}\n"
 
-# Test NIP-33: Parameterized Replaceable Events
-echo -e "\n${YELLOW}Testing NIP-33: Parameterized Replaceable Events${NC}"
+# Test NIP-33: Addressable Events
+echo -e "\n${YELLOW}Testing NIP-33: Addressable Events${NC}"
 
-# Test 1: Create a basic parameterized replaceable event
+# Test 1: Create a basic addressable event
 PARAM_EVENT=$(nak event -k 30000 -c '{"name": "Test Parameter", "value": "test"}' -t d=test_param -t p=79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798 $RELAY)
 if [ ! -z "$PARAM_EVENT" ]; then
-    print_result "Create basic parameterized replaceable event" true "33"
+    print_result "Create basic addressable event" true "33"
 else
-    print_result "Create basic parameterized replaceable event" false "33"
+    print_result "Create basic addressable event" false "33"
 fi
 
 # Test 2: Replace the parameterized event

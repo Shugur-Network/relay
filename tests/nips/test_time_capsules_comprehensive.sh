@@ -709,8 +709,8 @@ V1_RESPONSE=$(nak event \
     $RELAY 2>&1)
 expect_success "$V1_RESPONSE" "Valid threshold time capsule creation"
 
-# Test V2: Valid Parameterized Replaceable Time Capsule (Kind 31995)
-log_test "V2" "Create valid parameterized replaceable time capsule (kind 31995)"
+# Test V2: Valid Addressable Time Capsule (Kind 31995)
+log_test "V2" "Create valid addressable time capsule (kind 31995)"
 # Compute commitment for V2 (1 of 2 witnesses)
 COMMITMENT_V2=$(python3 compute_commitment.py "$WITNESS1_PUBKEY" "$WITNESS2_PUBKEY")
 V2_RESPONSE=$(nak event \
@@ -724,9 +724,9 @@ V2_RESPONSE=$(nak event \
     -t w-commit="sha256:$COMMITMENT_V2" \
     -t enc="nip44:v2" \
     -t loc="inline" \
-    -t alt="Parameterized replaceable time capsule test" \
+    -t alt="Addressable time capsule test" \
     $RELAY 2>&1)
-expect_success "$V2_RESPONSE" "Valid parameterized replaceable time capsule creation"
+expect_success "$V2_RESPONSE" "Valid addressable time capsule creation"
 
 # Test V3: Valid Timelock Mode Time Capsule
 log_test "V3" "Create valid timelock mode time capsule"
@@ -856,8 +856,8 @@ V10_RESPONSE=$(nak event \
     $RELAY 2>&1)
 expect_failure "$V10_RESPONSE" "Missing location info rejection"
 
-# Test V11: Missing d tag for parameterized replaceable
-log_test "V11" "Missing d tag for parameterized replaceable - Should fail"
+# Test V11: Missing d tag for addressable
+log_test "V11" "Missing d tag for addressable - Should fail"
 V11_RESPONSE=$(nak event \
     --sec $AUTHOR_PRIVKEY \
     -k 30095 \
@@ -1151,7 +1151,7 @@ V30_RESPONSE=$(nak event \
     $RELAY 2>&1)
 expect_success "$V30_RESPONSE" "Complex valid scenario"
 
-# Test V31: Parameterized replaceable with addressable reference
+# Test V31: Addressable with addressable reference
 log_test "V31" "Unlock share with addressable reference"
 if [[ -n "$V2_RESPONSE" ]]; then
     V2_EVENT_ID=$(echo "$V2_RESPONSE" | grep -o '"id":"[^"]*"' | cut -d'"' -f4 | head -1)
@@ -2032,13 +2032,13 @@ else
     test_failed
 fi
 
-# Test W13: Query parameterized replaceable time capsules (Kind 31995)
-log_test "W13" "Query parameterized replaceable time capsules (kind 31995)"
+# Test W13: Query addressable time capsules (Kind 31995)
+log_test "W13" "Query addressable time capsules (kind 31995)"
 W13_QUERY=$(nak req -k 31995 $RELAY 2>&1)
 PR_CAPSULE_COUNT=$(echo "$W13_QUERY" | grep -c '"kind":31995' || echo "0")
 
 if [[ $PR_CAPSULE_COUNT -gt 0 ]]; then
-    log_success "Retrieved $PR_CAPSULE_COUNT parameterized replaceable time capsules"
+    log_success "Retrieved $PR_CAPSULE_COUNT addressable time capsules"
     
     # Verify structure contains d tag
     if echo "$W13_QUERY" | grep -q '"d"'; then
@@ -2049,7 +2049,7 @@ if [[ $PR_CAPSULE_COUNT -gt 0 ]]; then
         test_failed
     fi
 else
-    log_info "No parameterized replaceable time capsules found (this may be expected)"
+    log_info "No addressable time capsules found (this may be expected)"
     test_passed
 fi
 
@@ -2131,7 +2131,7 @@ echo -e "${BLUE}New NIP Time Capsules v1 Implementation Test Coverage:${NC}"
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║ PROTOCOL VALIDATION (32 tests)                                                 ║${NC}"
 echo -e "${BLUE}║ • Kind 1995: Immutable time capsules                                           ║${NC}"
-echo -e "${BLUE}║ • Kind 31995: Parameterized replaceable time capsules                          ║${NC}"
+echo -e "${BLUE}║ • Kind 31995: Addressable time capsules                          ║${NC}"
 echo -e "${BLUE}║ • Kind 1996: Share distributions (optional helper)                             ║${NC}"
 echo -e "${BLUE}║ • Kind 1997: Unlock shares                                                     ║${NC}"
 echo -e "${BLUE}║ • Threshold, threshold-time, and timelock unlock modes                         ║${NC}"

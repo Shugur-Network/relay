@@ -15,7 +15,7 @@ func ValidateLongFormContent(evt *nostr.Event) error {
 		return fmt.Errorf("invalid event kind for long-form content: %d", evt.Kind)
 	}
 
-	// Must have "d" tag for parameterized replaceable events
+	// Must have "d" tag for addressable events
 	hasDTag := false
 	hasTitle := false
 

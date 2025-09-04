@@ -4,7 +4,7 @@ package constants
 const (
 	// KindTimeCapsule is for immutable time capsules
 	KindTimeCapsule = 1995
-	// KindTimeCapsuleReplaceable is for parameterized replaceable time capsules
+	// KindTimeCapsuleReplaceable is for addressable time capsules
 	KindTimeCapsuleReplaceable = 31995
 	// KindTimeCapsuleShareDistribution is for share distribution events (optional helper)
 	KindTimeCapsuleShareDistribution = 1996

@@ -116,10 +116,10 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 		}
 	}
 
-	// 8. Validate parameterized replaceable events (kind 31995)
+	// 8. Validate addressable events (kind 31995)
 	if evt.Kind == constants.KindTimeCapsuleReplaceable {
 		if !hasDTag(evt) {
-			return fmt.Errorf("missing 'd' tag for parameterized replaceable event")
+			return fmt.Errorf("missing 'd' tag for addressable event")
 		}
 	}
 

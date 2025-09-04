@@ -73,7 +73,7 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			24133: true,
 			// NIP-16 Ephemeral Events (20000-29999)
 			20000: true, 20001: true, // Test ephemeral kinds
-			// NIP-33 Parameterized Replaceable Events
+			// NIP-33 Addressable Events
 			30000: true, 30001: true, 30002: true, 30003: true,
 			// NIP-15 Marketplace
 			30017: true, // Stall
@@ -88,7 +88,7 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30078: true, // NIP-78 Application-specific Data
 			// Time Capsules (NIP Time Capsules v1)
 			1995:  true, // Time capsule (immutable)
-			31995: true, // Time capsule (parameterized replaceable)
+			31995: true, // Time capsule (addressable)
 			1996:  true, // Time capsule share distribution
 			1997:  true, // Time capsule unlock share
 		},
@@ -100,10 +100,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			43:    {"e"},      // NIP-28: Hide Message requires "e" tag
 			44:    {"p"},      // NIP-28: Mute User requires "p" tag
 			1059:  {"p"},      // Gift wrap events must have a "p" tag
-			30000: {"d"},      // NIP-33: Parameterized Replaceable Events require "d" tag
-			30001: {"d"},      // NIP-33: Parameterized Replaceable Events require "d" tag
-			30002: {"d"},      // NIP-33: Parameterized Replaceable Events require "d" tag
-			30003: {"d"},      // NIP-33: Parameterized Replaceable Events require "d" tag
+			30000: {"d"},      // NIP-33: Addressable Events require "d" tag
+			30001: {"d"},      // NIP-33: Addressable Events require "d" tag
+			30002: {"d"},      // NIP-33: Addressable Events require "d" tag
+			30003: {"d"},      // NIP-33: Addressable Events require "d" tag
 			30017: {"d"},      // Stall events require "d" tag
 			30018: {"d", "t"}, // Product events require "d" and at least one "t" tag
 			1021:  {"e"},      // Bid events require "e" tag
@@ -311,7 +311,7 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		if event.Kind >= 20000 && event.Kind < 30000 {
 			return nips.ValidateEventTreatment(event)
 		}
-		// Check if it's a parameterized replaceable event
+		// Check if it's a addressable event
 		if nips.IsParameterizedReplaceableKind(event.Kind) {
 			return nips.ValidateParameterizedReplaceableEvent(event)
 		}

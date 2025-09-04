@@ -16,7 +16,7 @@ func ValidateApplicationSpecificData(evt *nostr.Event) error {
 		return fmt.Errorf("invalid event kind for application-specific data: %d", evt.Kind)
 	}
 
-	// Must have "d" tag for parameterized replaceable events
+	// Must have "d" tag for addressable events
 	hasDTag := false
 	hasPTag := false
 

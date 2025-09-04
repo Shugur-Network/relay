@@ -44,7 +44,7 @@ func VerifyEventJSON(rawEvent []byte) error {
 }
 
 func IsAddressable(evt nostr.Event) bool {
-	// Parameterized replaceable events (30000-39999) with d tag
+	// Addressable events (30000-39999) with d tag
 	// This includes Time Capsule Replaceable events (kind 31995)
 	return (evt.Kind >= 30000 && evt.Kind <= 39999) && GetTagValue(evt, "d") != ""
 }
