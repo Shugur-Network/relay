@@ -30,7 +30,7 @@ func IsReplaceable(kind int) bool {
 // ValidateEventTreatment validates event according to NIP-16 treatment rules
 func ValidateEventTreatment(evt *nostr.Event) error {
 	// For addressable events, ensure they have a 'd' tag
-	if IsParameterizedReplaceableKind(evt.Kind) {
+	if IsAddressableKind(evt.Kind) {
 		hasDTag := false
 		for _, tag := range evt.Tags {
 			if len(tag) >= 2 && tag[0] == "d" {

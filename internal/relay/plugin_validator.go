@@ -312,8 +312,8 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 			return nips.ValidateEventTreatment(event)
 		}
 		// Check if it's a addressable event
-		if nips.IsParameterizedReplaceableKind(event.Kind) {
-			return nips.ValidateParameterizedReplaceableEvent(event)
+		if nips.IsAddressableKind(event.Kind) {
+			return nips.ValidateAddressableEvent(event)
 		}
 		// Check for NIP-24 extra metadata
 		if nips.HasExtraMetadata(event) {

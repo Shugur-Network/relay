@@ -9,10 +9,10 @@ import (
 // NIP-33: Addressable Events
 // https://github.com/nostr-protocol/nips/blob/master/33.md
 
-// ValidateParameterizedReplaceableEvent validates NIP-33 addressable events
-func ValidateParameterizedReplaceableEvent(evt *nostr.Event) error {
+// ValidateAddressableEvent validates NIP-33 addressable events
+func ValidateAddressableEvent(evt *nostr.Event) error {
 	// Check if this is a addressable event kind
-	if !IsParameterizedReplaceableKind(evt.Kind) {
+	if !IsAddressableKind(evt.Kind) {
 		return fmt.Errorf("invalid event kind for addressable event: %d", evt.Kind)
 	}
 
@@ -33,16 +33,16 @@ func ValidateParameterizedReplaceableEvent(evt *nostr.Event) error {
 	return nil
 }
 
-// IsParameterizedReplaceableKind checks if a kind is addressable
-func IsParameterizedReplaceableKind(kind int) bool {
+// IsAddressableKind checks if a kind is addressable
+func IsAddressableKind(kind int) bool {
 	// Addressable events are in range 30000-39999
 	// This includes Time Capsule Replaceable events (kind 31995)
 	return kind >= 30000 && kind <= 39999
 }
 
-// IsParameterizedReplaceableEvent checks if an event is addressable
-func IsParameterizedReplaceableEvent(evt *nostr.Event) bool {
-	return IsParameterizedReplaceableKind(evt.Kind)
+// IsAddressableEvent checks if an event is addressable
+func IsAddressableEvent(evt *nostr.Event) bool {
+	return IsAddressableKind(evt.Kind)
 }
 
 // GetDTagValue returns the "d" tag value from a addressable event
@@ -62,7 +62,7 @@ func ValidateSpecificParameterizedEvent(evt *nostr.Event) error {
 		return validateGenericParameterizedEvent(evt)
 	default:
 		// For other kinds, just validate the basic requirement
-		return ValidateParameterizedReplaceableEvent(evt)
+		return ValidateAddressableEvent(evt)
 	}
 }
 
@@ -73,7 +73,7 @@ func validateGenericParameterizedEvent(evt *nostr.Event) error {
 	}
 
 	// Must have "d" tag
-	if err := ValidateParameterizedReplaceableEvent(evt); err != nil {
+	if err := ValidateAddressableEvent(evt); err != nil {
 		return err
 	}
 
