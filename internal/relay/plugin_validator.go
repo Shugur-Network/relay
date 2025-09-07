@@ -84,13 +84,9 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			1022:  true, // Bid Confirmation
 			// Other NIPs
 			1040:  true, // NIP-03 OpenTimestamps attestation
+			1041:  true, // NIP-XX Time-Lock Encrypted Messages
 			13194: true, // NIP-59 Wallet Connect events
 			30078: true, // NIP-78 Application-specific Data
-			// Time Capsules
-			1990:  true, // Time capsule (immutable)
-			30095: true, // Time capsule (parameterized replaceable)
-			1991:  true, // Time capsule unlock share
-			1992:  true, // Time capsule share distribution
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -108,13 +104,9 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30018: {"d", "t"}, // Product events require "d" and at least one "t" tag
 			1021:  {"e"},      // Bid events require "e" tag
 			1022:  {"e"},      // Bid confirmation events require "e" tag
-			1040:  {"e"},      // OpenTimestamps attestation requires "e" tag
-			30078: {"p"},      // NIP-78: Application-specific Data requires "p" tag
-			// Time Capsules
-			1990:  {"u", "p", "w-commit", "enc", "loc"},      // Time capsule: unlock config, witnesses, commitment, encryption, location
-			30095: {"u", "p", "w-commit", "enc", "loc", "d"}, // Replaceable time capsule: + d tag
-			1991:  {"e", "p", "T"},                           // Unlock share: capsule ref, witness, unlock time
-			1992:  {"e", "p", "share-idx", "enc"},            // Share distribution: capsule ref, witness, share index, encryption
+			1040: {"e"},      // OpenTimestamps attestation requires "e" tag
+			1041: {"tlock"}, // NIP-XX Time capsule requires "tlock" tag
+			30078: {"p"},     // NIP-78: Application-specific Data requires "p" tag
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -220,25 +212,19 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 
 	// 8. Kind-specific required tags
 	if requiredTags, hasRequirements := pv.limits.RequiredTags[event.Kind]; hasRequirements {
-		// Skip generic tag validation for Time Capsules kinds - they have specialized validation
-		if event.Kind == 1990 || event.Kind == 30095 {
-			// Time Capsules have complex validation logic that varies by mode
-			// This is handled in the specialized NIP validation below
-		} else {
-			for _, requiredTag := range requiredTags {
-				found := false
-				for _, tag := range event.Tags {
-					if len(tag) > 0 && tag[0] == requiredTag {
-						found = true
-						break
+		for _, requiredTag := range requiredTags {
+			found := false
+			for _, tag := range event.Tags {
+				if len(tag) > 0 && tag[0] == requiredTag {
+					found = true
+					break
 					}
+			}
+			if !found {
+				if event.Kind == 30018 && requiredTag == "t" {
+					return false, "product must have at least one category tag"
 				}
-				if !found {
-					if event.Kind == 30018 && requiredTag == "t" {
-						return false, "product must have at least one category tag"
-					}
-					return false, fmt.Sprintf("missing required '%s' tag", requiredTag)
-				}
+				return false, fmt.Sprintf("missing required '%s' tag", requiredTag)
 			}
 		}
 	}
@@ -300,12 +286,8 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateGiftWrapEvent(event)
 	case 10002:
 		return nips.ValidateKind10002(*event)
-	case 1990, 30095:
+	case 1041:
 		return nips.ValidateTimeCapsuleEvent(event)
-	case 1991:
-		return nips.ValidateTimeCapsuleUnlockShare(event)
-	case 1992:
-		return nips.ValidateTimeCapsuleShareDistribution(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
@@ -453,6 +435,10 @@ func (pv *PluginValidator) ValidateAndProcessEvent(ctx context.Context, event no
 	case 0: // Metadata
 		if err := pv.validateMetadataEvent(event); err != nil {
 			return false, err.Error(), nil
+		}
+	case 1041: // NIP-XX Time capsule
+		if err := nips.ValidateTimeCapsuleEvent(&event); err != nil {
+			return false, fmt.Sprintf("invalid time capsule: %s", err.Error()), nil
 		}
 	case 1059: // NIP-17 Gift wrap - use NIP-17 validation (more lenient than NIP-59)
 		if err := nips.ValidatePrivateDirectMessage(&event); err != nil {
