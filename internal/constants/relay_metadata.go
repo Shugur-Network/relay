@@ -37,7 +37,7 @@ var DefaultSupportedNIPs = []interface{}{
 	24, // NIP-24: Extra metadata fields and tags
 	25, // NIP-25: Reactions
 	28, // NIP-28: Public Chat
-	33, // NIP-33: Parameterized Replaceable Events
+	33, // NIP-33: Addressable Events
 	40, // NIP-40: Expiration Timestamp
 	44, // NIP-44: Encrypted Payloads (Versioned)
 	45, // NIP-45: Counting Events

@@ -44,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Event Kind Updates**:
   - Updated Time Capsules event kinds from 1199x to 199x range for better compatibility
   - Improved event kind validation and processing
-  - Enhanced parameterized replaceable event support (kind 30095)
+  - Enhanced addressable event support (kind 30095)
 
 - **Code Quality Improvements**:
   - Applied comprehensive code formatting (go fmt) across all Go files

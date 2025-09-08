@@ -57,7 +57,7 @@ done
 
 | Test File | NIP | Description | Status |
 |-----------|-----|-------------|---------|
-| `test_nip33.sh` | NIP-33 | Parameterized replaceable events | ✅ |
+| `test_nip33.sh` | NIP-33 | Addressable events | ✅ |
 | `test_nip40.sh` | NIP-40 | Expiration timestamps | ✅ |
 | `test_nip44.sh` | NIP-44 | Encrypted payloads | ✅ |
 | `test_nip45.sh` | NIP-45 | Counting results | ✅ |
