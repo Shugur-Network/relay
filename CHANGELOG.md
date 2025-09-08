@@ -7,6 +7,97 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2025-09-08
+
+### Changed
+
+- **Time Capsules Protocol Redesign (Breaking Change)**:
+  - **BREAKING**: Replaced previous Time Capsules implementation with new NIP-XX Time Capsule specification (kind 1041) <https://github.com/Shugur-Network/NIP-XX_Time-Capsules/blob/main/NIP-XX_Time-Capsules.md>
+
+- **New Time Capsule Implementation**:
+  - Implemented kind 1041 time capsule events with drand-based timelock encryption
+  - Added support for public time capsules (mode 0x01) with direct tlock blob storage
+  - Added support for private time capsules (mode 0x02) with NIP-44 v2 encryption
+  - Replaced previous share distribution system with direct timelock encryption
+  - Updated validation pipeline for new event structure and payload format
+  - Integrated drand randomness beacon network for decentralized timelock functionality
+
+- **Database Schema Migration**:
+  - Enhanced database indexes for efficient addressable queries and validation
+
+### Added
+
+- **Enhanced Cryptographic Support**:
+  - NIP-44 v2 encryption/decryption support using secp256k1 ECDH (replacing previous approach)
+  - NIP-59 gift wrapping implementation for private message privacy
+  - Proper payload structure validation for both public and private modes
+  - HMAC-based message authentication for private time capsules
+  - Secure nonce generation and validation for encrypted payloads
+
+- **New Testing Infrastructure**:
+  - Created `test_nip_xx_time_capsules.sh` - simplified interactive test script
+  - Implemented complete round-trip testing (encrypt → publish → wait → decrypt)
+  - Added real-time countdown timers and user-friendly progress indicators
+  - Comprehensive validation of public/private timelock scenarios
+  - Gift wrapping and unwrapping test scenarios with proper NIP-59 validation
+
+- **Advanced Validation System**:
+  - Enhanced event validation in `nip_time_capsules.go` with mode-specific checks
+  - Proper tlock tag parsing and validation with key-value pair support
+  - Recipient tag validation for private time capsules (p tags)
+  - Payload size limits and structure validation for both modes
+  - Binary payload parsing with proper offset handling and length validation
+
+### Technical Implementation Details
+
+- **New Protocol Architecture**:
+  - Updated constants for time capsule kinds and modes (`KindTimeCapsule = 1041`)
+  - Added proper mode constants (`ModePublic = 0x01`, `ModePrivate = 0x02`)
+  - Enhanced tag validation for tlock parameters and recipient specifications
+  - Improved error handling with descriptive error messages for validation failures
+  - Updated event kind validation and routing for kind 1041 events
+
+- **Drand Integration** (replacing witness system):
+  - Support for drand chain `8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce`
+  - Configurable drand genesis time and round period for testing
+  - Future round calculation with proper ceiling division
+  - Current round tracking with real-time monitoring
+
+- **Event Structure Validation** (new format):
+  - Public mode: `0x01 || tlock_blob`
+  - Private mode: `0x02 || nonce(12) || be32(tlock_len) || tlock_blob || ciphertext || mac(32)`
+  - Proper tag validation with required tlock and optional recipient tags
+  - Base64 content encoding with comprehensive error handling
+
+### Removed
+
+- **Deprecated Time Capsules Components**:
+  - Removed Shamir's secret sharing implementation
+  - Removed witness coordination system (kinds 1990, 1991, 1992)
+  - Removed threshold-based unlocking mechanism
+  - Removed share distribution endpoints
+  - Removed addressable event support (kind 30095)
+  - Removed external storage verification system
+
+### Fixed
+
+- **Addressable Event Processing**: Fixed addressable event processing to properly handle all event kinds
+- **Migration Issues**: Properly migrated from multi-kind to single-kind approach
+- **Tlock Tag Syntax**: Corrected tlock tag format to use proper key-value pairs
+- **Binary Payload Handling**: Fixed mode byte extraction and payload parsing
+- **Test File Cleanup**: Removed corrupted files with binary characters in filenames
+- **Validation Logic**: Enhanced error handling and validation coverage
+
+### Enhanced Developer Experience
+
+- **Color-coded test output** with comprehensive progress tracking
+- **Interactive test scenarios** with user input prompts
+- **Real-time drand round calculation** and timelock expiration monitoring
+- **Detailed event ID tracking** and validation result reporting
+- **User-friendly countdown timers** for timelock expiration testing
+- **Comprehensive test documentation** with inline comments explaining each scenario
+
+
 ## [1.3.0] - 2025-08-30
 
 ### Added
