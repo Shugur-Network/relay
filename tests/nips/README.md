@@ -5,11 +5,13 @@ This directory contains comprehensive test scripts for various Nostr Implementat
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Local Nostr relay running on `ws://localhost:8085`
 - Required tools: `nak`, `jq`, `base64`, `od`, `python3`
 - Bash shell environment
 
 #### Python Dependencies (for NIP-XX Time Capsules)
+
 For NIP-XX Time Capsules testing, install Python dependencies:
 
 ```bash
@@ -26,6 +28,7 @@ pip3 install -r nip-xx-time-capsules/requirements-test.txt
 ```
 
 ### Running Tests
+
 ```bash
 
 # Run a specific test
@@ -94,6 +97,7 @@ done
 ## 🔧 Test Configuration
 
 ### Environment Variables
+
 ```bash
 # Relay URL (default: ws://localhost:8085)
 export RELAY_URL="ws://localhost:8085"
@@ -108,6 +112,7 @@ export VERBOSE=1
 ### Common Test Patterns
 
 Most tests follow this structure:
+
 1. **Setup**: Generate test keys and data
 2. **Create**: Generate events according to NIP spec
 3. **Publish**: Send events to relay
@@ -117,12 +122,14 @@ Most tests follow this structure:
 ## 📊 Test Results
 
 ### Success Indicators
+
 - ✅ All test cases pass
 - ✅ Events published successfully to relay
 - ✅ Event structure matches NIP specification
 - ✅ Content validation successful
 
 ### Common Issues
+
 - ❌ **Relay not running**: Ensure `ws://localhost:8085` is accessible
 - ❌ **Missing dependencies**: Install `nak`, `jq`, `base64`, `od`, `python3`
 - ❌ **Permission denied**: Make scripts executable with `chmod +x`
@@ -131,16 +138,19 @@ Most tests follow this structure:
 ## 🎯 Specialized Tests
 
 ### NIP-XX Time Capsules (`test_nip_xx_time_capsules.sh`)
+
 **Purpose**: Tests time-lock encrypted messages that can only be decrypted after a specific time.
 
 **Features**:
+
 - Public time capsules (mode 0x01)
-- Private time capsules (mode 0x02) 
+- Private time capsules (mode 0x02)
 - Gift-wrapped private capsules (NIP-59 integration)
 - Actual timelock enforcement with waiting
 - Drand integration for time-lock mechanism
 
 **Usage**:
+
 ```bash
 # Run the time capsule test
 ./tests/nips/test_nip_xx_time_capsules.sh
@@ -151,17 +161,21 @@ Most tests follow this structure:
 ```
 
 ### NIP-44 Encryption (`test_nip44.sh`)
+
 **Purpose**: Tests encrypted payloads using shared secrets.
 
 **Features**:
+
 - Key generation and derivation
 - Message encryption/decryption
 - Authentication and integrity verification
 
 ### NIP-59 Gift Wrapping (`test_nip59.sh`)
+
 **Purpose**: Tests metadata privacy through ephemeral keys.
 
 **Features**:
+
 - Ephemeral key generation
 - Event wrapping and unwrapping
 - Recipient-specific encryption
@@ -169,6 +183,7 @@ Most tests follow this structure:
 ## 🔍 Debugging Tests
 
 ### Enable Verbose Output
+
 ```bash
 # Run with debug information
 VERBOSE=1 ./tests/nips/test_nip01.sh
@@ -178,6 +193,7 @@ bash -x ./tests/nips/test_nip01.sh
 ```
 
 ### Check Relay Status
+
 ```bash
 # Test relay connectivity
 curl -s http://localhost:8085/ | jq .
@@ -187,6 +203,7 @@ nak relay info ws://localhost:8085
 ```
 
 ### Validate Event Format
+
 ```bash
 # Check event structure
 echo '{"kind":1,"content":"test"}' | jq .
@@ -198,6 +215,7 @@ nak event validate < event.json
 ## 📚 NIP Documentation
 
 For detailed specifications, refer to:
+
 - [NIP Repository](https://github.com/nostr-protocol/nips)
 - [Nostr Protocol Website](https://nostr.com)
 - [NIP-01: Basic Protocol](https://github.com/nostr-protocol/nips/blob/master/01.md)
@@ -205,6 +223,7 @@ For detailed specifications, refer to:
 ## 🤝 Contributing
 
 When adding new tests:
+
 1. Follow the existing naming convention: `test_nip##.sh`
 2. Include comprehensive error handling
 3. Add clear success/failure indicators
