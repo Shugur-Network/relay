@@ -54,7 +54,7 @@ Shugur Relay implements the following NIPs for maximum compatibility with Nostr 
 
 - **[NIP-26](https://github.com/nostr-protocol/nips/blob/master/26.md)**: Delegated Event Signing
 - **[NIP-28](https://github.com/nostr-protocol/nips/blob/master/28.md)**: Public Chat
-- **[NIP-33](https://github.com/nostr-protocol/nips/blob/master/33.md)**: Parameterized Replaceable Events
+- **[NIP-33](https://github.com/nostr-protocol/nips/blob/master/33.md)**: Addressable Events
 - **[NIP-40](https://github.com/nostr-protocol/nips/blob/master/40.md)**: Expiration Timestamp
 - **[NIP-44](https://github.com/nostr-protocol/nips/blob/master/44.md)**: Encrypted Payloads (Versioned)
 - **[NIP-45](https://github.com/nostr-protocol/nips/blob/master/45.md)**: Counting Events

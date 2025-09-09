@@ -61,6 +61,14 @@ vaultConfig/
 *~
 .cursor/
 
+# Python virtual environments
+venv/
+env/
+nip_env/
+__pycache__/
+*.pyc
+*.pyo
+
 # Documentation artifacts
 site/
 *.pdf
@@ -110,6 +118,3 @@ dashboard/dist/
 dashboard/.netlify/
 dashboard
 docker/compose/docker-compose.local.yml
-
-# Time Capsules Portal (temporary development - will be removed later)
-time-capsules-portal/
