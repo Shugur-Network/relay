@@ -1,330 +1,307 @@
 package nips
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"strconv"
-	"time"
+	"strings"
 
 	"github.com/Shugur-Network/relay/internal/constants"
 	nostr "github.com/nbd-wtf/go-nostr"
 )
 
-// ValidateTimeCapsuleEvent validates time capsule events (kinds 1990, 30095)
+// ValidateTimeCapsuleEvent validates time capsule events according to NIP-XX
+// This is minimal validation - drand beacon verification is left to clients
 func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
-	// Extract unlock configuration
-	unlockConfig, err := extractUnlockConfig(evt)
+	// Must be kind 1041
+	if evt.Kind != constants.KindTimeCapsule {
+		return fmt.Errorf("invalid kind: expected %d, got %d", constants.KindTimeCapsule, evt.Kind)
+	}
+
+	// Validate content format
+	payload, err := base64.StdEncoding.DecodeString(evt.Content)
 	if err != nil {
-		return fmt.Errorf("invalid unlock config: %w", err)
+		return fmt.Errorf("invalid base64 content: %w", err)
 	}
 
-	// Validate mode-specific parameters
-	switch unlockConfig.Mode {
-	case constants.ModeThreshold:
-		if unlockConfig.Threshold < 1 || unlockConfig.WitnessCount < unlockConfig.Threshold {
-			return fmt.Errorf("invalid threshold configuration: t=%d, n=%d",
-				unlockConfig.Threshold, unlockConfig.WitnessCount)
-		}
-
-		// Enforce maximum witness count
-		if unlockConfig.WitnessCount > constants.MaxWitnessCount {
-			return fmt.Errorf("witness count exceeds maximum: %d > %d",
-				unlockConfig.WitnessCount, constants.MaxWitnessCount)
-		}
-
-		// Must have witness list (using 'p' tags as per NIP spec)
-		witnesses := extractWitnesses(evt)
-		if len(witnesses) == 0 {
-			return fmt.Errorf("missing witnesses")
-		}
-		if len(witnesses) != unlockConfig.WitnessCount {
-			return fmt.Errorf("witness count mismatch: expected %d, got %d",
-				unlockConfig.WitnessCount, len(witnesses))
-		}
-
-		// Must have commitment (w-commit tag)
-		if !hasCommitment(evt) {
-			return fmt.Errorf("missing witness commitment")
-		}
-	case constants.ModeScheduled:
-		// Scheduled mode doesn't require witnesses or commitments
-		// Just validate the time is valid
-		if unlockConfig.UnlockTime.IsZero() {
-			return fmt.Errorf("invalid unlock time for scheduled mode")
-		}
+	if len(payload) < 1 {
+		return fmt.Errorf(constants.ErrMalformedPayload)
 	}
 
-	// Must have valid encryption info (enc tag)
-	if err := validateEncryption(evt); err != nil {
-		return fmt.Errorf("encryption validation failed: %w", err)
+	mode := payload[0]
+	if mode != constants.ModePublic && mode != constants.ModePrivate {
+		return fmt.Errorf("%s: 0x%02x", constants.ErrInvalidMode, mode)
 	}
 
-	// Must have location info (loc tag)
-	if !hasLocation(evt) {
-		return fmt.Errorf("missing location info")
+	// Validate tlock tag
+	tlockTag := findTlockTag(evt.Tags)
+	if tlockTag == nil {
+		return fmt.Errorf(constants.ErrMissingTlockTag)
 	}
 
-	// Validate parameterized replaceable events (kind 30095)
-	if evt.Kind == constants.KindTimeCapsuleReplaceable {
-		if !hasDTag(evt) {
-			return fmt.Errorf("missing 'd' tag for parameterized replaceable event")
-		}
+	if err := validateTlockTagBasic(tlockTag); err != nil {
+		return fmt.Errorf("invalid tlock tag: %w", err)
+	}
+
+	// Validate mode-specific requirements
+	switch mode {
+	case constants.ModePublic:
+		return validatePublicModeBasic(payload)
+	case constants.ModePrivate:
+		return validatePrivateModeBasic(payload, evt.Tags)
 	}
 
 	return nil
 }
 
-// ValidateTimeCapsuleUnlockShare validates unlock share events (kind 1991)
-func ValidateTimeCapsuleUnlockShare(evt *nostr.Event) error {
-	// Must reference a capsule event
-	capsuleID := extractCapsuleReference(evt)
-	if capsuleID == "" {
-		return fmt.Errorf("missing capsule reference in 'e' tag")
+// findTlockTag finds the first tlock tag in the event tags
+func findTlockTag(tags nostr.Tags) nostr.Tag {
+	for _, tag := range tags {
+		if len(tag) > 0 && tag[0] == constants.TagTlock {
+			return tag
+		}
+	}
+	return nil
+}
+
+// validateTlockTagBasic validates the tlock tag format (minimal validation)
+func validateTlockTagBasic(tag nostr.Tag) error {
+	if len(tag) < 2 {
+		return fmt.Errorf("tlock tag too short")
 	}
 
-	// Must specify witness (using 'p' tag as per NIP spec)
-	witness := extractWitnessFromShare(evt)
-	if witness == "" {
-		return fmt.Errorf("missing witness in 'p' tag")
+	kv := parseTlockTagPairs(tag)
+	
+	// Just check that required keys exist - don't validate values deeply
+	if _, exists := kv["drand_chain"]; !exists {
+		return fmt.Errorf("missing drand_chain")
+	}
+	
+	if _, exists := kv["drand_round"]; !exists {
+		return fmt.Errorf("missing drand_round")
 	}
 
-	// Extract and validate unlock time
-	unlockTime, err := extractUnlockTimeFromShare(evt)
+	return nil
+}
+
+// parseTlockTagPairs parses "key value" string pairs from tlock tag
+func parseTlockTagPairs(tag nostr.Tag) map[string]string {
+	kv := make(map[string]string)
+	
+	for i := 1; i < len(tag); i++ {
+		s := strings.TrimSpace(tag[i])
+		spaceIdx := strings.Index(s, " ")
+		if spaceIdx <= 0 {
+			continue // skip malformed
+		}
+		
+		key := strings.ToLower(s[:spaceIdx])
+		value := s[spaceIdx+1:]
+		kv[key] = value // last occurrence wins
+	}
+	
+	return kv
+}
+
+// validatePublicModeBasic validates public mode payload format (basic structure only)
+func validatePublicModeBasic(payload []byte) error {
+	if len(payload) < 2 {
+		return fmt.Errorf(constants.ErrMalformedPayload)
+	}
+
+	tlockBlob := payload[1:]
+	if len(tlockBlob) > constants.MaxTlockBlobSize {
+		return fmt.Errorf(constants.ErrTlockBlobTooLarge)
+	}
+
+	return nil
+}
+
+// validatePrivateModeBasic validates private mode payload format (basic structure only)
+func validatePrivateModeBasic(payload []byte, tags nostr.Tags) error {
+	// Check for recipient tag
+	if !hasRecipientTag(tags) {
+		return fmt.Errorf(constants.ErrMissingRecipientTag)
+	}
+
+	// Validate payload structure: 0x02 || be32(tlock_len) || tlock_blob || 0x02 || nonce || ciphertext || mac(32)
+	if len(payload) < 1+4+1+1+constants.HMACSize {
+		return fmt.Errorf(constants.ErrMalformedPayload)
+	}
+
+	offset := 1 // Skip mode byte
+	
+	// tlock_len (4 bytes big-endian)
+	if len(payload) < offset+4 {
+		return fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	
+	tlockLen := binary.BigEndian.Uint32(payload[offset : offset+4])
+	offset += 4
+
+	// Basic length validation
+	if tlockLen > constants.MaxTlockBlobSize {
+		return fmt.Errorf(constants.ErrTlockBlobTooLarge)
+	}
+
+	// Skip tlock_blob
+	if len(payload) < offset+int(tlockLen) {
+		return fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	offset += int(tlockLen)
+
+	// Check NIP-44 version byte (0x02)
+	if len(payload) < offset+1 {
+		return fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	if payload[offset] != 0x02 {
+		return fmt.Errorf("invalid NIP-44 version byte")
+	}
+	offset += 1
+
+	// Nonce (32 bytes for NIP-44)
+	if len(payload) < offset+32 {
+		return fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	offset += 32
+
+	// Must have at least MAC bytes remaining
+	if len(payload) < offset+constants.HMACSize {
+		return fmt.Errorf(constants.ErrMalformedPayload)
+	}
+
+	// Total size check
+	if len(payload) > constants.MaxContentSize {
+		return fmt.Errorf(constants.ErrContentTooLarge)
+	}
+
+	return nil
+}
+
+// hasRecipientTag checks if the event has a recipient (p) tag
+func hasRecipientTag(tags nostr.Tags) bool {
+	count := 0
+	for _, tag := range tags {
+		if len(tag) >= 2 && tag[0] == constants.TagP {
+			count++
+			if count > constants.MaxPTags {
+				return false // Too many p tags
+			}
+		}
+	}
+	return count > 0
+}
+
+// Helper functions for clients (optional to use)
+
+// GetTlockKV extracts a specific key-value from tlock tag
+func GetTlockKV(tag nostr.Tag, key string) string {
+	kv := parseTlockTagPairs(tag)
+	return kv[strings.ToLower(key)]
+}
+
+// ExtractDrandParameters extracts drand chain hash and round from tlock tag
+func ExtractDrandParameters(evt *nostr.Event) (chainHash string, round int64, err error) {
+	tlockTag := findTlockTag(evt.Tags)
+	if tlockTag == nil {
+		return "", 0, fmt.Errorf(constants.ErrMissingTlockTag)
+	}
+
+	kv := parseTlockTagPairs(tlockTag)
+	
+	chainHash = kv["drand_chain"]
+	if chainHash == "" {
+		return "", 0, fmt.Errorf("missing drand_chain")
+	}
+
+	roundStr := kv["drand_round"]
+	if roundStr == "" {
+		return "", 0, fmt.Errorf("missing drand_round")
+	}
+
+	round, err = strconv.ParseInt(roundStr, 10, 64)
 	if err != nil {
-		return fmt.Errorf("invalid unlock time: %w", err)
+		return "", 0, fmt.Errorf("invalid drand_round: %w", err)
 	}
 
-	// Share can only be posted at or after unlock time (with tolerance per NIP spec)
-	tolerance := 5 * time.Minute // Allow 5 minutes early (300 seconds per spec)
-	if time.Now().Before(unlockTime.Add(-tolerance)) {
-		return fmt.Errorf("share posted too early")
-	}
-
-	return nil
+	return chainHash, round, nil
 }
 
-// ValidateTimeCapsuleShareDistribution validates share distribution events (kind 1992)
-func ValidateTimeCapsuleShareDistribution(evt *nostr.Event) error {
-	// Must reference a capsule event
-	capsuleID := extractCapsuleReference(evt)
-	if capsuleID == "" {
-		return fmt.Errorf("missing capsule reference in 'e' tag")
+// GetPayloadMode extracts the mode byte from the content
+func GetPayloadMode(evt *nostr.Event) (byte, error) {
+	payload, err := base64.StdEncoding.DecodeString(evt.Content)
+	if err != nil {
+		return 0, fmt.Errorf("invalid base64 content: %w", err)
 	}
 
-	// Must specify recipient witness (using 'p' tag as per NIP spec)
-	witness := extractWitnessFromShare(evt)
-	if witness == "" {
-		return fmt.Errorf("missing recipient witness in 'p' tag")
+	if len(payload) < 1 {
+		return 0, fmt.Errorf(constants.ErrMalformedPayload)
 	}
 
-	// Must have share index
-	shareIdx := extractShareIndex(evt)
-	if shareIdx < 0 {
-		return fmt.Errorf("missing or invalid share index")
+	return payload[0], nil
+}
+
+// ParsePrivatePayload parses a private mode payload per updated spec
+func ParsePrivatePayload(payload []byte) (nonce []byte, tlockBlob []byte, ciphertext []byte, mac []byte, err error) {
+	if len(payload) < 1 {
+		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
 	}
 
-	// Must have encryption info for NIP-44 v2
-	if err := validateEncryption(evt); err != nil {
-		return fmt.Errorf("encryption validation failed: %w", err)
+	if payload[0] != constants.ModePrivate {
+		return nil, nil, nil, nil, fmt.Errorf("not a private mode payload")
 	}
 
-	// Content should be non-empty (encrypted share)
-	if evt.Content == "" {
-		return fmt.Errorf("missing encrypted share content")
+	offset := 1 // Skip mode byte
+
+	// Extract tlock_len (4 bytes big-endian)
+	if len(payload) < offset+4 {
+		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
 	}
+	tlockLen := binary.BigEndian.Uint32(payload[offset : offset+4])
+	offset += 4
 
-	return nil
-}
-
-// IsTimeCapsuleEvent checks if an event is a time capsule
-func IsTimeCapsuleEvent(evt *nostr.Event) bool {
-	return evt.Kind == constants.KindTimeCapsule ||
-		evt.Kind == constants.KindTimeCapsuleReplaceable
-}
-
-// IsTimeCapsuleUnlockShare checks if an event is an unlock share
-func IsTimeCapsuleUnlockShare(evt *nostr.Event) bool {
-	return evt.Kind == constants.KindTimeCapsuleUnlockShare
-}
-
-// IsTimeCapsuleShareDistribution checks if an event is a share distribution
-func IsTimeCapsuleShareDistribution(evt *nostr.Event) bool {
-	return evt.Kind == constants.KindTimeCapsuleShareDistribution
-}
-
-// Helper types
-type UnlockConfig struct {
-	Mode         string
-	Threshold    int
-	WitnessCount int
-	UnlockTime   time.Time
-}
-
-// Helper functions
-
-func extractUnlockConfig(evt *nostr.Event) (*UnlockConfig, error) {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == constants.TagUnlock {
-			// NIP format: ["u","threshold","t","<t>","n","<n>","T","<unix>"] for threshold
-			// NIP format: ["u","scheduled","T","<unix>"] for scheduled
-			mode := tag[1]
-			if mode != constants.ModeThreshold && mode != constants.ModeScheduled {
-				return nil, fmt.Errorf("unsupported mode: %s", mode)
-			}
-
-			// For scheduled mode, only need unlock time
-			if mode == constants.ModeScheduled {
-				if len(tag) < 4 || tag[2] != "T" {
-					return nil, fmt.Errorf("invalid scheduled mode format")
-				}
-				unlockTimestamp, err := strconv.ParseInt(tag[3], 10, 64)
-				if err != nil {
-					return nil, fmt.Errorf("invalid unlock timestamp: %s", tag[3])
-				}
-				return &UnlockConfig{
-					Mode:         mode,
-					Threshold:    0,
-					WitnessCount: 0,
-					UnlockTime:   time.Unix(unlockTimestamp, 0),
-				}, nil
-			}
-
-			// For threshold mode, need all parameters
-			if len(tag) < 8 || tag[2] != "t" || tag[4] != "n" || tag[6] != "T" {
-				return nil, fmt.Errorf("invalid threshold mode format")
-			}
-
-			threshold, err := strconv.Atoi(tag[3])
-			if err != nil {
-				return nil, fmt.Errorf("invalid threshold: %s", tag[3])
-			}
-
-			witnessCount, err := strconv.Atoi(tag[5])
-			if err != nil {
-				return nil, fmt.Errorf("invalid witness count: %s", tag[5])
-			}
-
-			unlockTimestamp, err := strconv.ParseInt(tag[7], 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("invalid unlock timestamp: %s", tag[7])
-			}
-
-			return &UnlockConfig{
-				Mode:         mode,
-				Threshold:    threshold,
-				WitnessCount: witnessCount,
-				UnlockTime:   time.Unix(unlockTimestamp, 0),
-			}, nil
-		}
+	// Extract tlock_blob
+	if len(payload) < offset+int(tlockLen) {
+		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
 	}
-	return nil, fmt.Errorf("missing unlock configuration")
-}
+	tlockBlob = payload[offset : offset+int(tlockLen)]
+	offset += int(tlockLen)
 
-func extractWitnesses(evt *nostr.Event) []string {
-	var witnesses []string
-
-	// Use 'p' tags for witnesses as per NIP specification
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == "p" {
-			witnesses = append(witnesses, tag[1])
-		}
+	// Check NIP-44 version byte
+	if len(payload) < offset+1 {
+		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
 	}
+	if payload[offset] != 0x02 {
+		return nil, nil, nil, nil, fmt.Errorf("invalid NIP-44 version byte")
+	}
+	offset += 1
 
-	return witnesses
+	// Extract nonce (32 bytes for NIP-44)
+	if len(payload) < offset+32 {
+		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	nonce = payload[offset : offset+32]
+	offset += 32
+
+	// Extract ciphertext (everything except last 32 bytes for MAC)
+	if len(payload) < offset+constants.HMACSize {
+		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	ciphertext = payload[offset : len(payload)-constants.HMACSize]
+	
+	// Extract MAC (last 32 bytes)
+	mac = payload[len(payload)-constants.HMACSize:]
+
+	return nonce, tlockBlob, ciphertext, mac, nil
 }
 
-func extractCapsuleReference(evt *nostr.Event) string {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == "e" {
+// GetFirstRecipientPubkey extracts the first recipient pubkey from p tags
+func GetFirstRecipientPubkey(tags nostr.Tags) string {
+	for _, tag := range tags {
+		if len(tag) >= 2 && tag[0] == constants.TagP {
 			return tag[1]
 		}
 	}
 	return ""
-}
-
-func extractWitnessFromShare(evt *nostr.Event) string {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == "p" {
-			return tag[1]
-		}
-	}
-	return ""
-}
-
-func extractUnlockTimeFromShare(evt *nostr.Event) (time.Time, error) {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == "T" {
-			timestamp, err := strconv.ParseInt(tag[1], 10, 64)
-			if err != nil {
-				return time.Time{}, err
-			}
-			return time.Unix(timestamp, 0), nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("missing unlock time")
-}
-
-func extractShareIndex(evt *nostr.Event) int {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == constants.TagShareIndex {
-			if idx, err := strconv.Atoi(tag[1]); err == nil {
-				return idx
-			}
-		}
-	}
-	return -1
-}
-
-func hasCommitment(evt *nostr.Event) bool {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == constants.TagWitnessCommit {
-			return true
-		}
-	}
-	return false
-}
-
-func validateEncryption(evt *nostr.Event) error {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == constants.TagEncryption {
-			encType := tag[1]
-			// Validate encryption format
-			if !isValidEncryptionFormat(encType) {
-				return fmt.Errorf("invalid encryption format: %s", encType)
-			}
-			return nil
-		}
-	}
-	return fmt.Errorf("missing encryption info")
-}
-
-func isValidEncryptionFormat(encType string) bool {
-	validFormats := []string{
-		"nip44:v2",
-		"nip44:v1", // Legacy support
-	}
-
-	for _, format := range validFormats {
-		if encType == format {
-			return true
-		}
-	}
-	return false
-}
-
-func hasLocation(evt *nostr.Event) bool {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == constants.TagLocation {
-			return true
-		}
-	}
-	return false
-}
-
-func hasDTag(evt *nostr.Event) bool {
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == "d" {
-			return true
-		}
-	}
-	return false
 }

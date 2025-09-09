@@ -91,9 +91,6 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 			case r.URL.Path == "/api/cluster":
 				// Serve cluster information API
 				s.webHandler.HandleClusterAPI(w, r)
-			case strings.HasPrefix(r.URL.Path, "/.well-known/capsule/"):
-				// Serve time capsule status endpoint
-				s.webHandler.HandleCapsuleStatus(w, r)
 			default:
 				http.NotFound(w, r)
 			}

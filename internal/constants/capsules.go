@@ -1,91 +1,48 @@
 package constants
 
-// Time Capsules event kinds
+// Time Capsules event kinds (NIP-XX)
 const (
-	// KindTimeCapsule is for immutable time capsules (NIP-01 compatible)
-	KindTimeCapsule = 1990
-	// KindTimeCapsuleReplaceable is for parameterized replaceable time capsules
-	KindTimeCapsuleReplaceable = 30095
-	// KindTimeCapsuleUnlockShare is for witness unlock shares
-	KindTimeCapsuleUnlockShare = 1991
-	// KindTimeCapsuleShareDistribution is for share distribution events
-	KindTimeCapsuleShareDistribution = 1992
+	// KindTimeCapsule is for time-lock encrypted messages
+	KindTimeCapsule = 1041
 )
 
-// Time Capsules tag names
+// Time Capsules tag names (NIP-XX)
 const (
-	// TagUnlock contains unlock configuration (mode, t, n, T)
-	TagUnlock = "u"
-	// TagWitnessCommit contains merkle root of witnesses
-	TagWitnessCommit = "w-commit"
-	// TagEncryption contains encryption metadata
-	TagEncryption = "enc"
-	// TagLocation indicates where content is stored
-	TagLocation = "loc"
-	// TagURI contains external content URI
-	TagURI = "uri"
-	// TagProof contains auxiliary proof data
-	TagProof = "proof"
-	// TagShareIndex contains the share index for distribution
-	TagShareIndex = "share-idx"
+	// TagTlock contains time-lock parameters (drand_chain, drand_round)
+	TagTlock = "tlock"
+	// TagAlt contains human-readable description
+	TagAlt = "alt"
+	// TagP contains recipient public key (for private capsules)
+	TagP = "p"
 )
 
-// Time Capsules modes
+// Time Capsules payload modes (NIP-XX)
 const (
-	ModeThreshold = "threshold"
-	ModeScheduled = "scheduled"
+	ModePublic  = 0x01 // Public time capsule (tlock only)
+	ModePrivate = 0x02 // Private time capsule (ECDH + tlock)
 )
 
-// Storage locations
+// Validation limits (NIP-XX)
 const (
-	LocationInline  = "inline"
-	LocationHTTPS   = "https"
-	LocationBlossom = "blossom"
-	LocationIPFS    = "ipfs"
+	MaxTlockBlobSize = 256 * 1024 // 256 KiB for tlock_blob
+	MaxContentSize   = 1024 * 1024 // 1 MiB for total content
+	MaxPTags         = 10          // Max p tags per event
+	MaxNonceSize     = 12          // ChaCha20 nonce size
+	HMACSize         = 32          // HMAC-SHA256 size
 )
 
-// Encryption algorithms
+// Default values (NIP-XX)
 const (
-	EncryptionNIP44v2 = "nip44:v2"
+	DefaultMaxTlockBlob = 256 * 1024 // 256 KiB
 )
 
-// Time Capsules status values
+// Error messages (NIP-XX)
 const (
-	StatusLocked   = "locked"
-	StatusUnlocked = "unlocked"
-	StatusExpired  = "expired"
-	StatusInvalid  = "invalid"
-)
-
-// Validation limits
-const (
-	MaxCapsuleContentLength = 2 * 1024 * 1024 // 2MB max content
-	MaxWitnessCount         = 10              // Max witnesses per capsule (aligned with config.yaml)
-	MaxThresholdValue       = 10              // Max threshold value (aligned with max witnesses)
-	MinThresholdValue       = 1               // Min threshold value
-	MaxUnlockTimeYears      = 10              // Max years in future for unlock time
-	MinClockSkewSeconds     = 60              // Min clock skew (1 minute)
-	MaxClockSkewSeconds     = 3600            // Max clock skew (1 hour)
-)
-
-// Default values
-const (
-	DefaultThreshold     = 3
-	DefaultWitnessCount  = 5
-	DefaultClockSkewSec  = 300        // 5 minutes
-	DefaultMaxInlineSize = 128 * 1024 // 128 KiB
-)
-
-// Error messages
-const (
-	ErrCapsuleNotFound      = "capsule not found"
-	ErrCapsuleAlreadyExists = "capsule already exists"
-	ErrInvalidWitnessCommit = "invalid witness commit"
-	ErrTooEarly             = "shares cannot be posted before unlock time"
-	ErrInvalidThreshold     = "invalid threshold configuration"
-	ErrWitnessNotInCommit   = "witness not in commit"
-	ErrInsufficientShares   = "insufficient shares to unlock"
-	ErrInvalidEncryption    = "invalid encryption configuration"
-	ErrContentTooLarge      = "content exceeds maximum size"
-	ErrUnsupportedLocation  = "unsupported storage location"
+	ErrInvalidMode              = "invalid payload mode"
+	ErrMalformedPayload         = "malformed payload"
+	ErrMissingTlockTag          = "missing tlock tag"
+	ErrMissingRecipientTag      = "missing recipient tag for private mode"
+	ErrTlockBlobTooLarge        = "tlock blob exceeds size limit"
+	ErrContentTooLarge          = "content exceeds size limit"
+	ErrHMACVerificationFailed   = "HMAC verification failed"
 )

@@ -6,14 +6,14 @@ import (
 	nostr "github.com/nbd-wtf/go-nostr"
 )
 
-// NIP-33: Parameterized Replaceable Events
+// NIP-33: Addressable Events
 // https://github.com/nostr-protocol/nips/blob/master/33.md
 
-// ValidateParameterizedReplaceableEvent validates NIP-33 parameterized replaceable events
+// ValidateParameterizedReplaceableEvent validates NIP-33 addressable events
 func ValidateParameterizedReplaceableEvent(evt *nostr.Event) error {
-	// Check if this is a parameterized replaceable event kind
+	// Check if this is a addressable event kind
 	if !IsParameterizedReplaceableKind(evt.Kind) {
-		return fmt.Errorf("invalid event kind for parameterized replaceable event: %d", evt.Kind)
+		return fmt.Errorf("invalid event kind for addressable event: %d", evt.Kind)
 	}
 
 	// Must have "d" tag for identification
@@ -27,25 +27,25 @@ func ValidateParameterizedReplaceableEvent(evt *nostr.Event) error {
 	}
 
 	if !hasDTag {
-		return fmt.Errorf("parameterized replaceable event must have 'd' tag")
+		return fmt.Errorf("addressable event must have 'd' tag")
 	}
 
 	return nil
 }
 
-// IsParameterizedReplaceableKind checks if a kind is parameterized replaceable
+// IsParameterizedReplaceableKind checks if a kind is addressable
 func IsParameterizedReplaceableKind(kind int) bool {
-	// Parameterized replaceable events are in ranges:
-	// 30000-39999: Parameterized replaceable events
+	// Addressable events are in ranges:
+	// 30000-39999: Addressable events
 	return (kind >= 30000 && kind <= 39999)
 }
 
-// IsParameterizedReplaceableEvent checks if an event is parameterized replaceable
+// IsParameterizedReplaceableEvent checks if an event is addressable
 func IsParameterizedReplaceableEvent(evt *nostr.Event) bool {
 	return IsParameterizedReplaceableKind(evt.Kind)
 }
 
-// GetDTagValue returns the "d" tag value from a parameterized replaceable event
+// GetDTagValue returns the "d" tag value from a addressable event
 func GetDTagValue(evt *nostr.Event) string {
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "d" {
@@ -55,7 +55,7 @@ func GetDTagValue(evt *nostr.Event) string {
 	return ""
 }
 
-// ValidateSpecificParameterizedEvent validates specific parameterized replaceable event kinds
+// ValidateSpecificParameterizedEvent validates specific addressable event kinds
 func ValidateSpecificParameterizedEvent(evt *nostr.Event) error {
 	switch evt.Kind {
 	case 30000, 30001, 30002, 30003:

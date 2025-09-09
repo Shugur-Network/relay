@@ -37,7 +37,7 @@ func validateStallEvent(evt *nostr.Event) error {
 		return fmt.Errorf("invalid event kind for stall: %d", evt.Kind)
 	}
 
-	// Must have "d" tag for parameterized replaceable events
+	// Must have "d" tag for addressable events
 	hasDTag := false
 	var dTag string
 	for _, tag := range evt.Tags {
@@ -110,7 +110,7 @@ func validateProductEvent(evt *nostr.Event) error {
 		return fmt.Errorf("invalid event kind for product: %d", evt.Kind)
 	}
 
-	// Must have "d" tag for parameterized replaceable events
+	// Must have "d" tag for addressable events
 	hasDTag := false
 	hasCategoryTag := false
 	var dTag string
@@ -190,7 +190,7 @@ func validateMarketplaceUIEvent(evt *nostr.Event) error {
 		return fmt.Errorf("invalid event kind for marketplace UI: %d", evt.Kind)
 	}
 
-	// Must have "d" tag for parameterized replaceable events
+	// Must have "d" tag for addressable events
 	hasDTag := false
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "d" {
@@ -248,7 +248,7 @@ func validateAuctionEvent(evt *nostr.Event) error {
 		return fmt.Errorf("invalid event kind for auction: %d", evt.Kind)
 	}
 
-	// Must have "d" tag for parameterized replaceable events
+	// Must have "d" tag for addressable events
 	hasDTag := false
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "d" {

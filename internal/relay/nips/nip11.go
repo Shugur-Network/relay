@@ -9,30 +9,34 @@ import (
 	nip11 "github.com/nbd-wtf/go-nostr/nip11"
 )
 
-// CustomRelayInformationDocument extends the standard NIP-11 document with Time Capsules capability
+// CustomRelayInformationDocument extends the standard NIP-11 document with NIP-XX Time Capsules capability
 type CustomRelayInformationDocument struct {
 	nip11.RelayInformationDocument
-	Capsules *CapsulesCapability `json:"capsules,omitempty"`
+	TimeCapsules *TimeCapsuleCapability `json:"time_capsules,omitempty"`
 }
 
-// CapsulesCapability represents the Time Capsules capability as per the NIP specification
-type CapsulesCapability struct {
-	Version        string   `json:"v"`
-	Modes          []string `json:"modes"`
-	MaxInlineBytes int      `json:"max_inline_bytes"`
+// TimeCapsuleCapability represents the NIP-XX Time Capsules capability
+type TimeCapsuleCapability struct {
+	Version         string   `json:"version"`
+	Modes           []string `json:"modes"`
+	MaxTlockBlob    int      `json:"max_tlock_blob_bytes"`
+	MaxContent      int      `json:"max_content_bytes"`
+	SupportedChains []string `json:"supported_drand_chains"`
 }
 
 // Nip11Handler handles NIP-11 requests
 func Nip11Handler(w http.ResponseWriter, r *http.Request, cfg *config.Config) {
 	baseMetadata := constants.DefaultRelayMetadata(cfg)
 
-	// Create custom metadata with Time Capsules capability
+	// Create custom metadata with NIP-XX Time Capsules capability
 	customMetadata := CustomRelayInformationDocument{
 		RelayInformationDocument: baseMetadata,
-		Capsules: &CapsulesCapability{
-			Version:        "1",
-			Modes:          []string{"threshold", "scheduled"},
-			MaxInlineBytes: constants.DefaultMaxInlineSize,
+		TimeCapsules: &TimeCapsuleCapability{
+			Version:         "1",
+			Modes:           []string{"public", "private"},
+			MaxTlockBlob:    constants.MaxTlockBlobSize,
+			MaxContent:      constants.MaxContentSize,
+			SupportedChains: []string{}, // Empty - relay doesn't validate chains
 		},
 	}
 
