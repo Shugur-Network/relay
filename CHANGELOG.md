@@ -97,7 +97,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **User-friendly countdown timers** for timelock expiration testing
 - **Comprehensive test documentation** with inline comments explaining each scenario
 
-
 ## [1.3.0] - 2025-08-30
 
 ### Added

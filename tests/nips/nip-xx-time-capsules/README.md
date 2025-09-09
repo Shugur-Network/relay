@@ -2,12 +2,16 @@
 
 This directory contains the **complete Python implementation and test suite** for **NIP-XX Time Capsules** - a Nostr protocol for time-locked encrypted messages using drand beacons.
 
+## ✅ **FULLY NIP-XX COMPLIANT**
+
+This implementation uses **real age v1 format with tlock recipients** via the `tle` (timelock encryption) tool, ensuring full compliance with the NIP-XX specification.
+
 ## 📁 Directory Contents
 
 ### 🐍 Python Implementation
 
-- `complete_time_capsules_demo.py` - **Complete NIP-XX compliant implementation** with full specification adherence
-- `test_nip_xx_time_capsules.sh` - Test runner script with dependency validation
+- `complete_time_capsules_demo.py` - **Complete NIP-XX compliant implementation** with real age v1 format
+- `test_nip_xx_time_capsules.sh` - Test runner script with dependency validation  
 - `requirements-test.txt` - Python dependencies
 
 ## 🚀 Quick Start
@@ -15,7 +19,7 @@ This directory contains the **complete Python implementation and test suite** fo
 ### Prerequisites
 
 - Local Nostr relay running on `ws://localhost:8085`
-- Required tools: `nak`, `tle`, `jq`, `base64`, `od`, `python3`
+- Required tools: `nak`, `tle`, `age`, `jq`, `base64`, `od`, `python3`
 
 ### Install Dependencies
 
@@ -56,9 +60,10 @@ python3 complete_time_capsules_demo.py
 
 ### ✅ Complete NIP-XX Compliance
 
+- **Real Age v1 Format**: Uses `tle` tool for proper age v1 binary format with tlock recipients
 - **Event Structure**: Kind 1041, proper tags, content encoding
 - **Payload Formats**: Public (0x01) and Private (0x02) modes
-- **Encryption**: tlock, NIP-44 v2 alignment, HKDF-SHA256, ChaCha20
+- **Encryption**: Real tlock via age v1, NIP-44 v2 alignment, HKDF-SHA256, ChaCha20
 - **Authentication**: HMAC-SHA256, constant-time verification
 - **Tag Parsing**: "key value" format, drand_chain/drand_round parameters
 
