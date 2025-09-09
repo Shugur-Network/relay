@@ -118,6 +118,3 @@ dashboard/dist/
 dashboard/.netlify/
 dashboard
 docker/compose/docker-compose.local.yml
-
-# Time Capsules Portal (temporary development - will be removed later)
-time-capsules-portal/
