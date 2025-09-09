@@ -125,19 +125,13 @@ func validatePrivateModeBasic(payload []byte, tags nostr.Tags) error {
 		return fmt.Errorf(constants.ErrMissingRecipientTag)
 	}
 
-	// Validate payload structure: 0x02 || nonce(12) || be32(tlock_len) || tlock_blob || ciphertext || mac(32)
-	if len(payload) < 1+constants.MaxNonceSize+4+1+constants.HMACSize {
+	// Validate payload structure: 0x02 || be32(tlock_len) || tlock_blob || 0x02 || nonce || ciphertext || mac(32)
+	if len(payload) < 1+4+1+1+constants.HMACSize {
 		return fmt.Errorf(constants.ErrMalformedPayload)
 	}
 
 	offset := 1 // Skip mode byte
 	
-	// Nonce (12 bytes)
-	if len(payload) < offset+constants.MaxNonceSize {
-		return fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	offset += constants.MaxNonceSize
-
 	// tlock_len (4 bytes big-endian)
 	if len(payload) < offset+4 {
 		return fmt.Errorf(constants.ErrMalformedPayload)
@@ -151,7 +145,29 @@ func validatePrivateModeBasic(payload []byte, tags nostr.Tags) error {
 		return fmt.Errorf(constants.ErrTlockBlobTooLarge)
 	}
 
-	if len(payload) < offset+int(tlockLen)+constants.HMACSize {
+	// Skip tlock_blob
+	if len(payload) < offset+int(tlockLen) {
+		return fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	offset += int(tlockLen)
+
+	// Check NIP-44 version byte (0x02)
+	if len(payload) < offset+1 {
+		return fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	if payload[offset] != 0x02 {
+		return fmt.Errorf("invalid NIP-44 version byte")
+	}
+	offset += 1
+
+	// Nonce (32 bytes for NIP-44)
+	if len(payload) < offset+32 {
+		return fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	offset += 32
+
+	// Must have at least MAC bytes remaining
+	if len(payload) < offset+constants.HMACSize {
 		return fmt.Errorf(constants.ErrMalformedPayload)
 	}
 
@@ -226,7 +242,7 @@ func GetPayloadMode(evt *nostr.Event) (byte, error) {
 	return payload[0], nil
 }
 
-// ParsePrivatePayload parses a private mode payload
+// ParsePrivatePayload parses a private mode payload per updated spec
 func ParsePrivatePayload(payload []byte) (nonce []byte, tlockBlob []byte, ciphertext []byte, mac []byte, err error) {
 	if len(payload) < 1 {
 		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
@@ -237,13 +253,6 @@ func ParsePrivatePayload(payload []byte) (nonce []byte, tlockBlob []byte, cipher
 	}
 
 	offset := 1 // Skip mode byte
-
-	// Extract nonce (12 bytes)
-	if len(payload) < offset+constants.MaxNonceSize {
-		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	nonce = payload[offset : offset+constants.MaxNonceSize]
-	offset += constants.MaxNonceSize
 
 	// Extract tlock_len (4 bytes big-endian)
 	if len(payload) < offset+4 {
@@ -258,6 +267,22 @@ func ParsePrivatePayload(payload []byte) (nonce []byte, tlockBlob []byte, cipher
 	}
 	tlockBlob = payload[offset : offset+int(tlockLen)]
 	offset += int(tlockLen)
+
+	// Check NIP-44 version byte
+	if len(payload) < offset+1 {
+		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	if payload[offset] != 0x02 {
+		return nil, nil, nil, nil, fmt.Errorf("invalid NIP-44 version byte")
+	}
+	offset += 1
+
+	// Extract nonce (32 bytes for NIP-44)
+	if len(payload) < offset+32 {
+		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
+	}
+	nonce = payload[offset : offset+32]
+	offset += 32
 
 	// Extract ciphertext (everything except last 32 bytes for MAC)
 	if len(payload) < offset+constants.HMACSize {

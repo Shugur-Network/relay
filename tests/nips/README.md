@@ -9,11 +9,30 @@ This directory contains comprehensive test scripts for various Nostr Implementat
 - Required tools: `nak`, `jq`, `base64`, `od`, `python3`
 - Bash shell environment
 
+#### Python Dependencies (for NIP-XX Time Capsules)
+For NIP-XX Time Capsules testing, install Python dependencies:
+
+```bash
+# Option 1: Install globally (if permitted)
+pip3 install websocket-client requests
+
+# Option 2: Use virtual environment (recommended)
+python3 -m venv venv
+source venv/bin/activate
+pip3 install -r nip-xx-time-capsules/requirements-test.txt
+
+# Option 3: Use requirements file directly  
+pip3 install -r nip-xx-time-capsules/requirements-test.txt
+```
+
 ### Running Tests
 ```bash
 
 # Run a specific test
 ./tests/nips/test_nip01.sh
+
+# Run NIP-XX Time Capsules Python test
+./tests/nips/nip-xx-time-capsules/test_nip_xx_time_capsules.sh
 
 # Run all tests (if available)
 for test in tests/nips/test_nip*.sh; do

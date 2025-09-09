@@ -61,6 +61,14 @@ vaultConfig/
 *~
 .cursor/
 
+# Python virtual environments
+venv/
+env/
+nip_env/
+__pycache__/
+*.pyc
+*.pyo
+
 # Documentation artifacts
 site/
 *.pdf
