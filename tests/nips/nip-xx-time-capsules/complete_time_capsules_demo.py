@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-NIP-XX Complete Time Capsules Demo
+NIP-XX Complete Time Capsules Demo - SECURITY HARDENED
 Single flow: Create → Post → Wait → Decrypt
 Tests 4 messages (2 public + 2 private) across 2 different drand chains
 
-✅ FULLY NIP-XX COMPLIANT:
+✅ FULLY NIP-XX COMPLIANT WITH SECURITY HARDENING:
 This demo uses real age v1 implementation with tlock recipients via the 'tle' tool.
 It produces proper age v1 binary format as required by the NIP-XX specification.
 
@@ -17,6 +17,19 @@ It produces proper age v1 binary format as required by the NIP-XX specification.
 - Correct tag format: ["tlock", "drand_chain <hash>", "drand_round <number>"]
 - Proper payload structure and validation
 - Binary age v1 ciphertext (non-armored)
+
+🛡️ SECURITY HARDENING:
+- ceil() target round calculation (prevents early unlock)
+- Hard failure on ChaCha20 errors (no XOR fallback)
+- Private payload validation (DoS protection, bounds checking)
+- NIP-01 signature verification on decrypt
+- Single tlock tag enforcement with required parameters
+- Age binary format validation (rejects ASCII armor)
+- Private capsule 'p' tag requirement enforcement
+- Strict RFC4648 base64 decoding
+- Empty tlock_blob rejection (≥1 byte rule)
+- NIP-44 v2 ciphertext length bounds (32-65535 bytes)
+- EOSE timeout protection for relay queries
 """
 
 import os
