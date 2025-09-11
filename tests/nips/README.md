@@ -92,7 +92,7 @@ done
 | Test File | NIP | Description | Status |
 |-----------|-----|-------------|---------|
 | `test_nip78.sh` | NIP-78 | Application-specific data | ✅ |
-| `test_nip_xx_time_capsules.sh` | NIP-XX | Time-lock encrypted messages | ✅ |
+| `test_nip_time_capsules.sh` | NIP-XX | Time-lock encrypted messages | ✅ |
 
 ## 🔧 Test Configuration
 
@@ -137,7 +137,7 @@ Most tests follow this structure:
 
 ## 🎯 Specialized Tests
 
-### NIP-XX Time Capsules (`test_nip_xx_time_capsules.sh`)
+### NIP-XX Time Capsules (`test_nip_time_capsules.sh`)
 
 **Purpose**: Tests time-lock encrypted messages that can only be decrypted after a specific time.
 
@@ -146,18 +146,18 @@ Most tests follow this structure:
 - Public time capsules (mode 0x01)
 - Private time capsules (mode 0x02)
 - Gift-wrapped private capsules (NIP-59 integration)
-- Actual timelock enforcement with waiting
+- Real age v1 format with tlock recipients
 - Drand integration for time-lock mechanism
 
 **Usage**:
 
 ```bash
 # Run the time capsule test
-./tests/nips/test_nip_xx_time_capsules.sh
+./tests/nips/test_nip_time_capsules.sh
 
 # Expected output: 2 events created
 # 1. Public time capsule (kind 1041)
-# 2. Gift-wrapped private capsule (kind 1059)
+# 2. Private time capsule (kind 1041 with 'p' tag)
 ```
 
 ### NIP-44 Encryption (`test_nip44.sh`)

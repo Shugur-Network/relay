@@ -1,0 +1,14 @@
+# NIP-XX Time Capsules Python Dependencies
+# Updated for new specification with NIP-44 v2 and NIP-59 support
+
+# WebSocket client for relay communication
+websocket-client>=1.6.0
+
+# HTTP requests for drand API calls
+requests>=2.31.0
+
+# Cryptographic library for NIP-44 v2 encryption
+cryptography>=3.4.8
+
+# Optional: Better JSON performance
+orjson>=3.8.0

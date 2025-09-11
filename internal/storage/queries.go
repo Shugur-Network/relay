@@ -286,9 +286,11 @@ func (db *DB) CleanExpiredEvents(ctx context.Context) (int, error) {
 
 	query := `
 		DELETE FROM events
-		WHERE tags @> '[["expiration","' || $1 || '"]]'::jsonb
-		OR (
-			tags @? '$.[] ? (@[0] == "expiration" && @[1]::int <= $1)'
+		WHERE EXISTS (
+			SELECT 1 FROM jsonb_array_elements(tags) AS tag
+			WHERE tag->>0 = 'expiration' 
+			AND tag->>1 IS NOT NULL 
+			AND (tag->>1)::BIGINT <= $1
 		)
 	`
 

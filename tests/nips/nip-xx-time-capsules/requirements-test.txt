@@ -1,5 +1,0 @@
-# Python dependencies for NIP-XX Time Capsules testing
-# Install with: pip3 install -r requirements-test.txt
-
-websocket-client==1.8.0
-requests==2.32.5
