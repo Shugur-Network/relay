@@ -20,15 +20,20 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 	}
 
 	// Validate content is valid base64
-	_, err := base64.StdEncoding.DecodeString(evt.Content)
+	decoded, err := base64.StdEncoding.DecodeString(evt.Content)
 	if err != nil {
 		return fmt.Errorf("%s: %w", constants.ErrInvalidBase64, err)
 	}
 
 	// Check content size limits (decoded)
-	decodedSize := base64.StdEncoding.DecodedLen(len(evt.Content))
+	decodedSize := len(decoded)
 	if decodedSize > constants.MaxContentSize {
 		return fmt.Errorf("%s: %d bytes exceeds %d limit", constants.ErrContentTooLarge, decodedSize, constants.MaxContentSize)
+	}
+
+	// Check tlock blob size limit per spec security considerations (DoS protection)
+	if decodedSize > constants.MaxTlockBlobSize {
+		return fmt.Errorf("tlock blob too large: %d bytes exceeds %d limit", decodedSize, constants.MaxTlockBlobSize)
 	}
 
 	// Validate tlock tag

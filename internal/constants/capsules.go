@@ -40,6 +40,8 @@ const (
 	MaxContentSize = 64 * 1024
 	// MaxRelayContentSize is the relay limit for encoded content (256 KiB)
 	MaxRelayContentSize = 256 * 1024
+	// MaxTlockBlobSize is the maximum size for tlock blob (4096 bytes per spec security considerations)
+	MaxTlockBlobSize = 4096
 	// DrandChainHashLength is the expected length of drand chain hash (64 hex chars = 32 bytes)
 	DrandChainHashLength = 64
 	// MaxDrandRound is the maximum drand round number (2^63-1 for safety)
