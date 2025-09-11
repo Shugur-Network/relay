@@ -2,36 +2,33 @@ package nips
 
 import (
 	"encoding/base64"
-	"encoding/binary"
 	"fmt"
+	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/Shugur-Network/relay/internal/constants"
 	nostr "github.com/nbd-wtf/go-nostr"
 )
 
 // ValidateTimeCapsuleEvent validates time capsule events according to NIP-XX
-// This is minimal validation - drand beacon verification is left to clients
+// Public time capsules: content is Base64 of binary age v1 ciphertext with exactly one tlock recipient
+// Private time capsules are delivered via NIP-59 (kinds 13, 1059) and validated separately
 func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 	// Must be kind 1041
 	if evt.Kind != constants.KindTimeCapsule {
 		return fmt.Errorf("invalid kind: expected %d, got %d", constants.KindTimeCapsule, evt.Kind)
 	}
 
-	// Validate content format
-	payload, err := base64.StdEncoding.DecodeString(evt.Content)
+	// Validate content is valid base64
+	_, err := base64.StdEncoding.DecodeString(evt.Content)
 	if err != nil {
-		return fmt.Errorf("invalid base64 content: %w", err)
+		return fmt.Errorf("%s: %w", constants.ErrInvalidBase64, err)
 	}
 
-	if len(payload) < 1 {
-		return fmt.Errorf(constants.ErrMalformedPayload)
-	}
-
-	mode := payload[0]
-	if mode != constants.ModePublic && mode != constants.ModePrivate {
-		return fmt.Errorf("%s: 0x%02x", constants.ErrInvalidMode, mode)
+	// Check content size limits (decoded)
+	decodedSize := base64.StdEncoding.DecodedLen(len(evt.Content))
+	if decodedSize > constants.MaxContentSize {
+		return fmt.Errorf("%s: %d bytes exceeds %d limit", constants.ErrContentTooLarge, decodedSize, constants.MaxContentSize)
 	}
 
 	// Validate tlock tag
@@ -40,16 +37,13 @@ func ValidateTimeCapsuleEvent(evt *nostr.Event) error {
 		return fmt.Errorf(constants.ErrMissingTlockTag)
 	}
 
-	if err := validateTlockTagBasic(tlockTag); err != nil {
+	if err := validateTlockTag(tlockTag); err != nil {
 		return fmt.Errorf("invalid tlock tag: %w", err)
 	}
 
-	// Validate mode-specific requirements
-	switch mode {
-	case constants.ModePublic:
-		return validatePublicModeBasic(payload)
-	case constants.ModePrivate:
-		return validatePrivateModeBasic(payload, evt.Tags)
+	// For public capsules, inner 1041 MUST NOT contain p tags
+	if hasRecipientTag(evt.Tags) {
+		return fmt.Errorf("public time capsule must not contain p tags (use NIP-59 for private capsules)")
 	}
 
 	return nil
@@ -65,115 +59,59 @@ func findTlockTag(tags nostr.Tags) nostr.Tag {
 	return nil
 }
 
-// validateTlockTagBasic validates the tlock tag format (minimal validation)
-func validateTlockTagBasic(tag nostr.Tag) error {
-	if len(tag) < 2 {
-		return fmt.Errorf("tlock tag too short")
+// validateTlockTag validates the new tlock tag format: ["tlock", "<drand_chain_hex64>", "<drand_round_uint>"]
+func validateTlockTag(tag nostr.Tag) error {
+	// Must be exactly 3 elements: ["tlock", "<drand_chain_hex64>", "<drand_round_uint>"]
+	if len(tag) != 3 {
+		return fmt.Errorf("%s: expected 3 elements, got %d", constants.ErrInvalidTlockFormat, len(tag))
 	}
 
-	kv := parseTlockTagPairs(tag)
-	
-	// Just check that required keys exist - don't validate values deeply
-	if _, exists := kv["drand_chain"]; !exists {
-		return fmt.Errorf("missing drand_chain")
-	}
-	
-	if _, exists := kv["drand_round"]; !exists {
-		return fmt.Errorf("missing drand_round")
+	// Validate drand chain hash format (64 lowercase hex characters)
+	drandChain := tag[1]
+	if err := validateDrandChainHash(drandChain); err != nil {
+		return err
 	}
 
-	return nil
-}
-
-// parseTlockTagPairs parses "key value" string pairs from tlock tag
-func parseTlockTagPairs(tag nostr.Tag) map[string]string {
-	kv := make(map[string]string)
-	
-	for i := 1; i < len(tag); i++ {
-		s := strings.TrimSpace(tag[i])
-		spaceIdx := strings.Index(s, " ")
-		if spaceIdx <= 0 {
-			continue // skip malformed
-		}
-		
-		key := strings.ToLower(s[:spaceIdx])
-		value := s[spaceIdx+1:]
-		kv[key] = value // last occurrence wins
-	}
-	
-	return kv
-}
-
-// validatePublicModeBasic validates public mode payload format (basic structure only)
-func validatePublicModeBasic(payload []byte) error {
-	if len(payload) < 2 {
-		return fmt.Errorf(constants.ErrMalformedPayload)
-	}
-
-	tlockBlob := payload[1:]
-	if len(tlockBlob) > constants.MaxTlockBlobSize {
-		return fmt.Errorf(constants.ErrTlockBlobTooLarge)
+	// Validate drand round format (positive integer)
+	drandRoundStr := tag[2]
+	if err := validateDrandRound(drandRoundStr); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-// validatePrivateModeBasic validates private mode payload format (basic structure only)
-func validatePrivateModeBasic(payload []byte, tags nostr.Tags) error {
-	// Check for recipient tag
-	if !hasRecipientTag(tags) {
-		return fmt.Errorf(constants.ErrMissingRecipientTag)
+// validateDrandChainHash validates drand chain hash format (64 lowercase hex chars)
+func validateDrandChainHash(chainHash string) error {
+	if len(chainHash) != constants.DrandChainHashLength {
+		return fmt.Errorf("%s: expected %d characters, got %d", constants.ErrInvalidDrandChain, constants.DrandChainHashLength, len(chainHash))
 	}
 
-	// Validate payload structure: 0x02 || be32(tlock_len) || tlock_blob || 0x02 || nonce || ciphertext || mac(32)
-	if len(payload) < 1+4+1+1+constants.HMACSize {
-		return fmt.Errorf(constants.ErrMalformedPayload)
+	// Check if it's valid lowercase hex
+	matched, _ := regexp.MatchString("^[0-9a-f]{64}$", chainHash)
+	if !matched {
+		return fmt.Errorf("%s: must be 64 lowercase hex characters", constants.ErrInvalidDrandChain)
 	}
 
-	offset := 1 // Skip mode byte
-	
-	// tlock_len (4 bytes big-endian)
-	if len(payload) < offset+4 {
-		return fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	
-	tlockLen := binary.BigEndian.Uint32(payload[offset : offset+4])
-	offset += 4
+	return nil
+}
 
-	// Basic length validation
-	if tlockLen > constants.MaxTlockBlobSize {
-		return fmt.Errorf(constants.ErrTlockBlobTooLarge)
+// validateDrandRound validates drand round format (positive integer, 64-bit safe)
+func validateDrandRound(roundStr string) error {
+	// Check format: positive integer matching ^[1-9][0-9]{0,18}$
+	matched, _ := regexp.MatchString("^[1-9][0-9]{0,18}$", roundStr)
+	if !matched {
+		return fmt.Errorf("%s: must be positive integer", constants.ErrInvalidDrandRound)
 	}
 
-	// Skip tlock_blob
-	if len(payload) < offset+int(tlockLen) {
-		return fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	offset += int(tlockLen)
-
-	// Check NIP-44 version byte (0x02)
-	if len(payload) < offset+1 {
-		return fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	if payload[offset] != 0x02 {
-		return fmt.Errorf("invalid NIP-44 version byte")
-	}
-	offset += 1
-
-	// Nonce (32 bytes for NIP-44)
-	if len(payload) < offset+32 {
-		return fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	offset += 32
-
-	// Must have at least MAC bytes remaining
-	if len(payload) < offset+constants.HMACSize {
-		return fmt.Errorf(constants.ErrMalformedPayload)
+	// Parse to ensure it's within int64 range
+	round, err := strconv.ParseInt(roundStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("%s: %w", constants.ErrInvalidDrandRound, err)
 	}
 
-	// Total size check
-	if len(payload) > constants.MaxContentSize {
-		return fmt.Errorf(constants.ErrContentTooLarge)
+	if round <= 0 || round > constants.MaxDrandRound {
+		return fmt.Errorf("%s: round %d out of valid range", constants.ErrInvalidDrandRound, round)
 	}
 
 	return nil
@@ -181,44 +119,30 @@ func validatePrivateModeBasic(payload []byte, tags nostr.Tags) error {
 
 // hasRecipientTag checks if the event has a recipient (p) tag
 func hasRecipientTag(tags nostr.Tags) bool {
-	count := 0
 	for _, tag := range tags {
 		if len(tag) >= 2 && tag[0] == constants.TagP {
-			count++
-			if count > constants.MaxPTags {
-				return false // Too many p tags
-			}
+			return true
 		}
 	}
-	return count > 0
+	return false
 }
 
 // Helper functions for clients (optional to use)
 
-// GetTlockKV extracts a specific key-value from tlock tag
-func GetTlockKV(tag nostr.Tag, key string) string {
-	kv := parseTlockTagPairs(tag)
-	return kv[strings.ToLower(key)]
-}
-
-// ExtractDrandParameters extracts drand chain hash and round from tlock tag
+// ExtractDrandParameters extracts drand chain hash and round from tlock tag (new format)
 func ExtractDrandParameters(evt *nostr.Event) (chainHash string, round int64, err error) {
 	tlockTag := findTlockTag(evt.Tags)
 	if tlockTag == nil {
 		return "", 0, fmt.Errorf(constants.ErrMissingTlockTag)
 	}
 
-	kv := parseTlockTagPairs(tlockTag)
-	
-	chainHash = kv["drand_chain"]
-	if chainHash == "" {
-		return "", 0, fmt.Errorf("missing drand_chain")
+	// New format: ["tlock", "<drand_chain_hex64>", "<drand_round_uint>"]
+	if len(tlockTag) != 3 {
+		return "", 0, fmt.Errorf("%s: expected 3 elements", constants.ErrInvalidTlockFormat)
 	}
 
-	roundStr := kv["drand_round"]
-	if roundStr == "" {
-		return "", 0, fmt.Errorf("missing drand_round")
-	}
+	chainHash = tlockTag[1]
+	roundStr := tlockTag[2]
 
 	round, err = strconv.ParseInt(roundStr, 10, 64)
 	if err != nil {
@@ -226,74 +150,6 @@ func ExtractDrandParameters(evt *nostr.Event) (chainHash string, round int64, er
 	}
 
 	return chainHash, round, nil
-}
-
-// GetPayloadMode extracts the mode byte from the content
-func GetPayloadMode(evt *nostr.Event) (byte, error) {
-	payload, err := base64.StdEncoding.DecodeString(evt.Content)
-	if err != nil {
-		return 0, fmt.Errorf("invalid base64 content: %w", err)
-	}
-
-	if len(payload) < 1 {
-		return 0, fmt.Errorf(constants.ErrMalformedPayload)
-	}
-
-	return payload[0], nil
-}
-
-// ParsePrivatePayload parses a private mode payload per updated spec
-func ParsePrivatePayload(payload []byte) (nonce []byte, tlockBlob []byte, ciphertext []byte, mac []byte, err error) {
-	if len(payload) < 1 {
-		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
-	}
-
-	if payload[0] != constants.ModePrivate {
-		return nil, nil, nil, nil, fmt.Errorf("not a private mode payload")
-	}
-
-	offset := 1 // Skip mode byte
-
-	// Extract tlock_len (4 bytes big-endian)
-	if len(payload) < offset+4 {
-		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	tlockLen := binary.BigEndian.Uint32(payload[offset : offset+4])
-	offset += 4
-
-	// Extract tlock_blob
-	if len(payload) < offset+int(tlockLen) {
-		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	tlockBlob = payload[offset : offset+int(tlockLen)]
-	offset += int(tlockLen)
-
-	// Check NIP-44 version byte
-	if len(payload) < offset+1 {
-		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	if payload[offset] != 0x02 {
-		return nil, nil, nil, nil, fmt.Errorf("invalid NIP-44 version byte")
-	}
-	offset += 1
-
-	// Extract nonce (32 bytes for NIP-44)
-	if len(payload) < offset+32 {
-		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	nonce = payload[offset : offset+32]
-	offset += 32
-
-	// Extract ciphertext (everything except last 32 bytes for MAC)
-	if len(payload) < offset+constants.HMACSize {
-		return nil, nil, nil, nil, fmt.Errorf(constants.ErrMalformedPayload)
-	}
-	ciphertext = payload[offset : len(payload)-constants.HMACSize]
-	
-	// Extract MAC (last 32 bytes)
-	mac = payload[len(payload)-constants.HMACSize:]
-
-	return nonce, tlockBlob, ciphertext, mac, nil
 }
 
 // GetFirstRecipientPubkey extracts the first recipient pubkey from p tags

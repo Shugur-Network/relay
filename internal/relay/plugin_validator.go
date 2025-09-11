@@ -66,7 +66,7 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 		AllowedKinds: map[int]bool{
 			0: true, 1: true, 2: true, 3: true, 4: true, 5: true,
 			6: true, 7: true, 40: true, 41: true, 42: true, 43: true, 44: true,
-			13: true, 14: true, 15: true, 1059: true, 10050: true,
+			14: true, 15: true, 1059: true, 10050: true,
 			1984: true, 9734: true, 10002: true, 30023: true, 31989: true,
 			1111: true, // NIP-22: Comment
 			// NIP-20 Command Results
@@ -288,6 +288,8 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateKind10002(*event)
 	case 1041:
 		return nips.ValidateTimeCapsuleEvent(event)
+	case 1059:
+		return nips.ValidateGiftWrapEvent(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
@@ -436,13 +438,14 @@ func (pv *PluginValidator) ValidateAndProcessEvent(ctx context.Context, event no
 		if err := pv.validateMetadataEvent(event); err != nil {
 			return false, err.Error(), nil
 		}
+	
 	case 1041: // NIP-XX Time capsule
 		if err := nips.ValidateTimeCapsuleEvent(&event); err != nil {
 			return false, fmt.Sprintf("invalid time capsule: %s", err.Error()), nil
 		}
-	case 1059: // NIP-17 Gift wrap - use NIP-17 validation (more lenient than NIP-59)
-		if err := nips.ValidatePrivateDirectMessage(&event); err != nil {
-			return false, err.Error(), nil
+	case 1059: // NIP-59 Gift wrap (for private time capsules)
+		if err := nips.ValidateGiftWrapEvent(&event); err != nil {
+			return false, fmt.Sprintf("invalid gift wrap: %s", err.Error()), nil
 		}
 	}
 
