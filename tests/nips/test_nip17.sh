@@ -8,8 +8,8 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 
 # Relay URL - should be from kind 10050 list
-# RELAY="ws://localhost:8080"
-RELAY="wss://shu02.shugur.net"
+RELAY="ws://localhost:8085"
+# RELAY="wss://shu02.shugur.net"
 
 # Function to check if nak is installed
 check_nak() {
@@ -71,9 +71,12 @@ simulate_sender() {
     echo -e "${YELLOW}Sealed event:${NC}"
     echo "$SEALED_EVENT"
     
-    # Gift-wrap the sealed message (kind 1059)
+    # Gift-wrap the sealed message (kind 1059) - encrypt the seal with NIP-44
     echo -e "${YELLOW}Sender: Gift-wrapping message...${NC}"
-    GIFT_WRAPPED=$(nak event -k 1059 -c "$SEALED_EVENT" --sec "$sender_privkey" -p "$recipient_pubkey" --created-at $(get_random_timestamp))
+    # First encrypt the sealed event using NIP-44
+    ENCRYPTED_SEAL=$(nak encrypt --recipient-pubkey "$recipient_pubkey" --sec "$sender_privkey" "$SEALED_EVENT")
+    # Then create the gift wrap event with encrypted content
+    GIFT_WRAPPED=$(nak event -k 1059 -c "$ENCRYPTED_SEAL" --sec "$sender_privkey" -p "$recipient_pubkey" --created-at $(get_random_timestamp))
     echo -e "${YELLOW}Gift-wrapped event:${NC}"
     echo "$GIFT_WRAPPED"
     
@@ -131,14 +134,14 @@ simulate_receiver() {
     # Debug: Show expected pubkey
     echo -e "${YELLOW}Receiver: Expected pubkey: $recipient_pubkey${NC}"
     
-    # Extract and unwrap the content
+    # Extract and decrypt the gift-wrapped content
     GIFT_WRAPPED_CONTENT=$(echo "$RECIPIENT_SUB" | jq -r '.content')
-    echo -e "${YELLOW}Receiver: Unwrapping gift-wrapped content...${NC}"
+    echo -e "${YELLOW}Receiver: Decrypting gift-wrapped content...${NC}"
     
-    # Parse the sealed event
-    SEALED_EVENT=$(echo "$GIFT_WRAPPED_CONTENT" | jq -r '.')
+    # Decrypt the gift-wrapped content to get the sealed event
+    SEALED_EVENT=$(nak decrypt --sec "$recipient_privkey" -p "$sender_pubkey" "$GIFT_WRAPPED_CONTENT")
     if [ $? -ne 0 ]; then
-        echo -e "${RED}Error: Failed to parse sealed event${NC}"
+        echo -e "${RED}Error: Failed to decrypt gift-wrapped content${NC}"
         echo -e "${RED}Content was: $GIFT_WRAPPED_CONTENT${NC}"
         return 1
     fi

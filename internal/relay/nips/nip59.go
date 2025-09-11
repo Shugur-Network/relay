@@ -49,9 +49,9 @@ func validateGiftWrapOuter(evt *nostr.Event) error {
 		return fmt.Errorf("gift wrap must have encrypted content")
 	}
 
-	// Validate NIP-44 format using existing validator
-	if err := ValidateNIP44Payload(evt.Content); err != nil {
-		return fmt.Errorf("invalid NIP-44 content in gift wrap: %w", err)
+	// Validate NIP-44 format
+	if !IsNIP44Payload(evt.Content) {
+		return fmt.Errorf("invalid NIP-44 content in gift wrap")
 	}
 
 	// CreatedAt should be randomized for privacy
