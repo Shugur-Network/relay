@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **IP Address Extraction Behind Reverse Proxy** (v1.3.2.1):
+  - Fixed issue where all client connections appeared as `127.0.0.1` (Caddy proxy IP) instead of real client IPs
+  - Added proper extraction of real client IPs from `X-Real-IP` and `X-Forwarded-For` headers set by Caddy
+  - Rate limiting and banning now works correctly per real client IP instead of globally affecting all clients
+  - Enhanced logging with comprehensive IP extraction debugging and connection tracking
+
+### Changed
+
+- **Logging Optimization** (v1.3.2.1):
+  - Moved verbose connection logs from `Info` to `Debug` level to reduce log volume in production
+  - Connection establishment, close events, and rate limit violations now only appear in debug mode
+  - Important security events (bans, blocked connections) remain at `Info` level for production monitoring
+
 ## [1.3.2] - 2025-09-11
 
 ### Changed

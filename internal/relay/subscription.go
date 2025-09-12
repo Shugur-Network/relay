@@ -14,12 +14,12 @@ import (
 func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 	// Log the start of request processing
 	logger.Debug("Processing REQ command",
-		zap.String("client", c.ws.RemoteAddr().String()))
+		zap.String("client", c.RemoteAddr()))
 
 	// Validate array length
 	if len(arr) < 3 {
 		logger.Warn("Invalid REQ command: missing subscription ID or filter",
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.RemoteAddr()))
 		c.sendNotice("REQ command missing subscription ID or filter")
 		return
 	}
@@ -28,7 +28,7 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 	subID, ok := arr[1].(string)
 	if !ok || subID == "" {
 		logger.Warn("Invalid REQ command: subscription ID must be a string",
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.RemoteAddr()))
 		c.sendNotice("REQ command subscription ID must be a string")
 		return
 	}
@@ -43,7 +43,7 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 	if c.hasSubscription(subID) {
 		logger.Debug("Replacing existing subscription",
 			zap.String("sub_id", subID),
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.RemoteAddr()))
 		c.removeSubscription(subID)
 	}
 
@@ -55,7 +55,7 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 			logger.Warn("Failed to parse filter",
 				zap.String("sub_id", subID),
 				zap.Error(err),
-				zap.String("client", c.ws.RemoteAddr().String()))
+				zap.String("client", c.RemoteAddr()))
 			c.sendNotice("Invalid filter: " + err.Error())
 			return
 		}
@@ -75,7 +75,7 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 		logger.Warn("Filter validation failed",
 			zap.String("sub_id", subID),
 			zap.Error(err),
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.RemoteAddr()))
 		c.sendClosed(subID, nips.FormatErrorMessage(nips.ErrorCodeInvalidFilter, err.Error()))
 		return
 	}
@@ -125,13 +125,13 @@ func (c *WsConnection) processSubscription(ctx context.Context, subID string, f 
 		zap.String("sub_id", subID),
 		zap.Duration("duration", duration),
 		zap.Int("events_count", len(events)),
-		zap.String("client", c.ws.RemoteAddr().String()))
+		zap.String("client", c.RemoteAddr()))
 
 	if err != nil {
 		logger.Error("Failed to query events",
 			zap.String("sub_id", subID),
 			zap.Error(err),
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.RemoteAddr()))
 		c.sendNotice(nips.ErrDatabaseError)
 		return
 	}
@@ -180,7 +180,7 @@ func (c *WsConnection) processSubscription(ctx context.Context, subID string, f 
 	logger.Debug("Subscription events sent",
 		zap.String("sub_id", subID),
 		zap.Int("sent_count", sentCount),
-		zap.String("client", c.ws.RemoteAddr().String()))
+		zap.String("client", c.RemoteAddr()))
 
 	// Send EOSE (End of Stored Events)
 	if !c.isClosed.Load() {
@@ -230,12 +230,12 @@ func isAuthorizedForDM(evt *nostr.Event, filters []nostr.Filter) bool {
 func (c *WsConnection) handleClose(arr []interface{}) {
 	// Log the start of close processing
 	logger.Debug("Processing CLOSE command",
-		zap.String("client", c.ws.RemoteAddr().String()))
+		zap.String("client", c.RemoteAddr()))
 
 	// Validate array length
 	if len(arr) < 2 {
 		logger.Warn("Invalid CLOSE command: missing subscription ID",
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.RemoteAddr()))
 		c.sendNotice("CLOSE command missing subscription ID")
 		return
 	}
@@ -244,7 +244,7 @@ func (c *WsConnection) handleClose(arr []interface{}) {
 	subID, ok := arr[1].(string)
 	if !ok {
 		logger.Warn("Invalid CLOSE command: subscription ID must be a string",
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.RemoteAddr()))
 		c.sendNotice("CLOSE command subscription ID must be a string")
 		return
 	}
@@ -253,7 +253,7 @@ func (c *WsConnection) handleClose(arr []interface{}) {
 	if !c.hasSubscription(subID) {
 		logger.Debug("Attempted to close non-existent subscription",
 			zap.String("sub_id", subID),
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.RemoteAddr()))
 		c.sendClosed(subID, "subscription not found")
 		return
 	}
@@ -261,7 +261,7 @@ func (c *WsConnection) handleClose(arr []interface{}) {
 	// Log subscription closure
 	logger.Debug("Closing subscription",
 		zap.String("sub_id", subID),
-		zap.String("client", c.ws.RemoteAddr().String()))
+		zap.String("client", c.RemoteAddr()))
 
 	// Remove subscription and send confirmation
 	c.removeSubscription(subID)
@@ -273,21 +273,21 @@ func (c *WsConnection) handleClose(arr []interface{}) {
 	// Log successful closure
 	logger.Debug("Subscription successfully closed",
 		zap.String("sub_id", subID),
-		zap.String("client", c.ws.RemoteAddr().String()))
+		zap.String("client", c.RemoteAddr()))
 }
 
 // handleCountRequest processes COUNT commands for NIP-45
 func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}) {
 	// Log the start of count request processing
 	logger.Debug("Starting count request processing",
-		zap.String("client", c.ws.RemoteAddr().String()))
+		zap.String("client", c.RemoteAddr()))
 
 	// Parse the COUNT command using NIP-45 module
 	countCmd, err := nips.ParseCountCommand(arr)
 	if err != nil {
 		logger.Warn("Invalid COUNT command",
 			zap.Error(err),
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.RemoteAddr()))
 		c.sendNotice("Invalid COUNT command: " + err.Error())
 		return
 	}
@@ -299,7 +299,7 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 			logger.Warn("Failed to parse filter for COUNT",
 				zap.String("sub_id", countCmd.SubID),
 				zap.Error(err),
-				zap.String("client", c.ws.RemoteAddr().String()))
+				zap.String("client", c.RemoteAddr()))
 			c.sendNotice("Invalid filter: " + err.Error())
 			return
 		}
@@ -321,7 +321,7 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 			logger.Warn("COUNT filter validation failed",
 				zap.String("sub_id", countCmd.SubID),
 				zap.Error(err),
-				zap.String("client", c.ws.RemoteAddr().String()))
+				zap.String("client", c.RemoteAddr()))
 			c.sendNotice("Invalid COUNT filter: " + err.Error())
 			return
 		}
@@ -341,7 +341,7 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 			logger.Error("COUNT request failed",
 				zap.String("sub_id", countCmd.SubID),
 				zap.Error(err),
-				zap.String("client", c.ws.RemoteAddr().String()))
+				zap.String("client", c.RemoteAddr()))
 			c.sendNotice("error: count operation failed")
 			return
 		}
@@ -351,7 +351,7 @@ func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}
 			zap.String("sub_id", countCmd.SubID),
 			zap.Duration("duration", duration),
 			zap.Int64("count", count),
-			zap.String("client", c.ws.RemoteAddr().String()))
+			zap.String("client", c.RemoteAddr()))
 
 		// Send the count response (NIP-45 format)
 		response := &nips.CountResponse{Count: count}
