@@ -32,7 +32,7 @@ RELAY:
     MAX_CONTENT_LENGTH: 2048 # Maximum content length in bytes
     MAX_CONNECTIONS: 1000 # Maximum concurrent connections
     BAN_THRESHOLD: 5 # Number of violations before ban
-    BAN_DURATION: 5 # Ban duration in seconds
+    BAN_DURATION: 60 # Ban duration in seconds
     RATE_LIMIT:
       ENABLED: true # Enable rate limiting
       MAX_EVENTS_PER_SECOND: 50 # Maximum events per second
