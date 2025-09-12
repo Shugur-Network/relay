@@ -104,9 +104,9 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30018: {"d", "t"}, // Product events require "d" and at least one "t" tag
 			1021:  {"e"},      // Bid events require "e" tag
 			1022:  {"e"},      // Bid confirmation events require "e" tag
-			1040: {"e"},      // OpenTimestamps attestation requires "e" tag
-			1041: {"tlock"}, // NIP-XX Time capsule requires "tlock" tag
-			30078: {"p"},     // NIP-78: Application-specific Data requires "p" tag
+			1040:  {"e"},      // OpenTimestamps attestation requires "e" tag
+			1041:  {"tlock"},  // NIP-XX Time capsule requires "tlock" tag
+			30078: {"p"},      // NIP-78: Application-specific Data requires "p" tag
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -218,7 +218,7 @@ func (pv *PluginValidator) ValidateEvent(ctx context.Context, event nostr.Event)
 				if len(tag) > 0 && tag[0] == requiredTag {
 					found = true
 					break
-					}
+				}
 			}
 			if !found {
 				if event.Kind == 30018 && requiredTag == "t" {
@@ -438,7 +438,7 @@ func (pv *PluginValidator) ValidateAndProcessEvent(ctx context.Context, event no
 		if err := pv.validateMetadataEvent(event); err != nil {
 			return false, err.Error(), nil
 		}
-	
+
 	case 1041: // NIP-XX Time capsule
 		if err := nips.ValidateTimeCapsuleEvent(&event); err != nil {
 			return false, fmt.Sprintf("invalid time capsule: %s", err.Error()), nil

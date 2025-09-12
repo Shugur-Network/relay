@@ -34,13 +34,14 @@ var (
 func extractRealClientIP(r *http.Request) string {
 	var extractedIP string
 	var source string
-	
+
 	// Try X-Real-IP first (set by Caddy)
 	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
 		extractedIP = strings.TrimSpace(realIP)
 		source = "X-Real-IP"
 		logger.Debug("Client IP extracted from X-Real-IP header",
 			zap.String("real_ip", extractedIP),
+			zap.String("source", source),
 			zap.String("raw_remote_addr", r.RemoteAddr))
 		return extractedIP
 	}
@@ -54,6 +55,7 @@ func extractRealClientIP(r *http.Request) string {
 			source = "X-Forwarded-For"
 			logger.Debug("Client IP extracted from X-Forwarded-For header",
 				zap.String("forwarded_ip", extractedIP),
+				zap.String("source", source),
 				zap.String("full_header", forwardedFor),
 				zap.String("raw_remote_addr", r.RemoteAddr))
 			return extractedIP
@@ -68,7 +70,7 @@ func extractRealClientIP(r *http.Request) string {
 		zap.String("source", source),
 		zap.String("x_real_ip", r.Header.Get("X-Real-IP")),
 		zap.String("x_forwarded_for", r.Header.Get("X-Forwarded-For")))
-	
+
 	return extractedIP
 }
 
@@ -126,7 +128,7 @@ func cleanExpiredBans() {
 			logger.Debug("Ban list cleanup completed",
 				zap.Int("unbanned_count", unbanCount),
 				zap.Int("remaining_bans", len(clientBanList)))
-			
+
 			// Log current active bans for debugging
 			if len(clientBanList) > 0 {
 				for ip, expiry := range clientBanList {
@@ -214,13 +216,13 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 
 // WsConnection represents a single WebSocket client connection
 type WsConnection struct {
-	ws            *websocket.Conn
-	node          domain.NodeInterface
-	realClientIP  string        // Real client IP (extracted from proxy headers)
-	lastActivity  time.Time
-	idleTimeout   time.Duration
-	maxLifetime   time.Duration // Maximum lifetime of a connection
-	startTime     time.Time     // When the connection was established
+	ws           *websocket.Conn
+	node         domain.NodeInterface
+	realClientIP string // Real client IP (extracted from proxy headers)
+	lastActivity time.Time
+	idleTimeout  time.Duration
+	maxLifetime  time.Duration // Maximum lifetime of a connection
+	startTime    time.Time     // When the connection was established
 
 	pingTicker *time.Ticker
 
@@ -453,7 +455,7 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 	banListMutex.Unlock()
 
 	if banned && time.Now().Before(banExpiry) {
-		logger.Warn("Banned client attempted to send messages", 
+		logger.Warn("Banned client attempted to send messages",
 			zap.String("client_ip", clientIP),
 			zap.Time("ban_expires", banExpiry))
 		c.closeReason = "client banned"
@@ -564,7 +566,7 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 						zap.Duration("ban_duration", banDuration),
 						zap.String("real_client_ip", c.realClientIP),
 						zap.Time("ban_expires", time.Now().Add(banDuration)))
-					
+
 					banListMutex.Lock()
 					clientBanList[clientIP] = time.Now().Add(banDuration)
 					delete(clientExceededCount, clientIP)
