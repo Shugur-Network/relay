@@ -31,7 +31,7 @@ from datetime import datetime
 class NIPXXValidator:
     """NIP-XX Time Capsules Validator - Strict specification compliance"""
     
-    def __init__(self, relay_url="ws://localhost:8085"):
+    def __init__(self, relay_url="wss://shu01.shugur.net"):
         self.relay_url = relay_url
         
         # Real drand networks (unchained production networks only)
