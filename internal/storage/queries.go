@@ -43,11 +43,12 @@ func (db *DB) GetEvents(ctx context.Context, filter nostr.Filter) ([]nostr.Event
 	}
 	defer rows.Close()
 
-    // Pre-allocate results slice with a small fixed cap to avoid
-    // any risk from user-controlled limits influencing allocation size.
-    // This is a performance hint only; appending will grow the slice as needed.
-    const defaultQueryPrealloc = 100
-    events := make([]nostr.Event, 0, defaultQueryPrealloc)
+	// Pre-allocate results slice with a fixed cap to avoid
+	// any user‑influenced allocation size. 500 matches the
+	// typical filter cap used by the relay and reduces slice
+	// growth for common queries while keeping memory modest.
+	const defaultQueryPrealloc = 500
+	events := make([]nostr.Event, 0, defaultQueryPrealloc)
 
 	// Process rows
 	for rows.Next() {
