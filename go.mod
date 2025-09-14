@@ -13,7 +13,7 @@ require (
 	github.com/spf13/viper v1.20.1
 	github.com/willf/bloom v2.0.3+incompatible
 	go.uber.org/zap v1.27.0
-	golang.org/x/time v0.11.0
+	golang.org/x/time v0.13.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
