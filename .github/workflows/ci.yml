@@ -29,9 +29,36 @@ env:
   IMAGE_NAME: shugur-network/relay
 
 jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      docs: ${{ steps.filter.outputs.docs }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Paths filter
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'cmd/**'
+              - 'internal/**'
+              - 'web/**'
+              - 'go.mod'
+              - 'go.sum'
+              - '!**/*.md'
+            docs:
+              - '**/*.md'
+              - 'docs/**'
+              - 'announcements/**'
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    needs: [changes]
     steps:
       - uses: actions/checkout@v4
 
@@ -50,6 +77,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: [changes]
 
     steps:
       - uses: actions/checkout@v4
@@ -61,9 +89,11 @@ jobs:
           cache: true
 
       - name: Download dependencies
+        if: ${{ needs.changes.outputs.code == 'true' }}
         run: go mod download
 
       - name: Start CockroachDB
+        if: ${{ needs.changes.outputs.code == 'true' }}
         run: |
           docker run -d \
             --name cockroach \
@@ -78,6 +108,7 @@ jobs:
           # Database will be created automatically by the relay application
 
       - name: Run tests
+        if: ${{ needs.changes.outputs.code == 'true' }}
         run: |
           go test -v -race -coverprofile=coverage.out ./...
         env:
@@ -87,11 +118,16 @@ jobs:
           SHUGUR_DB_SSL_MODE: disable
 
       - name: Upload coverage to Codecov
+        if: ${{ needs.changes.outputs.code == 'true' }}
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.out
           flags: unittests
           name: codecov-umbrella
+
+      - name: Docs-only change; skip tests
+        if: ${{ needs.changes.outputs.code != 'true' }}
+        run: echo "Docs-only change detected; skipping tests."
 
       - name: Cleanup
         if: always()
@@ -102,6 +138,7 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    needs: [changes]
     steps:
       - uses: actions/checkout@v4
 
