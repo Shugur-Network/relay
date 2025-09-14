@@ -1,0 +1,9 @@
+# Default code owners (update to your teams as needed)
+* @KarimHassan
+
+# Scoped ownership examples
+internal/ @KarimHassan
+internal/relay/ @KarimHassan
+internal/web/ @KarimHassan
+.github/workflows/ @KarimHassan
+
