@@ -177,6 +177,8 @@ jobs:
     name: Docker Build & Push
     runs-on: ubuntu-latest
     needs: [lint, test, security]
+    # Skip on pull_request; only run for direct pushes (e.g., main) and releases
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
