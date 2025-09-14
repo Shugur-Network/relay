@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Native Prometheus metrics endpoint (`/metrics`) exposed via the HTTP server for scraping
+- Repository standards and security hardening:
+  - CODEOWNERS for default ownership and review routing
+  - CodeQL code scanning workflow for Go
+  - Trivy filesystem vulnerability scan in CI (CRITICAL/HIGH)
+  - Dependabot (weekly) for Go modules and GitHub Actions
+
 ### Fixed
 
 - **IP Address Extraction Behind Reverse Proxy** (v1.3.2.1):
@@ -14,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added proper extraction of real client IPs from `X-Real-IP` and `X-Forwarded-For` headers set by Caddy
   - Rate limiting and banning now works correctly per real client IP instead of globally affecting all clients
   - Enhanced logging with comprehensive IP extraction debugging and connection tracking
+- **Static file path traversal**: sanitized and bounded `/static/*` paths to the `web/static` root, returning 400 on invalid paths; added `X-Content-Type-Options: nosniff` and caching headers
+- **Uncontrolled allocation (GetEvents)**: preallocation at the allocation site is now a fixed, small cap (no user‑influenced size) to prevent excessive allocations
 
 ### Changed
 
@@ -21,6 +32,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Moved verbose connection logs from `Info` to `Debug` level to reduce log volume in production
   - Connection establishment, close events, and rate limit violations now only appear in debug mode
   - Important security events (bans, blocked connections) remain at `Info` level for production monitoring
+- **CI/CD**:
+  - Least‑privilege default permissions and concurrency (cancel in‑progress runs per ref)
+  - Skip CI for docs/images‑only changes (paths‑ignore)
+  - Use setup‑go module cache; split builds (PR: linux/amd64; main: full matrix)
+  - Build & push Docker images only on `main` (and releases)
 
 ## [1.3.2] - 2025-09-11
 
