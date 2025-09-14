@@ -1,20 +1,21 @@
 package relay
 
 import (
-	"context"
-	"net/http"
-	"strings"
-	"time"
+    "context"
+    "net/http"
+    "strings"
+    "time"
 
 	"github.com/Shugur-Network/relay/internal/config"
 	"github.com/Shugur-Network/relay/internal/constants"
 	"github.com/Shugur-Network/relay/internal/domain"
 	"github.com/Shugur-Network/relay/internal/logger"
-	"github.com/Shugur-Network/relay/internal/metrics"
-	"github.com/Shugur-Network/relay/internal/relay/nips"
-	"github.com/Shugur-Network/relay/internal/web"
-	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
+    "github.com/Shugur-Network/relay/internal/metrics"
+    "github.com/Shugur-Network/relay/internal/relay/nips"
+    "github.com/Shugur-Network/relay/internal/web"
+    "github.com/gorilla/websocket"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
+    "go.uber.org/zap"
 )
 
 // Server holds references to the relay configuration and node logic.
@@ -52,6 +53,9 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 
     // Use an isolated ServeMux instead of the default mux
     mux := http.NewServeMux()
+
+    // Native Prometheus scrape endpoint
+    mux.Handle("/metrics", promhttp.Handler())
 
     // Root handler
     mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

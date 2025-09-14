@@ -1,0 +1,12 @@
+# Default code owners
+# Adjust these to your team or org handles.
+
+# Entire repository
+* @KarimHassan
+
+# Scoped ownership (examples; keep pointing to you until teams are defined)
+internal/ @KarimHassan
+internal/relay/ @KarimHassan
+internal/web/ @KarimHassan
+.github/workflows/ @KarimHassan
+
