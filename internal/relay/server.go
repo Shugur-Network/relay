@@ -39,70 +39,74 @@ func NewServer(relayCfg config.RelayConfig, node domain.NodeInterface, fullCfg *
 
 // ListenAndServe starts your WebSocket relay server and serves NIP-11 on normal HTTP requests.
 func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
-	upgrader := websocket.Upgrader{
-		ReadBufferSize:    1024 * 1024,
-		WriteBufferSize:   1024 * 1024,
-		CheckOrigin:       func(r *http.Request) bool { return true },
-		EnableCompression: true,
-		HandshakeTimeout:  10 * time.Second,
-	}
+    upgrader := websocket.Upgrader{
+        ReadBufferSize:    1024 * 1024,
+        WriteBufferSize:   1024 * 1024,
+        CheckOrigin:       func(r *http.Request) bool { return true },
+        EnableCompression: true,
+        HandshakeTimeout:  10 * time.Second,
+    }
 
-	// Start background task to clean expired bans
-	go cleanExpiredBans()
+    // Start background task to clean expired bans (tied to context)
+    go cleanExpiredBans(ctx)
 
-	// Root handler
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Track request metrics
-		metrics.HTTPRequests.Inc()
-		start := time.Now()
-		defer func() {
-			metrics.HTTPRequestDuration.Observe(time.Since(start).Seconds())
-		}()
+    // Use an isolated ServeMux instead of the default mux
+    mux := http.NewServeMux()
+
+    // Root handler
+    mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        // Track request metrics
+        metrics.HTTPRequests.Inc()
+        start := time.Now()
+        defer func() {
+            metrics.HTTPRequestDuration.Observe(time.Since(start).Seconds())
+        }()
 
 		if isWebSocketRequest(r) {
 			// Handle as relay WebSocket connection
 			handleWebSocketConnection(ctx, w, r, upgrader, s.node, s.cfg)
 		} else {
-			// Handle HTTP requests
-			switch {
-			case r.URL.Path == "/" && r.Header.Get("Accept") != "application/nostr+json":
-				// Serve dashboard for browser requests
-				s.webHandler.HandleDashboard(w, r)
-			case r.Header.Get("Accept") == "application/nostr+json":
-				// Serve NIP-11 metadata for Nostr clients
-				metadata := constants.DefaultRelayMetadata(s.fullCfg)
-				nips.ServeRelayMetadata(w, metadata)
-			case strings.HasPrefix(r.URL.Path, "/static/"):
-				// Serve static files
-				s.webHandler.HandleStatic(w, r)
-			case r.URL.Path == "/api/info":
-				// Serve relay info API
-				metadata := constants.DefaultRelayMetadata(s.fullCfg)
-				w.Header().Set("Content-Type", "application/json")
-				w.Header().Set("Access-Control-Allow-Origin", "*")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-				nips.ServeRelayMetadata(w, metadata)
-			case r.URL.Path == "/api/stats":
-				// Serve relay statistics API
-				s.webHandler.HandleStatsAPI(w, r)
-			case r.URL.Path == "/api/metrics":
-				// Serve real-time metrics API
-				s.webHandler.HandleMetricsAPI(w, r)
-			case r.URL.Path == "/api/cluster":
-				// Serve cluster information API
-				s.webHandler.HandleClusterAPI(w, r)
-			default:
-				http.NotFound(w, r)
-			}
-		}
-	})
+            // Handle HTTP requests
+            switch {
+            case r.URL.Path == "/" && r.Header.Get("Accept") != "application/nostr+json":
+                // Serve dashboard for browser requests
+                s.webHandler.HandleDashboard(w, r)
+            case r.Header.Get("Accept") == "application/nostr+json":
+                // Serve NIP-11 metadata for Nostr clients
+                metadata := constants.DefaultRelayMetadata(s.fullCfg)
+                nips.ServeRelayMetadata(w, metadata)
+            case strings.HasPrefix(r.URL.Path, "/static/"):
+                // Serve static files
+                s.webHandler.HandleStatic(w, r)
+            case r.URL.Path == "/api/info":
+                // Serve relay info API
+                metadata := constants.DefaultRelayMetadata(s.fullCfg)
+                w.Header().Set("Content-Type", "application/json")
+                w.Header().Set("Access-Control-Allow-Origin", "*")
+                w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+                nips.ServeRelayMetadata(w, metadata)
+            case r.URL.Path == "/api/stats":
+                // Serve relay statistics API
+                s.webHandler.HandleStatsAPI(w, r)
+            case r.URL.Path == "/api/metrics":
+                // Serve real-time metrics API
+                s.webHandler.HandleMetricsAPI(w, r)
+            case r.URL.Path == "/api/cluster":
+                // Serve cluster information API
+                s.webHandler.HandleClusterAPI(w, r)
+            default:
+                http.NotFound(w, r)
+            }
+        }
+    })
 
-	httpSrv := &http.Server{
-		Addr:         addr,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
+    httpSrv := &http.Server{
+        Addr:         addr,
+        Handler:      mux,
+        ReadTimeout:  15 * time.Second,
+        WriteTimeout: 15 * time.Second,
+        IdleTimeout:  60 * time.Second,
+    }
 
 	// Graceful shutdown when context is canceled
 	go func() {

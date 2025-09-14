@@ -1,20 +1,26 @@
 package relay
 
 import (
-	"context"
-	"time"
+    "context"
+    "time"
 
-	"github.com/Shugur-Network/relay/internal/logger"
-	"github.com/Shugur-Network/relay/internal/metrics"
-	"github.com/Shugur-Network/relay/internal/relay/nips"
-	nostr "github.com/nbd-wtf/go-nostr"
-	"go.uber.org/zap"
+    "github.com/Shugur-Network/relay/internal/constants"
+    "github.com/Shugur-Network/relay/internal/logger"
+    "github.com/Shugur-Network/relay/internal/metrics"
+    "github.com/Shugur-Network/relay/internal/relay/nips"
+    nostr "github.com/nbd-wtf/go-nostr"
+    "go.uber.org/zap"
 )
 
 func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
-	// Log the start of request processing
-	logger.Debug("Processing REQ command",
-		zap.String("client", c.RemoteAddr()))
+    // Per-connection request throttling
+    if c.reqLimiter != nil && !c.reqLimiter.Allow() {
+        c.sendNotice("Rate limit exceeded: too many requests")
+        return
+    }
+    // Log the start of request processing
+    logger.Debug("Processing REQ command",
+        zap.String("client", c.RemoteAddr()))
 
 	// Validate array length
 	if len(arr) < 3 {
@@ -33,19 +39,28 @@ func (c *WsConnection) handleRequest(ctx context.Context, arr []interface{}) {
 		return
 	}
 
-	// Validate subscription ID length
-	if len(subID) > 64 {
-		c.sendNotice("Subscription ID too long (max 64 chars)")
-		return
-	}
+    // Validate subscription ID length
+    if len(subID) > 64 {
+        c.sendNotice("Subscription ID too long (max 64 chars)")
+        return
+    }
 
-	// Remove existing subscription if present
-	if c.hasSubscription(subID) {
-		logger.Debug("Replacing existing subscription",
-			zap.String("sub_id", subID),
-			zap.String("client", c.RemoteAddr()))
-		c.removeSubscription(subID)
-	}
+    // Enforce per-connection subscription cap
+    if len(c.GetSubscriptions()) >= constants.MaxSubscriptions {
+        logger.Debug("Subscription cap reached",
+            zap.Int("cap", constants.MaxSubscriptions),
+            zap.String("client", c.RemoteAddr()))
+        c.sendClosed(subID, "too many subscriptions")
+        return
+    }
+
+    // Remove existing subscription if present
+    if c.hasSubscription(subID) {
+        logger.Debug("Replacing existing subscription",
+            zap.String("sub_id", subID),
+            zap.String("client", c.RemoteAddr()))
+        c.removeSubscription(subID)
+    }
 
 	// Parse the filter with support for #tag syntax
 	var f nostr.Filter
@@ -278,9 +293,14 @@ func (c *WsConnection) handleClose(arr []interface{}) {
 
 // handleCountRequest processes COUNT commands for NIP-45
 func (c *WsConnection) handleCountRequest(ctx context.Context, arr []interface{}) {
-	// Log the start of count request processing
-	logger.Debug("Starting count request processing",
-		zap.String("client", c.RemoteAddr()))
+    // Throttle COUNT requests per-connection
+    if c.countLimiter != nil && !c.countLimiter.Allow() {
+        c.sendNotice("Rate limit exceeded: too many count requests")
+        return
+    }
+    // Log the start of count request processing
+    logger.Debug("Starting count request processing",
+        zap.String("client", c.RemoteAddr()))
 
 	// Parse the COUNT command using NIP-45 module
 	countCmd, err := nips.ParseCountCommand(arr)

@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added best-effort synchronization of the active connection gauge with the node’s actual count to reduce drift
 - **Duplicate Unregister**:
   - Removed redundant `UnregisterConn` call in the message handler defer, avoiding double-unregister behavior
+- **Goroutine Lifecycle**:
+  - Connection monitor exits sooner when connections close, reducing lingering goroutines
+- **ServeMux Isolation**:
+  - Switched to a dedicated `http.ServeMux` to avoid global handler collisions
 
 ### Changed
 
@@ -29,6 +33,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Important security events (bans, blocked connections) remain at `Info` level for production monitoring
 - **Proxy Header Hardening**:
   - Now validates `X-Real-IP` and `X-Forwarded-For` entries using strict IP parsing; falls back safely if malformed
+- **Logging Hygiene**:
+  - Sampled noisy rate-limit violation logs and removed per-ping success logs to reduce log volume
+- **Static Security Headers**:
+  - Added `X-Content-Type-Options: nosniff` and caching headers for static assets
+
+### Added
+
+- **Throttling and Caps**:
+  - Per-connection throttling for `REQ` and `COUNT` commands using configured request rate limits
+  - Per-connection subscription cap enforced (aligned with advertised MaxSubscriptions)
 
 ### Security
 
