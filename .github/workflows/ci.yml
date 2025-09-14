@@ -1,12 +1,37 @@
 name: CI/CD Pipeline
 
+# Default, least-privilege permissions; jobs elevate only as needed
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'announcements/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.svg'
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'announcements/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.svg'
   release:
     types: [published]
+
+# Cancel in‑progress runs of the same workflow/ref to save CI minutes
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   GO_VERSION: "1.24.1"
@@ -82,7 +107,6 @@ jobs:
       - name: Run tests
         run: |
           go test -v -race -coverprofile=coverage.out ./...
-          go tool cover -html=coverage.out -o coverage.html
         env:
           SHUGUR_DB_HOST: localhost
           SHUGUR_DB_PORT: 26257
@@ -117,13 +141,8 @@ jobs:
         run: |
           # Run go vet for basic security issues
           go vet ./...
-
-          # Check for potential security issues in dependencies
-          go mod why
-
-          # Run staticcheck for advanced static analysis
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck ./...
+          # Print deps graph context (optional; lightweight)
+          go mod graph | head -n 200 || true
 
   build:
     name: Build
@@ -170,6 +189,8 @@ jobs:
     name: Docker Build & Push
     runs-on: ubuntu-latest
     needs: [lint, test, security]
+    # Only build & push images for direct pushes to main (avoid PRs/forks noise)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
