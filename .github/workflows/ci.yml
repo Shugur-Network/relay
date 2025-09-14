@@ -1,12 +1,35 @@
 name: CI/CD Pipeline
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'announcements/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.svg'
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'announcements/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.svg'
   release:
     types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   GO_VERSION: "1.24.1"
@@ -24,6 +47,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: true
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
@@ -42,25 +66,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-
-      - name: Prepare module cache
-        run: |
-          # Ensure clean state for module cache
-          mkdir -p ~/go/pkg/mod
-          chmod -R u+w ~/go/pkg/mod 2>/dev/null || true
-
-      - name: Cache Go modules
-        uses: actions/cache@v4
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-        continue-on-error: true
-
-      - name: Clean module cache on conflict
-        if: failure()
-        run: go clean -modcache
+          cache: true
 
       - name: Download dependencies
         run: go mod download
@@ -82,7 +88,6 @@ jobs:
       - name: Run tests
         run: |
           go test -v -race -coverprofile=coverage.out ./...
-          go tool cover -html=coverage.out -o coverage.html
         env:
           SHUGUR_DB_HOST: localhost
           SHUGUR_DB_PORT: 26257
@@ -126,9 +131,10 @@ jobs:
           staticcheck ./...
 
   build:
-    name: Build
+    name: Build (main)
     runs-on: ubuntu-latest
     needs: [lint, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       matrix:
         goos: [linux, darwin, windows]
@@ -144,6 +150,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache: true
 
       - name: Build binary
         run: |
@@ -300,3 +307,26 @@ jobs:
             COMMIT=${{ github.sha }}
             DATE=${{ github.event.head_commit.timestamp }}
           target: production
+
+  build-pr:
+    name: Build (PR linux/amd64)
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build binary (linux/amd64)
+        run: |
+          mkdir -p dist
+          VERSION=$(cat VERSION 2>/dev/null || echo "dev")
+          GOOS=linux GOARCH=amd64 go build \
+            -ldflags "-w -s -X main.version=${VERSION} -X main.commit=${{ github.sha }} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o dist/relay-linux-amd64 \
+            ./cmd
