@@ -1,11 +1,11 @@
 package relay
 
 import (
-	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
+    "context"
+    "crypto/rand"
+    "encoding/hex"
+    "encoding/json"
+    "fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -29,6 +29,9 @@ var (
     // Track rate-limit violations by IP
     clientExceededCount = make(map[string]int)
 )
+
+// log sampling step for repeated rate‑limit violations
+const rateLimitViolationLogSample = 5
 
 // extractRealClientIP extracts the real client IP from request headers when behind a proxy
 func extractRealClientIP(r *http.Request) string {
@@ -570,8 +573,8 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
                 count := clientExceededCount[clientIP]
                 banListMutex.Unlock()
 
-                // Sample noisy violation logs: first, then every 5th
-                if count == 1 || count%5 == 0 {
+                // Sample noisy violation logs: first, then every Nth
+                if count == 1 || count%rateLimitViolationLogSample == 0 {
                     logger.Debug("Client rate limit violation",
                         zap.String("client_ip", clientIP),
                         zap.Int("violation_count", count),
