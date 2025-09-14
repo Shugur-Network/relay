@@ -7,7 +7,7 @@ require (
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.4
-	github.com/nbd-wtf/go-nostr v0.51.8
+	github.com/nbd-wtf/go-nostr v0.52.0
 	github.com/prometheus/client_golang v1.23.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
