@@ -4,11 +4,33 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+      day: monday
+      time: "03:00"
+      timezone: UTC
+    target-branch: main
+    open-pull-requests-limit: 2
+    rebase-strategy: auto
+    groups:
+      gomod-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
-
+      day: monday
+      time: "03:15"
+      timezone: UTC
+    target-branch: main
+    open-pull-requests-limit: 2
+    rebase-strategy: auto
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        update-types: ["minor", "patch"]
+        patterns: ["*"]
