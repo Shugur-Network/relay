@@ -134,7 +134,8 @@ jobs:
     name: Build (main)
     runs-on: ubuntu-latest
     needs: [lint, test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Run on push to main or on a release event
+    if: (github.event_name == 'push' && github.ref_name == 'main') || github.event_name == 'release'
     strategy:
       matrix:
         goos: [linux, darwin, windows]
@@ -177,8 +178,8 @@ jobs:
     name: Docker Build & Push
     runs-on: ubuntu-latest
     needs: [lint, test, security]
-    # Skip on pull_request; only run for direct pushes (e.g., main) and releases
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Skip on pull_request; only run for direct pushes (main) and releases
+    if: (github.event_name == 'push' && github.ref_name == 'main') || github.event_name == 'release'
     permissions:
       contents: read
       packages: write
