@@ -121,7 +121,6 @@ func DefaultRelayMetadata(cfg *config.Config) nip11.RelayInformationDocument {
 		Limitation: &nip11.RelayLimitationDocument{
 			MaxMessageLength: maxContentLength, // Use actual configured content length
 			MaxSubscriptions: MaxSubscriptions, // Keep default for now (could be made configurable)
-			MaxFilters:       MaxFilters,       // Keep default for now (could be made configurable)
 			MaxLimit:         MaxLimit,         // Keep default for now (could be made configurable)
 			MaxSubidLength:   MaxSubIDLength,   // Keep default for now (could be made configurable)
 			MaxEventTags:     MaxEventTags,     // Keep default for now (could be made configurable)

@@ -270,7 +270,6 @@ func (h *Handler) getDashboardData(host string) *DashboardData {
 		Limitation: &LimitationData{
 			MaxMessageLength: metadata.Limitation.MaxMessageLength,
 			MaxSubscriptions: metadata.Limitation.MaxSubscriptions,
-			MaxFilters:       metadata.Limitation.MaxFilters,
 			MaxEventTags:     metadata.Limitation.MaxEventTags,
 			MaxConnections:   h.config.Relay.ThrottlingConfig.MaxConnections,
 			AuthRequired:     metadata.Limitation.AuthRequired,
