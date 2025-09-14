@@ -14,7 +14,7 @@ jobs:
     name: Trivy FS Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Run Trivy filesystem scan (CRITICAL,HIGH)
         uses: aquasecurity/trivy-action@0.20.0
