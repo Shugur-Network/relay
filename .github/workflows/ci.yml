@@ -16,14 +16,6 @@ on:
       - '**/*.svg'
   pull_request:
     branches: [main, develop]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'announcements/**'
-      - '.github/ISSUE_TEMPLATE/**'
-      - '**/*.png'
-      - '**/*.jpg'
-      - '**/*.svg'
   release:
     types: [published]
 
