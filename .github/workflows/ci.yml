@@ -28,7 +28,7 @@ on:
   release:
     types: [published]
 
-# Cancel in‑progress runs of the same workflow/ref to save CI minutes
+# Cancel in-progress runs of the same workflow/ref to save CI minutes
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
