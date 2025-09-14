@@ -1,11 +1,11 @@
 package relay
 
 import (
-    "context"
-    "crypto/rand"
-    "encoding/hex"
-    "encoding/json"
-    "fmt"
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -24,13 +24,19 @@ import (
 )
 
 var (
-    clientBanList = make(map[string]time.Time)
-    banListMutex  sync.Mutex
-    // Track rate-limit violations by IP
-    clientExceededCount = make(map[string]int)
+	clientBanList = make(map[string]time.Time)
+	banListMutex  sync.Mutex
+	// Track rate-limit violations by IP
+	clientExceededCount = make(map[string]int)
 )
 
-// log sampling step for repeated rate‑limit violations
+// newRateLimiter is a tiny helper to build a token‑bucket limiter
+// for a given per‑second allowance and burst size.
+func newRateLimiter(maxPerSecond int, burst int) *rate.Limiter {
+	return rate.NewLimiter(rate.Limit(maxPerSecond), burst)
+}
+
+// log sampling step for repeated rate-limit violations
 const rateLimitViolationLogSample = 5
 
 // extractRealClientIP extracts the real client IP from request headers when behind a proxy
@@ -38,40 +44,40 @@ func extractRealClientIP(r *http.Request) string {
 	var extractedIP string
 	var source string
 
-    // Try X-Real-IP first (set by proxy) and validate format
-    if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-        cand := strings.TrimSpace(realIP)
-        if ip := net.ParseIP(cand); ip != nil {
-            extractedIP = ip.String()
-            source = "X-Real-IP"
-            logger.Debug("Client IP extracted from X-Real-IP header",
-                zap.String("real_ip", extractedIP),
-                zap.String("source", source),
-                zap.String("raw_remote_addr", r.RemoteAddr))
-            return extractedIP
-        }
-        // fall through if malformed
-    }
+	// Try X-Real-IP first (set by proxy) and validate format
+	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+		cand := strings.TrimSpace(realIP)
+		if ip := net.ParseIP(cand); ip != nil {
+			extractedIP = ip.String()
+			source = "X-Real-IP"
+			logger.Debug("Client IP extracted from X-Real-IP header",
+				zap.String("real_ip", extractedIP),
+				zap.String("source", source),
+				zap.String("raw_remote_addr", r.RemoteAddr))
+			return extractedIP
+		}
+		// fall through if malformed
+	}
 
-    // Try X-Forwarded-For (contains comma-separated list of IPs)
-    if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
-        // Take the first IP in the chain (the original client)
-        parts := strings.Split(forwardedFor, ",")
-        if len(parts) > 0 {
-            cand := strings.TrimSpace(parts[0])
-            if ip := net.ParseIP(cand); ip != nil {
-                extractedIP = ip.String()
-                source = "X-Forwarded-For"
-                logger.Debug("Client IP extracted from X-Forwarded-For header",
-                    zap.String("forwarded_ip", extractedIP),
-                    zap.String("source", source),
-                    zap.String("full_header", forwardedFor),
-                    zap.String("raw_remote_addr", r.RemoteAddr))
-                return extractedIP
-            }
-            // if malformed, ignore header and fall back
-        }
-    }
+	// Try X-Forwarded-For (contains comma-separated list of IPs)
+	if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
+		// Take the first IP in the chain (the original client)
+		parts := strings.Split(forwardedFor, ",")
+		if len(parts) > 0 {
+			cand := strings.TrimSpace(parts[0])
+			if ip := net.ParseIP(cand); ip != nil {
+				extractedIP = ip.String()
+				source = "X-Forwarded-For"
+				logger.Debug("Client IP extracted from X-Forwarded-For header",
+					zap.String("forwarded_ip", extractedIP),
+					zap.String("source", source),
+					zap.String("full_header", forwardedFor),
+					zap.String("raw_remote_addr", r.RemoteAddr))
+				return extractedIP
+			}
+			// if malformed, ignore header and fall back
+		}
+	}
 
 	// Fallback to RemoteAddr (direct connection)
 	extractedIP = normalizeIP(r.RemoteAddr)
@@ -118,28 +124,28 @@ func generateClientID() string {
 
 // cleanExpiredBans periodically removes expired bans from the ban list
 func cleanExpiredBans(ctx context.Context) {
-    ticker := time.NewTicker(10 * time.Minute)
-    defer ticker.Stop()
-    for {
-        select {
-        case <-ctx.Done():
-            return
-        case <-ticker.C:
-        }
+	ticker := time.NewTicker(10 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 
-        banListMutex.Lock()
-        now := time.Now()
-        var unbanCount int
-        for ip, expiry := range clientBanList {
-            if now.After(expiry) {
-                logger.Debug("Removing expired ban",
-                    zap.String("client_ip", ip),
-                    zap.Time("ban_expired", expiry))
-                delete(clientBanList, ip)
-                unbanCount++
-            }
-        }
-        banListMutex.Unlock()
+		banListMutex.Lock()
+		now := time.Now()
+		var unbanCount int
+		for ip, expiry := range clientBanList {
+			if now.After(expiry) {
+				logger.Debug("Removing expired ban",
+					zap.String("client_ip", ip),
+					zap.Time("ban_expired", expiry))
+				delete(clientBanList, ip)
+				unbanCount++
+			}
+		}
+		banListMutex.Unlock()
 
 		if unbanCount > 0 || len(clientBanList) > 0 {
 			logger.Debug("Ban list cleanup completed",
@@ -153,9 +159,9 @@ func cleanExpiredBans(ctx context.Context) {
 						zap.String("client_ip", ip),
 						zap.Time("expires", expiry),
 						zap.Duration("remaining", time.Until(expiry)))
-        }
-    }
-}
+				}
+			}
+		}
 	}
 }
 
@@ -186,33 +192,33 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 	delete(clientExceededCount, clientIP)
 	banListMutex.Unlock()
 
-    // Best-effort sync metrics gauge with actual count to avoid drift
-    metrics.SyncActiveConnectionsCount(node.GetActiveConnectionCount())
+	// Best-effort sync metrics gauge with actual count to avoid drift
+	metrics.SyncActiveConnectionsCount(node.GetActiveConnectionCount())
 
-    // Check global connection limit using metrics counter
-    if metrics.GetActiveConnectionsCount() >= int64(relayConfig.ThrottlingConfig.MaxConnections) {
-        metrics.ErrorsCount.WithLabelValues("max_connections").Inc()
-        logger.Info("Max connections limit reached, rejecting new connection",
-            zap.Int64("active_connections", metrics.GetActiveConnectionsCount()),
-            zap.Int("max_connections", relayConfig.ThrottlingConfig.MaxConnections),
-            zap.String("client", r.RemoteAddr))
-        http.Error(w, "Max connections reached", http.StatusServiceUnavailable)
-        return
-    }
+	// Check global connection limit using metrics counter
+	if metrics.GetActiveConnectionsCount() >= int64(relayConfig.ThrottlingConfig.MaxConnections) {
+		metrics.ErrorsCount.WithLabelValues("max_connections").Inc()
+		logger.Info("Max connections limit reached, rejecting new connection",
+			zap.Int64("active_connections", metrics.GetActiveConnectionsCount()),
+			zap.Int("max_connections", relayConfig.ThrottlingConfig.MaxConnections),
+			zap.String("client", r.RemoteAddr))
+		http.Error(w, "Max connections reached", http.StatusServiceUnavailable)
+		return
+	}
 
-    // Upgrade the connection
-    wsConn, err := upgrader.Upgrade(w, r, nil)
-    if err != nil {
-        logger.Error("Failed to upgrade to WebSocket", zap.Error(err))
-        return
-    }
+	// Upgrade the connection
+	wsConn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		logger.Error("Failed to upgrade to WebSocket", zap.Error(err))
+		return
+	}
 
 	// Enable compression
 	wsConn.EnableWriteCompression(true)
 	_ = wsConn.SetCompressionLevel(2) // nolint:errcheck // compression level is non-critical
 
-    // Update metrics
-    metrics.IncrementActiveConnections()
+	// Update metrics
+	metrics.IncrementActiveConnections()
 
 	// Create new connection and register it
 	conn := NewWsConnection(ctx, wsConn, node, relayConfig, clientIP)
@@ -228,27 +234,27 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 
 // WsConnection represents a single WebSocket client connection
 type WsConnection struct {
-    ws           *websocket.Conn
-    node         domain.NodeInterface
-    realClientIP string // Real client IP (extracted from proxy headers)
-    lastActivity time.Time
-    idleTimeout  time.Duration
-    maxLifetime  time.Duration // Maximum lifetime of a connection
-    startTime    time.Time     // When the connection was established
+	ws           *websocket.Conn
+	node         domain.NodeInterface
+	realClientIP string // Real client IP (extracted from proxy headers)
+	lastActivity time.Time
+	idleTimeout  time.Duration
+	maxLifetime  time.Duration // Maximum lifetime of a connection
+	startTime    time.Time     // When the connection was established
 
-    pingTicker *time.Ticker
+	pingTicker *time.Ticker
 
-    subMu         sync.RWMutex
-    subscriptions map[string][]nostr.Filter
+	subMu         sync.RWMutex
+	subscriptions map[string][]nostr.Filter
 
-    writeMu            sync.Mutex
-    closeMu            sync.Once
-    limiter            *rate.Limiter
-    reqLimiter         *rate.Limiter
-    countLimiter       *rate.Limiter
-    isClosed           atomic.Bool
-    metricsDecremented atomic.Bool // Flag to prevent double-decrementing metrics
-    closeReason        string
+	writeMu            sync.Mutex
+	closeMu            sync.Once
+	limiter            *rate.Limiter
+	reqLimiter         *rate.Limiter
+	countLimiter       *rate.Limiter
+	isClosed           atomic.Bool
+	metricsDecremented atomic.Bool // Flag to prevent double-decrementing metrics
+	closeReason        string
 
 	exceededLimitCount int
 	backpressureChan   chan struct{} // Channel for backpressure handling
@@ -265,26 +271,26 @@ var _ domain.WebSocketConnection = (*WsConnection)(nil)
 
 // NewWsConnection initializes a new WebSocket connection
 func NewWsConnection(
-    ctx context.Context,
-    ws *websocket.Conn,
-    node domain.NodeInterface,
-    cfg config.RelayConfig,
-    realClientIP string,
+	ctx context.Context,
+	ws *websocket.Conn,
+	node domain.NodeInterface,
+	cfg config.RelayConfig,
+	realClientIP string,
 ) *WsConnection {
-    // Basic rate limiter
-    limiter := rate.NewLimiter(
-        rate.Limit(cfg.ThrottlingConfig.RateLimit.MaxEventsPerSecond),
-        cfg.ThrottlingConfig.RateLimit.BurstSize,
-    )
-    // Request/COUNT limiters (protect DB)
-    reqLimiter := rate.NewLimiter(
-        rate.Limit(cfg.ThrottlingConfig.RateLimit.MaxRequestsPerSecond),
-        cfg.ThrottlingConfig.RateLimit.BurstSize,
-    )
-    countLimiter := rate.NewLimiter(
-        rate.Limit(cfg.ThrottlingConfig.RateLimit.MaxRequestsPerSecond),
-        cfg.ThrottlingConfig.RateLimit.BurstSize,
-    )
+	// Basic limiters
+	limiter := newRateLimiter(
+		cfg.ThrottlingConfig.RateLimit.MaxEventsPerSecond,
+		cfg.ThrottlingConfig.RateLimit.BurstSize,
+	)
+	// Request/COUNT limiters (protect DB)
+	reqLimiter := newRateLimiter(
+		cfg.ThrottlingConfig.RateLimit.MaxRequestsPerSecond,
+		cfg.ThrottlingConfig.RateLimit.BurstSize,
+	)
+	countLimiter := newRateLimiter(
+		cfg.ThrottlingConfig.RateLimit.MaxRequestsPerSecond,
+		cfg.ThrottlingConfig.RateLimit.BurstSize,
+	)
 
 	// Create context for event handling
 	eventCtx, eventCancel := context.WithCancel(ctx)
@@ -298,11 +304,11 @@ func NewWsConnection(
 		startTime:        time.Now(),
 		lastActivity:     time.Now(),
 		subscriptions:    make(map[string][]nostr.Filter),
-        pingTicker:       time.NewTicker(15 * time.Second),
-        limiter:          limiter,
-        reqLimiter:       reqLimiter,
-        countLimiter:     countLimiter,
-        backpressureChan: make(chan struct{}, 100), // Buffer for backpressure
+		pingTicker:       time.NewTicker(15 * time.Second),
+		limiter:          limiter,
+		reqLimiter:       reqLimiter,
+		countLimiter:     countLimiter,
+		backpressureChan: make(chan struct{}, 100), // Buffer for backpressure
 		// Event dispatcher integration
 		clientID:    generateClientID(),
 		eventCtx:    eventCtx,
@@ -454,17 +460,17 @@ func (c *WsConnection) sendEOSE(subID string) {
 
 // HandleMessages processes incoming messages from the client
 func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfig) {
-    defer func() {
-        if r := recover(); r != nil {
-            logger.Error("Recovered from panic in HandleMessages",
-                zap.Any("panic", r),
-                zap.String("client", c.RemoteAddr()),
-            )
-        }
-        // Always ensure connection is properly closed and unregistered
-        c.closeReason = "message handler terminated"
-        c.Close()
-    }()
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("Recovered from panic in HandleMessages",
+				zap.Any("panic", r),
+				zap.String("client", c.RemoteAddr()),
+			)
+		}
+		// Always ensure connection is properly closed and unregistered
+		c.closeReason = "message handler terminated"
+		c.Close()
+	}()
 
 	clientIP := c.realClientIP
 
@@ -518,12 +524,12 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 		}
 
 		_ = c.ws.SetReadDeadline(time.Now().Add(60 * time.Second)) // nolint:errcheck // deadline is non-critical
-        if time.Since(lastPong) > 90*time.Second {
-            logger.Debug("No pong response in 90s, closing connection",
-                zap.String("client", c.RemoteAddr()))
-            c.closeReason = "no pong response"
-            return
-        }
+		if time.Since(lastPong) > 90*time.Second {
+			logger.Debug("No pong response in 90s, closing connection",
+				zap.String("client", c.RemoteAddr()))
+			c.closeReason = "no pong response"
+			return
+		}
 
 		// Read message
 		_, rawMsg, err := c.ws.ReadMessage()
@@ -560,30 +566,30 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 		}
 
 		cmdType, ok := arr[0].(string)
-            if !ok {
-                c.sendNotice("invalid: command must be a string")
-                continue
-            }
+		if !ok {
+			c.sendNotice("invalid: command must be a string")
+			continue
+		}
 
 		if cmdType == "EVENT" {
-            if !c.limiter.Allow() {
-                // Track repeated violations
-                banListMutex.Lock()
-                clientExceededCount[clientIP]++
-                count := clientExceededCount[clientIP]
-                banListMutex.Unlock()
+			if !c.limiter.Allow() {
+				// Track repeated violations
+				banListMutex.Lock()
+				clientExceededCount[clientIP]++
+				count := clientExceededCount[clientIP]
+				banListMutex.Unlock()
 
-                // Sample noisy violation logs: first, then every Nth
-                if count == 1 || count%rateLimitViolationLogSample == 0 {
-                    logger.Debug("Client rate limit violation",
-                        zap.String("client_ip", clientIP),
-                        zap.Int("violation_count", count),
-                        zap.Int("ban_threshold", cfg.ThrottlingConfig.BanThreshold),
-                        zap.String("real_client_ip", c.realClientIP),
-                        zap.String("websocket_remote_addr", c.ws.RemoteAddr().String()))
-                }
+				// Sample noisy violation logs: first, then every Nth
+				if count == 1 || count%rateLimitViolationLogSample == 0 {
+					logger.Debug("Client rate limit violation",
+						zap.String("client_ip", clientIP),
+						zap.Int("violation_count", count),
+						zap.Int("ban_threshold", cfg.ThrottlingConfig.BanThreshold),
+						zap.String("real_client_ip", c.realClientIP),
+						zap.String("websocket_remote_addr", c.ws.RemoteAddr().String()))
+				}
 
-                c.sendNotice("Rate limit exceeded: too many messages")
+				c.sendNotice("Rate limit exceeded: too many messages")
 
 				if count >= cfg.ThrottlingConfig.BanThreshold {
 					banDuration := time.Duration(cfg.ThrottlingConfig.BanDuration) * time.Second
@@ -605,9 +611,9 @@ func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfi
 				}
 				continue
 			}
-            // Reset exceeded count on successful message
-            c.exceededLimitCount = 0
-        }
+			// Reset exceeded count on successful message
+			c.exceededLimitCount = 0
+		}
 
 		// Update command metrics
 		metrics.CommandsReceived.WithLabelValues(cmdType).Inc()
@@ -823,51 +829,51 @@ func (c *WsConnection) Close() {
 
 // monitorConnection handles connection timeouts and cleanup
 func (c *WsConnection) monitorConnection(ctx context.Context) {
-    ticker := time.NewTicker(1 * time.Minute)
-    defer ticker.Stop()
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
 
-    for {
-        select {
-        case <-ctx.Done():
-            c.Close()
-            return
-        case <-c.pingTicker.C:
-            // Send ping to keep connection alive
-            c.writeMu.Lock()
-            if !c.isClosed.Load() {
-                _ = c.ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
-                err := c.ws.WriteControl(websocket.PingMessage, []byte("keepalive"), time.Now().Add(5*time.Second))
-                _ = c.ws.SetWriteDeadline(time.Time{})
-                if err != nil {
-                    logger.Debug("Failed to send ping, closing connection",
-                        zap.Error(err),
-                        zap.String("client", c.RemoteAddr()))
-                    c.writeMu.Unlock()
-                    c.closeReason = "ping failed"
-                    c.Close()
-                    return
-                }
-            }
-            c.writeMu.Unlock()
-        case <-ticker.C:
-            // If the connection is already closed, stop ticking and exit early.
-            // Close() performs full cleanup (including stopping pingTicker and unregistering),
-            // this guard just terminates the monitor goroutine promptly.
-            if c.isClosed.Load() {
-                // Explicit Stop is safe even with the deferred Stop; avoids any ambiguity.
-                ticker.Stop()
-                return
-            }
-            now := time.Now()
-            c.writeMu.Lock()
+	for {
+		select {
+		case <-ctx.Done():
+			c.Close()
+			return
+		case <-c.pingTicker.C:
+			// Send ping to keep connection alive
+			c.writeMu.Lock()
+			if !c.isClosed.Load() {
+				_ = c.ws.SetWriteDeadline(time.Now().Add(5 * time.Second))
+				err := c.ws.WriteControl(websocket.PingMessage, []byte("keepalive"), time.Now().Add(5*time.Second))
+				_ = c.ws.SetWriteDeadline(time.Time{})
+				if err != nil {
+					logger.Debug("Failed to send ping, closing connection",
+						zap.Error(err),
+						zap.String("client", c.RemoteAddr()))
+					c.writeMu.Unlock()
+					c.closeReason = "ping failed"
+					c.Close()
+					return
+				}
+			}
+			c.writeMu.Unlock()
+		case <-ticker.C:
+			// If the connection is already closed, stop ticking and exit early.
+			// Close() performs full cleanup (including stopping pingTicker and unregistering),
+			// this guard just terminates the monitor goroutine promptly.
+			if c.isClosed.Load() {
+				// Explicit Stop is safe even with the deferred Stop; avoids any ambiguity.
+				ticker.Stop()
+				return
+			}
+			now := time.Now()
+			c.writeMu.Lock()
 
-            // Check idle timeout
-            if now.Sub(c.lastActivity) > c.idleTimeout {
-                c.writeMu.Unlock()
-                c.closeReason = "idle timeout"
-                c.Close()
-                return
-            }
+			// Check idle timeout
+			if now.Sub(c.lastActivity) > c.idleTimeout {
+				c.writeMu.Unlock()
+				c.closeReason = "idle timeout"
+				c.Close()
+				return
+			}
 
 			// Check max lifetime
 			if now.Sub(c.startTime) > c.maxLifetime {
