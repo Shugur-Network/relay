@@ -117,12 +117,21 @@ func (h *Handler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 
 // HandleStatic serves static files
 func (h *Handler) HandleStatic(w http.ResponseWriter, r *http.Request) {
-	// Remove "/static/" prefix from URL path
-	filePath := strings.TrimPrefix(r.URL.Path, "/static/")
-	fullPath := filepath.Join("web", "static", filePath)
+    // Serve static files safely, preventing path traversal
+    root := filepath.Join("web", "static")
 
-	// Serve the file
-	http.ServeFile(w, r, fullPath)
+    // Clean and trim the incoming path
+    p := strings.TrimPrefix(r.URL.Path, "/static/")
+    p = filepath.Clean(p)
+
+    // Join and ensure the resolved path remains within the static root
+    fullPath := filepath.Join(root, p)
+    if rel, err := filepath.Rel(root, fullPath); err != nil || strings.HasPrefix(rel, "..") {
+        http.Error(w, "invalid path", http.StatusBadRequest)
+        return
+    }
+
+    http.ServeFile(w, r, fullPath)
 }
 
 // HandleStatsAPI serves the stats API endpoint

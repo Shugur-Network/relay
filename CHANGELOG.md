@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added proper extraction of real client IPs from `X-Real-IP` and `X-Forwarded-For` headers set by Caddy
   - Rate limiting and banning now works correctly per real client IP instead of globally affecting all clients
   - Enhanced logging with comprehensive IP extraction debugging and connection tracking
+- **Active Connection Accounting**:
+  - Fixed erroneous active connection decrement that could occur when WebSocket upgrades failed
+  - Now increment only on successful upgrades and rely on `Close()` for decrements
+  - Added best-effort synchronization of the active connection gauge with the node’s actual count to reduce drift
+- **Duplicate Unregister**:
+  - Removed redundant `UnregisterConn` call in the message handler defer, avoiding double-unregister behavior
 
 ### Changed
 
@@ -21,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Moved verbose connection logs from `Info` to `Debug` level to reduce log volume in production
   - Connection establishment, close events, and rate limit violations now only appear in debug mode
   - Important security events (bans, blocked connections) remain at `Info` level for production monitoring
+- **Proxy Header Hardening**:
+  - Now validates `X-Real-IP` and `X-Forwarded-For` entries using strict IP parsing; falls back safely if malformed
+
+### Security
+
+- **Static File Path Traversal Mitigation**:
+  - Hardened `/static` file serving to prevent directory traversal by cleaning and bounding paths to `web/static`
+  - Invalid or escaping paths now return `400 Bad Request`
 
 ## [1.3.2] - 2025-09-11
 

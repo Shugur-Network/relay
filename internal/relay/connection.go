@@ -35,32 +35,40 @@ func extractRealClientIP(r *http.Request) string {
 	var extractedIP string
 	var source string
 
-	// Try X-Real-IP first (set by Caddy)
-	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-		extractedIP = strings.TrimSpace(realIP)
-		source = "X-Real-IP"
-		logger.Debug("Client IP extracted from X-Real-IP header",
-			zap.String("real_ip", extractedIP),
-			zap.String("source", source),
-			zap.String("raw_remote_addr", r.RemoteAddr))
-		return extractedIP
-	}
+    // Try X-Real-IP first (set by proxy) and validate format
+    if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+        cand := strings.TrimSpace(realIP)
+        if ip := net.ParseIP(cand); ip != nil {
+            extractedIP = ip.String()
+            source = "X-Real-IP"
+            logger.Debug("Client IP extracted from X-Real-IP header",
+                zap.String("real_ip", extractedIP),
+                zap.String("source", source),
+                zap.String("raw_remote_addr", r.RemoteAddr))
+            return extractedIP
+        }
+        // fall through if malformed
+    }
 
-	// Try X-Forwarded-For (contains comma-separated list of IPs)
-	if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
-		// Take the first IP in the chain (the original client)
-		parts := strings.Split(forwardedFor, ",")
-		if len(parts) > 0 {
-			extractedIP = strings.TrimSpace(parts[0])
-			source = "X-Forwarded-For"
-			logger.Debug("Client IP extracted from X-Forwarded-For header",
-				zap.String("forwarded_ip", extractedIP),
-				zap.String("source", source),
-				zap.String("full_header", forwardedFor),
-				zap.String("raw_remote_addr", r.RemoteAddr))
-			return extractedIP
-		}
-	}
+    // Try X-Forwarded-For (contains comma-separated list of IPs)
+    if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
+        // Take the first IP in the chain (the original client)
+        parts := strings.Split(forwardedFor, ",")
+        if len(parts) > 0 {
+            cand := strings.TrimSpace(parts[0])
+            if ip := net.ParseIP(cand); ip != nil {
+                extractedIP = ip.String()
+                source = "X-Forwarded-For"
+                logger.Debug("Client IP extracted from X-Forwarded-For header",
+                    zap.String("forwarded_ip", extractedIP),
+                    zap.String("source", source),
+                    zap.String("full_header", forwardedFor),
+                    zap.String("raw_remote_addr", r.RemoteAddr))
+                return extractedIP
+            }
+            // if malformed, ignore header and fall back
+        }
+    }
 
 	// Fallback to RemoteAddr (direct connection)
 	extractedIP = normalizeIP(r.RemoteAddr)
@@ -169,38 +177,33 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 	delete(clientExceededCount, clientIP)
 	banListMutex.Unlock()
 
-	// Check global connection limit using metrics counter
-	if metrics.GetActiveConnectionsCount() >= int64(relayConfig.ThrottlingConfig.MaxConnections) {
-		metrics.ErrorsCount.WithLabelValues("max_connections").Inc()
-		logger.Info("Max connections limit reached, rejecting new connection",
-			zap.Int64("active_connections", metrics.GetActiveConnectionsCount()),
-			zap.Int("max_connections", relayConfig.ThrottlingConfig.MaxConnections),
-			zap.String("client", r.RemoteAddr))
-		http.Error(w, "Max connections reached", http.StatusServiceUnavailable)
-		return
-	}
-	// Ensure we decrement on error
-	connectionSuccess := false
-	defer func() {
-		if !connectionSuccess {
-			metrics.DecrementActiveConnections()
-		}
-	}()
+    // Best-effort sync metrics gauge with actual count to avoid drift
+    metrics.SyncActiveConnectionsCount(node.GetActiveConnectionCount())
 
-	// Upgrade the connection
-	wsConn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		logger.Error("Failed to upgrade to WebSocket", zap.Error(err))
-		return
-	}
+    // Check global connection limit using metrics counter
+    if metrics.GetActiveConnectionsCount() >= int64(relayConfig.ThrottlingConfig.MaxConnections) {
+        metrics.ErrorsCount.WithLabelValues("max_connections").Inc()
+        logger.Info("Max connections limit reached, rejecting new connection",
+            zap.Int64("active_connections", metrics.GetActiveConnectionsCount()),
+            zap.Int("max_connections", relayConfig.ThrottlingConfig.MaxConnections),
+            zap.String("client", r.RemoteAddr))
+        http.Error(w, "Max connections reached", http.StatusServiceUnavailable)
+        return
+    }
+
+    // Upgrade the connection
+    wsConn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        logger.Error("Failed to upgrade to WebSocket", zap.Error(err))
+        return
+    }
 
 	// Enable compression
 	wsConn.EnableWriteCompression(true)
 	_ = wsConn.SetCompressionLevel(2) // nolint:errcheck // compression level is non-critical
 
-	// Update metrics
-	metrics.IncrementActiveConnections()
-	connectionSuccess = true
+    // Update metrics
+    metrics.IncrementActiveConnections()
 
 	// Create new connection and register it
 	conn := NewWsConnection(ctx, wsConn, node, relayConfig, clientIP)
@@ -429,18 +432,17 @@ func (c *WsConnection) sendEOSE(subID string) {
 
 // HandleMessages processes incoming messages from the client
 func (c *WsConnection) HandleMessages(ctx context.Context, cfg config.RelayConfig) {
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Error("Recovered from panic in HandleMessages",
-				zap.Any("panic", r),
-				zap.String("client", c.RemoteAddr()),
-			)
-		}
-		// Always ensure connection is properly closed and unregistered
-		c.closeReason = "message handler terminated"
-		c.Close()
-		c.node.UnregisterConn(c)
-	}()
+    defer func() {
+        if r := recover(); r != nil {
+            logger.Error("Recovered from panic in HandleMessages",
+                zap.Any("panic", r),
+                zap.String("client", c.RemoteAddr()),
+            )
+        }
+        // Always ensure connection is properly closed and unregistered
+        c.closeReason = "message handler terminated"
+        c.Close()
+    }()
 
 	clientIP := c.realClientIP
 
