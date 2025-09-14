@@ -850,7 +850,12 @@ func (c *WsConnection) monitorConnection(ctx context.Context) {
             }
             c.writeMu.Unlock()
         case <-ticker.C:
+            // If the connection is already closed, stop ticking and exit early.
+            // Close() performs full cleanup (including stopping pingTicker and unregistering),
+            // this guard just terminates the monitor goroutine promptly.
             if c.isClosed.Load() {
+                // Explicit Stop is safe even with the deferred Stop; avoids any ambiguity.
+                ticker.Stop()
                 return
             }
             now := time.Now()
