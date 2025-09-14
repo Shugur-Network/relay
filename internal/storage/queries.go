@@ -43,8 +43,16 @@ func (db *DB) GetEvents(ctx context.Context, filter nostr.Filter) ([]nostr.Event
 	}
 	defer rows.Close()
 
-	// Pre-allocate results slice
-	events := make([]nostr.Event, 0, cf.Limit)
+	// Pre-allocate results slice with a reasonable upper bound to avoid excessive allocation
+	const maxQueryPrealloc = 1000
+	capHint := cf.Limit
+	if capHint < 0 {
+		capHint = 0
+	}
+	if capHint > maxQueryPrealloc {
+		capHint = maxQueryPrealloc
+	}
+	events := make([]nostr.Event, 0, capHint)
 
 	// Process rows
 	for rows.Next() {
