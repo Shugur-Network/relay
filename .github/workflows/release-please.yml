@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release-as:
-        description: "Force version (e.g., 1.3.3-rc.1)"
+        description: "Force version (e.g., 1.3.0)"
         required: false
         type: string
 
