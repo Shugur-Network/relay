@@ -321,24 +321,36 @@ jobs:
               echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
           fi
 
-      - name: Download all artifacts
+      - name: Download build artifacts (relay-*)
         uses: actions/download-artifact@v4
         with:
+          # Only fetch our binary artifacts, skip docker/buildx artifacts
+          pattern: relay-*
           path: ./artifacts
+          merge-multiple: true
 
       - name: Prepare and package release assets
         run: |
           set -euo pipefail
           mkdir -p release
           # Gather raw binaries from all artifacts
-          for dir in artifacts/*/; do
-            if [ -d "$dir" ]; then
-              cp -r "$dir"* release/
-            fi
-          done
+          if compgen -G "artifacts/relay-*" > /dev/null; then
+            cp artifacts/relay-* release/
+          else
+            for dir in artifacts/*/; do
+              if [ -d "$dir" ]; then
+                cp -r "$dir"* release/
+              fi
+            done
+          fi
 
           cd release
           mkdir -p archives
+
+          # Ensure zip is available for Windows archives
+          if ! command -v zip >/dev/null 2>&1; then
+            sudo apt-get update -y && sudo apt-get install -y zip
+          fi
 
           # Package per target: .zip for Windows, .tar.gz for others
           for f in *; do
