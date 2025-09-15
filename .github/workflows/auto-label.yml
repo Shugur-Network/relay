@@ -15,14 +15,14 @@ jobs:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Auto-label based on file changes
-        uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5.0.0
+        uses: actions/labeler@v5.0.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml
           sync-labels: true
 
       - name: Label size
-        uses: pascalgn/size-label-action@be08a2d5f857dc99c5b9426cfd59a56f2a35b09e # v0.5.4
+        uses: pascalgn/size-label-action@v0.5.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
