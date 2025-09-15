@@ -20,19 +20,17 @@ jobs:
     steps:
       - name: Run release-please (with release-as)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.release-as != '' }}
-        uses: google-github-actions/release-please-action@v4
+        uses: googleapis/release-please-action@v4
         with:
-          command: manifest
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
           release-as: ${{ inputs.release-as }}
 
       - name: Run release-please (default)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.release-as == '' }}
-        uses: google-github-actions/release-please-action@v4
+        uses: googleapis/release-please-action@v4
         with:
-          command: manifest
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
