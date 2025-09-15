@@ -176,18 +176,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate VERSION (SemVer) and tag match
+      - name: Validate SemVer and VERSION for releases
         if: github.event_name == 'release'
         run: |
           VFILE=$(cat VERSION 2>/dev/null || echo '')
-          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
-          if ! echo "$VFILE" | grep -Eq "$SEMVER_RE"; then
-            echo "VERSION must be SemVer (X.Y.Z[-prerelease][+build]); got '$VFILE'" >&2; exit 1; fi
           TAG="${GITHUB_REF_NAME#v}"
+          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
           if ! echo "$TAG" | grep -Eq "$SEMVER_RE"; then
             echo "Tag must be SemVer (optionally v-prefixed); got '${GITHUB_REF_NAME}'" >&2; exit 1; fi
-          if [ "$VFILE" != "$TAG" ]; then
-            echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
+          # For stable releases (no hyphen), enforce VERSION equality; pre-releases skip equality
+          if echo "$TAG" | grep -q '-'; then
+            echo "Pre-release tag '$TAG' detected; skipping VERSION equality check."
+          else
+            if ! echo "$VFILE" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "VERSION must be X.Y.Z for stable releases; got '$VFILE'" >&2; exit 1; fi
+            if [ "$VFILE" != "$TAG" ]; then
+              echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
+          fi
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -198,7 +203,8 @@ jobs:
       - name: Build binary
         run: |
           mkdir -p dist
-          VERSION=$(cat VERSION 2>/dev/null || echo "dev")
+          # On release events, use the tag as version (pre-release or stable)
+          VERSION="${GITHUB_REF_NAME#v}"
           BINARY_NAME=relay
           if [ "${{ matrix.goos }}" = "windows" ]; then
             BINARY_NAME="${BINARY_NAME}.exe"
@@ -239,17 +245,21 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Validate VERSION (SemVer) and tag match
+      - name: Validate SemVer and VERSION for releases
         run: |
           VFILE=$(cat VERSION 2>/dev/null || echo '')
-          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
-          if ! echo "$VFILE" | grep -Eq "$SEMVER_RE"; then
-            echo "VERSION must be SemVer (X.Y.Z[-prerelease][+build]); got '$VFILE'" >&2; exit 1; fi
           TAG="${GITHUB_REF_NAME#v}"
+          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
           if ! echo "$TAG" | grep -Eq "$SEMVER_RE"; then
             echo "Tag must be SemVer (optionally v-prefixed); got '${GITHUB_REF_NAME}'" >&2; exit 1; fi
-          if [ "$VFILE" != "$TAG" ]; then
-            echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
+          if echo "$TAG" | grep -q '-'; then
+            echo "Pre-release tag '$TAG' detected; skipping VERSION equality check."
+          else
+            if ! echo "$VFILE" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "VERSION must be X.Y.Z for stable releases; got '$VFILE'" >&2; exit 1; fi
+            if [ "$VFILE" != "$TAG" ]; then
+              echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
+          fi
 
       - name: Extract metadata
         id: meta
@@ -262,9 +272,9 @@ jobs:
             type=semver,pattern={{major}},enable=${{ !github.event.release.prerelease }}
             type=raw,value=stable,enable=${{ !github.event.release.prerelease }}
       
-      - name: Read VERSION file
+      - name: Compute version from tag
         id: version
-        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -295,17 +305,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate VERSION (SemVer) and tag match
+      - name: Validate SemVer and VERSION for releases
         run: |
           VFILE=$(cat VERSION 2>/dev/null || echo '')
-          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
-          if ! echo "$VFILE" | grep -Eq "$SEMVER_RE"; then
-            echo "VERSION must be SemVer (X.Y.Z[-prerelease][+build]); got '$VFILE'" >&2; exit 1; fi
           TAG="${GITHUB_REF_NAME#v}"
+          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
           if ! echo "$TAG" | grep -Eq "$SEMVER_RE"; then
             echo "Tag must be SemVer (optionally v-prefixed); got '${GITHUB_REF_NAME}'" >&2; exit 1; fi
-          if [ "$VFILE" != "$TAG" ]; then
-            echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
+          if echo "$TAG" | grep -q '-'; then
+            echo "Pre-release tag '$TAG' detected; skipping VERSION equality check."
+          else
+            if ! echo "$VFILE" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "VERSION must be X.Y.Z for stable releases; got '$VFILE'" >&2; exit 1; fi
+            if [ "$VFILE" != "$TAG" ]; then
+              echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
+          fi
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
