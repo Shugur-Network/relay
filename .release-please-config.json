@@ -7,6 +7,7 @@
   "packages": {
     ".": {
       "release-type": "go",
+      "release-as": "1.3.3-rc.1",
       "extra-files": [
         {
           "type": "generic",
@@ -16,4 +17,3 @@
     }
   }
 }
-
