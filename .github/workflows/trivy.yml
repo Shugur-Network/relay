@@ -8,16 +8,17 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
   trivy-fs:
     name: Trivy FS Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Run Trivy filesystem scan (CRITICAL,HIGH)
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b9ceecfd3 # v0.24.0
         with:
           scan-type: fs
           ignore-unfixed: true

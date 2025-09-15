@@ -1,0 +1,70 @@
+# Configuration for auto-labeling PRs based on file changes
+
+# Core components
+"internal/relay/**":
+  - relay-core
+"internal/storage/**":
+  - database
+"internal/web/**":
+  - web-interface
+
+# Configuration and setup
+"internal/config/**":
+  - configuration
+"config/**":
+  - configuration
+"docker/**":
+  - docker
+"scripts/**":
+  - scripts
+
+# Documentation
+"**/*.md":
+  - documentation
+"docs/**":
+  - documentation
+
+# CI/CD and GitHub
+".github/**":
+  - ci-cd
+  - github
+
+# Dependencies
+"go.mod":
+  - dependencies
+"go.sum":
+  - dependencies
+
+# Testing
+"**/*_test.go":
+  - testing
+"tests/**":
+  - testing
+
+# Build and deployment
+"Makefile":
+  - build
+"build.sh":
+  - build
+"Dockerfile":
+  - docker
+
+# NIPs implementation
+"internal/relay/nips/**":
+  - nip-implementation
+  
+# Security
+"internal/relay/*validator*":
+  - security
+"internal/relay/*auth*":
+  - security
+
+# Performance
+"internal/storage/queries.go":
+  - performance
+"internal/storage/filter.go":
+  - performance
+
+# Web assets
+"web/**":
+  - web-interface
