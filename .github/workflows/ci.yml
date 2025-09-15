@@ -387,15 +387,36 @@ jobs:
           # Create checksums for archives
           (cd archives && sha256sum * > ../checksums.txt)
 
+      # Docker images are built and pushed in the docker job (release)
+
+      - name: Log in to Container Registry (read)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attach Docker images to release (uncompressed)
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        run: |
+          set -euo pipefail
+          mkdir -p release/containers
+          TAG="${GITHUB_REF_NAME#v}"
+          # pull and save platform-specific images as raw docker tar (no compression)
+          docker pull --platform=linux/amd64 "${IMAGE}:${TAG}"
+          docker save "${IMAGE}:${TAG}" -o "release/containers/relay-${TAG}-linux-amd64.tar"
+          docker pull --platform=linux/arm64 "${IMAGE}:${TAG}"
+          docker save "${IMAGE}:${TAG}" -o "release/containers/relay-${TAG}-linux-arm64.tar"
+
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
             release/*
             release/archives/*
+            release/containers/*
           generate_release_notes: true
-
-      # Docker images are built and pushed in the docker job (release)
 
   build-pr:
     name: Build (PR linux/amd64)
