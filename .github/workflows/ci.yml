@@ -393,9 +393,34 @@ jobs:
           files: |
             release/*
             release/archives/*
+            release/containers/*
           generate_release_notes: true
 
       # Docker images are built in the docker job (release)
+
+      # Optional: package Docker images as downloadable tarballs on the release page
+      - name: Log in to Container Registry (read)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Save Docker images as tar archives
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p release/containers
+
+          # Save linux/amd64 image
+          docker pull --platform=linux/amd64 "${IMAGE}:${TAG}"
+          docker save "${IMAGE}:${TAG}" -o "release/containers/relay-${TAG}-linux-amd64.docker.tar"
+
+          # Save linux/arm64 image
+          docker pull --platform=linux/arm64 "${IMAGE}:${TAG}"
+          docker save "${IMAGE}:${TAG}" -o "release/containers/relay-${TAG}-linux-arm64.docker.tar"
 
   build-pr:
     name: Build (PR linux/amd64)
