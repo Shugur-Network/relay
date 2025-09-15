@@ -160,11 +160,11 @@ jobs:
           staticcheck ./...
 
   build:
-    name: Build (main)
+    name: Build (release artifacts)
     runs-on: ubuntu-latest
     needs: [lint, test]
-    # Run on push to main or on a release event
-    if: (github.event_name == 'push' && github.ref_name == 'main') || github.event_name == 'release'
+    # Only build cross-platform artifacts on releases
+    if: github.event_name == 'release'
     strategy:
       matrix:
         goos: [linux, darwin, windows]
@@ -175,6 +175,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate VERSION (SemVer) and tag match
+        if: github.event_name == 'release'
+        run: |
+          VFILE=$(cat VERSION 2>/dev/null || echo '')
+          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+          if ! echo "$VFILE" | grep -Eq "$SEMVER_RE"; then
+            echo "VERSION must be SemVer (X.Y.Z[-prerelease][+build]); got '$VFILE'" >&2; exit 1; fi
+          TAG="${GITHUB_REF_NAME#v}"
+          if ! echo "$TAG" | grep -Eq "$SEMVER_RE"; then
+            echo "Tag must be SemVer (optionally v-prefixed); got '${GITHUB_REF_NAME}'" >&2; exit 1; fi
+          if [ "$VFILE" != "$TAG" ]; then
+            echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -204,11 +217,11 @@ jobs:
           retention-days: 30
 
   docker:
-    name: Docker Build & Push
+    name: Docker Build & Push (release)
     runs-on: ubuntu-latest
     needs: [lint, test, security]
-    # Skip on pull_request; only run for direct pushes (main) and releases
-    if: (github.event_name == 'push' && github.ref_name == 'main') || github.event_name == 'release'
+    # Only publish Docker images on releases
+    if: github.event_name == 'release'
     permissions:
       contents: read
       packages: write
@@ -226,23 +239,32 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Validate VERSION (SemVer) and tag match
+        run: |
+          VFILE=$(cat VERSION 2>/dev/null || echo '')
+          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+          if ! echo "$VFILE" | grep -Eq "$SEMVER_RE"; then
+            echo "VERSION must be SemVer (X.Y.Z[-prerelease][+build]); got '$VFILE'" >&2; exit 1; fi
+          TAG="${GITHUB_REF_NAME#v}"
+          if ! echo "$TAG" | grep -Eq "$SEMVER_RE"; then
+            echo "Tag must be SemVer (optionally v-prefixed); got '${GITHUB_REF_NAME}'" >&2; exit 1; fi
+          if [ "$VFILE" != "$TAG" ]; then
+            echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
             type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=sha,prefix=sha-
-            type=raw,value=latest,enable={{is_default_branch}}
-
+            type=semver,pattern={{major}}.{{minor}},enable=${{ !github.event.release.prerelease }}
+            type=semver,pattern={{major}},enable=${{ !github.event.release.prerelease }}
+            type=raw,value=stable,enable=${{ !github.event.release.prerelease }}
+      
       - name: Read VERSION file
         id: version
-        run: echo "VERSION=$(cat VERSION 2>/dev/null || echo 'dev')" >> $GITHUB_OUTPUT
+        run: echo "VERSION=$(cat VERSION)" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -262,7 +284,7 @@ jobs:
           target: production
 
   release:
-    name: Release
+    name: Release Assets
     runs-on: ubuntu-latest
     needs: [build, docker]
     if: github.event_name == 'release'
@@ -273,72 +295,81 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate VERSION (SemVer) and tag match
+        run: |
+          VFILE=$(cat VERSION 2>/dev/null || echo '')
+          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+          if ! echo "$VFILE" | grep -Eq "$SEMVER_RE"; then
+            echo "VERSION must be SemVer (X.Y.Z[-prerelease][+build]); got '$VFILE'" >&2; exit 1; fi
+          TAG="${GITHUB_REF_NAME#v}"
+          if ! echo "$TAG" | grep -Eq "$SEMVER_RE"; then
+            echo "Tag must be SemVer (optionally v-prefixed); got '${GITHUB_REF_NAME}'" >&2; exit 1; fi
+          if [ "$VFILE" != "$TAG" ]; then
+            echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
 
-      - name: Prepare release assets
+      - name: Prepare and package release assets
         run: |
+          set -euo pipefail
           mkdir -p release
+          # Gather raw binaries from all artifacts
           for dir in artifacts/*/; do
             if [ -d "$dir" ]; then
               cp -r "$dir"* release/
             fi
           done
 
-          # Create checksums
           cd release
-          sha256sum * > checksums.txt
+          mkdir -p archives
+
+          # Package per target: .zip for Windows, .tar.gz for others
+          for f in *; do
+            # skip directories and previously generated files
+            if [ -d "$f" ] || [[ "$f" == "archives" ]] || [[ "$f" == *.zip ]] || [[ "$f" == *.tar.gz ]] || [[ "$f" == "checksums.txt" ]]; then
+              continue
+            fi
+
+            case "$f" in
+              *windows-*)
+                arch="${f##*-}"              # last hyphen token
+                out="archives/relay-windows-${arch}.zip"
+                # Normalize name inside archive to relay.exe
+                cp "$f" relay.exe
+                if command -v zip >/dev/null 2>&1; then
+                  zip -q -9 "$out" relay.exe
+                else
+                  echo "zip not found" >&2; exit 1
+                fi
+                rm -f relay.exe
+                ;;
+              *)
+                arch="${f##*-}"
+                os="${f%-*}"; os="${os##*-}"
+                out="archives/relay-${os}-${arch}.tar.gz"
+                # Normalize name inside archive to relay
+                cp "$f" relay
+                tar -czf "$out" relay
+                rm -f relay
+                ;;
+            esac
+          done
+
+          # Create checksums for archives
+          (cd archives && sha256sum * > ../checksums.txt)
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
-          files: release/*
+          files: |
+            release/*
+            release/archives/*
           generate_release_notes: true
 
-      # Build and push release Docker images
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract release metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=stable
-
-      - name: Read VERSION file
-        id: version
-        run: echo "VERSION=$(cat VERSION 2>/dev/null || echo '${{ github.ref_name }}')" >> $GITHUB_OUTPUT
-
-      - name: Build and push release Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            VERSION=${{ steps.version.outputs.VERSION }}
-            COMMIT=${{ github.sha }}
-            DATE=${{ github.event.head_commit.timestamp }}
-          target: production
+      # Docker images are built in the docker job (release)
 
   build-pr:
     name: Build (PR linux/amd64)
