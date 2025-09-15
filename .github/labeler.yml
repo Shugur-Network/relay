@@ -1,70 +1,57 @@
 # Configuration for auto-labeling PRs based on file changes
+# Format: label-name: [array of path patterns]
 
-# Core components
-"internal/relay/**":
-  - relay-core
-"internal/storage/**":
-  - database
-"internal/web/**":
-  - web-interface
+relay-core:
+  - internal/relay/**
+  - "!internal/relay/nips/**"
 
-# Configuration and setup
-"internal/config/**":
-  - configuration
-"config/**":
-  - configuration
-"docker/**":
-  - docker
-"scripts/**":
-  - scripts
+database:
+  - internal/storage/**
 
-# Documentation
-"**/*.md":
-  - documentation
-"docs/**":
-  - documentation
+web-interface:
+  - internal/web/**
+  - web/**
 
-# CI/CD and GitHub
-".github/**":
-  - ci-cd
-  - github
+configuration:
+  - internal/config/**
+  - config/**
 
-# Dependencies
-"go.mod":
-  - dependencies
-"go.sum":
-  - dependencies
+docker:
+  - docker/**
+  - Dockerfile
 
-# Testing
-"**/*_test.go":
-  - testing
-"tests/**":
-  - testing
+scripts:
+  - scripts/**
 
-# Build and deployment
-"Makefile":
-  - build
-"build.sh":
-  - build
-"Dockerfile":
-  - docker
+documentation:
+  - "**/*.md"
+  - docs/**
 
-# NIPs implementation
-"internal/relay/nips/**":
-  - nip-implementation
-  
-# Security
-"internal/relay/*validator*":
-  - security
-"internal/relay/*auth*":
-  - security
+ci-cd:
+  - .github/**
 
-# Performance
-"internal/storage/queries.go":
-  - performance
-"internal/storage/filter.go":
-  - performance
+github:
+  - .github/**
 
-# Web assets
-"web/**":
-  - web-interface
+dependencies:
+  - go.mod
+  - go.sum
+
+testing:
+  - "**/*_test.go"
+  - tests/**
+
+build:
+  - Makefile
+  - build.sh
+
+nip-implementation:
+  - internal/relay/nips/**
+
+security:
+  - internal/relay/*validator*
+  - internal/relay/*auth*
+
+performance:
+  - internal/storage/queries.go
+  - internal/storage/filter.go
