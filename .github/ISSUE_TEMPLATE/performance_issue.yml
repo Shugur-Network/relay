@@ -87,6 +87,8 @@ body:
     id: actual-performance
     attributes:
       label: Actual Performance
+    attributes:
+      label: Actual Performance
       description: What performance are you actually seeing?
       placeholder: |
         - Measured response times
