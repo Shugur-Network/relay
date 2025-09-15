@@ -1,0 +1,82 @@
+name: CI Failure Notification
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  notify-failure:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Issue on CI Failure
+        uses: actions/github-script@v7.0.1
+        with:
+          script: |
+            const runUrl = `${{ github.event.workflow_run.html_url }}`;
+            const sha = '${{ github.event.workflow_run.head_sha }}';
+            const shortSha = sha.substring(0, 7);
+            
+            // Check if there's already an open issue for CI failures
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'ci-failure',
+              state: 'open'
+            });
+            
+            const title = `🚨 CI Failure on main branch (${shortSha})`;
+            const body = `
+            ## CI Pipeline Failed on Main Branch
+            
+            **Commit:** \`${shortSha}\`
+            **Workflow Run:** ${runUrl}
+            **Triggered by:** ${{ github.event.workflow_run.triggering_actor.login }}
+            
+            ### Action Required
+            - [ ] Investigate the failure
+            - [ ] Fix the issue
+            - [ ] Verify the fix works
+            
+            ### Quick Links
+            - [View Workflow Run](${runUrl})
+            - [View Commit](https://github.com/${{ github.repository }}/commit/${sha})
+            
+            ---
+            *This issue was automatically created due to a CI failure on the main branch.*
+            `;
+            
+            // If no open CI failure issues exist, create one
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['ci-failure', 'bug', 'priority-high']
+              });
+            } else {
+              // Update the existing issue with new failure info
+              const existingIssue = issues.data[0];
+              const updateBody = `${existingIssue.body}\n\n---\n\n**New Failure:** ${new Date().toISOString()}\n**Commit:** \`${shortSha}\`\n**Run:** ${runUrl}`;
+              
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: updateBody
+              });
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `🚨 Another CI failure detected on main branch!\n\n**Commit:** \`${shortSha}\`\n**Run:** ${runUrl}`
+              });
+            }

@@ -1,0 +1,57 @@
+# Configuration for auto-labeling PRs based on file changes
+# Format: label-name: [array of path patterns]
+
+relay-core:
+  - internal/relay/**
+  - "!internal/relay/nips/**"
+
+database:
+  - internal/storage/**
+
+web-interface:
+  - internal/web/**
+  - web/**
+
+configuration:
+  - internal/config/**
+  - config/**
+
+docker:
+  - docker/**
+  - Dockerfile
+
+scripts:
+  - scripts/**
+
+documentation:
+  - "**/*.md"
+  - docs/**
+
+ci-cd:
+  - .github/**
+
+github:
+  - .github/**
+
+dependencies:
+  - go.mod
+  - go.sum
+
+testing:
+  - "**/*_test.go"
+  - tests/**
+
+build:
+  - Makefile
+  - build.sh
+
+nip-implementation:
+  - internal/relay/nips/**
+
+security:
+  - internal/relay/*validator*
+  - internal/relay/*auth*
+
+performance:
+  - internal/storage/queries.go
+  - internal/storage/filter.go
