@@ -1,6 +1,6 @@
 module github.com/Shugur-Network/relay
 
-go 1.24.1
+go 1.24.4
 
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.5
