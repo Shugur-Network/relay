@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3-rc.2]
+
+### Bug Fixes
+
+* **database**: revert pgx/v5 from 5.7.6 to 5.7.4 to resolve query timeout issues ([45e2b74](https://github.com/Shugur-Network/relay/commit/45e2b74)) - Fixed "context deadline exceeded" errors caused by performance regression in pgx database driver
+
 ## [1.3.3-rc.1](https://github.com/Shugur-Network/relay/compare/v1.3.3-rc.1...v1.3.3-rc.1) (2025-09-15)
 
 
