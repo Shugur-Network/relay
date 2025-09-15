@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3](https://github.com/Shugur-Network/relay/compare/v1.3.2...v1.3.3) (2025-09-15)
+
+
+### Bug Fixes
+
+* Extract real client IPs from proxy headers (v1.3.2.1) ([0cd278c](https://github.com/Shugur-Network/relay/commit/0cd278c8486bfff6cfff55d912ec51fdceb1f6ea))
+
+
+### Performance Improvements
+
+* set fixed preallocation for query results to 500 (matches typical filter cap) ([#20](https://github.com/Shugur-Network/relay/issues/20)) ([a6fb50e](https://github.com/Shugur-Network/relay/commit/a6fb50e8e7be6b689ab2b99317aa77d5b2059f06))
+
 ## [Unreleased]
 
 ### Added
