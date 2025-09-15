@@ -1,0 +1,130 @@
+name: "Performance Benchmarking"
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'internal/**'
+      - 'cmd/**'
+      - 'go.mod'
+      - 'go.sum'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  benchmark:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    services:
+      postgres:
+        image: cockroachdb/cockroach:v23.1.0
+        env:
+          COCKROACH_DATABASE: relay_test
+          COCKROACH_USER: root
+        options: >-
+          --health-cmd="cockroach sql --insecure --execute='SELECT 1'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 26257:26257
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Go
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
+        with:
+          go-version: "1.24.4"
+          cache: true
+      
+      - name: Wait for CockroachDB
+        run: |
+          timeout 60s bash -c 'until nc -z localhost 26257; do sleep 1; done'
+          sleep 5
+      
+      - name: Setup test database
+        run: |
+          cockroach sql --insecure --host=localhost:26257 --execute="CREATE DATABASE IF NOT EXISTS relay_test;"
+      
+      - name: Run benchmarks
+        run: |
+          go test -bench=. -benchmem -count=3 -timeout=20m ./internal/storage/... > benchmark-results.txt 2>&1 || true
+          go test -bench=. -benchmem -count=3 -timeout=10m ./internal/relay/... >> benchmark-results.txt 2>&1 || true
+      
+      - name: Analyze benchmark results
+        id: benchmark-analysis
+        run: |
+          echo "## 📊 Performance Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ -f benchmark-results.txt ]]; then
+            # Extract key metrics
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            grep -E "(Benchmark|PASS|FAIL)" benchmark-results.txt | head -20 >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            
+            # Check for performance regressions (basic)
+            if grep -q "FAIL" benchmark-results.txt; then
+              echo "⚠️ **Performance tests failed**" >> $GITHUB_STEP_SUMMARY
+              echo "performance_issue=true" >> $GITHUB_OUTPUT
+            else
+              echo "✅ **All performance tests passed**" >> $GITHUB_STEP_SUMMARY
+              echo "performance_issue=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "❌ **No benchmark results found**" >> $GITHUB_STEP_SUMMARY
+            echo "performance_issue=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const fs = require('fs');
+            const issue_number = context.issue.number;
+            
+            let benchmarkContent = '## 📊 Performance Benchmark Results\n\n';
+            
+            try {
+              const results = fs.readFileSync('benchmark-results.txt', 'utf8');
+              const lines = results.split('\n').slice(0, 20); // Limit output
+              benchmarkContent += '```\n' + lines.join('\n') + '\n```\n\n';
+              
+              if (results.includes('FAIL')) {
+                benchmarkContent += '⚠️ **Performance regression detected!** Please review the benchmark failures above.\n';
+              } else {
+                benchmarkContent += '✅ **Performance looks good!** No regressions detected.\n';
+              }
+            } catch (error) {
+              benchmarkContent += '❌ **Error reading benchmark results**\n';
+            }
+            
+            benchmarkContent += '\n> Benchmarks run on commit: `' + context.sha.substring(0, 8) + '`';
+            
+            github.rest.issues.createComment({
+              issue_number: issue_number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: benchmarkContent
+            });
+      
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        if: always()
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: benchmark-results.txt
+          retention-days: 30

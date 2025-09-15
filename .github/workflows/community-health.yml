@@ -1,0 +1,159 @@
+name: "Community Health Report"
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 6 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  community-health:
+    name: Generate Community Health Report
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Generate health metrics
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7); // Last 7 days
+            
+            // Get issues and PRs from last week
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              since: startDate.toISOString(),
+              per_page: 100
+            });
+            
+            const prs = issues.filter(issue => issue.pull_request);
+            const actualIssues = issues.filter(issue => !issue.pull_request);
+            
+            // Calculate metrics
+            const newIssues = actualIssues.filter(issue => 
+              new Date(issue.created_at) >= startDate
+            ).length;
+            
+            const closedIssues = actualIssues.filter(issue => 
+              issue.closed_at && new Date(issue.closed_at) >= startDate
+            ).length;
+            
+            const newPRs = prs.filter(pr => 
+              new Date(pr.created_at) >= startDate
+            ).length;
+            
+            const mergedPRs = prs.filter(pr => 
+              pr.closed_at && pr.pull_request?.merged_at && 
+              new Date(pr.pull_request.merged_at) >= startDate
+            ).length;
+            
+            // Get contributors
+            const { data: commits } = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              since: startDate.toISOString(),
+              per_page: 100
+            });
+            
+            const uniqueContributors = new Set(
+              commits.map(commit => commit.author?.login).filter(Boolean)
+            );
+            
+            // Get repository stats
+            const { data: repo } = await github.rest.repos.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            // Create health report
+            const report = `# 📊 Weekly Community Health Report
+            
+            *Generated on ${new Date().toISOString().split('T')[0]}*
+            
+            ## 📈 Activity Metrics (Last 7 Days)
+            
+            | Metric | Count | Trend |
+            |--------|-------|-------|
+            | 🆕 New Issues | ${newIssues} | - |
+            | ✅ Closed Issues | ${closedIssues} | - |
+            | 🔄 New Pull Requests | ${newPRs} | - |
+            | 🎉 Merged Pull Requests | ${mergedPRs} | - |
+            | 👥 Active Contributors | ${uniqueContributors.size} | - |
+            
+            ## 📊 Repository Health
+            
+            - **⭐ Stars**: ${repo.stargazers_count}
+            - **👥 Watchers**: ${repo.watchers_count}
+            - **🍴 Forks**: ${repo.forks_count}
+            - **📂 Open Issues**: ${repo.open_issues_count}
+            
+            ## 🎯 Community Engagement
+            
+            ### Recent Contributors
+            ${Array.from(uniqueContributors).slice(0, 10).map(contributor => `- @${contributor}`).join('\n')}
+            
+            ### Issue Response Time
+            - Target: < 24 hours for initial response
+            - Current: Monitoring manually
+            
+            ## 🚀 Recommendations
+            
+            ${newIssues > 10 ? '⚠️ **High issue volume**: Consider triaging and prioritizing' : '✅ **Manageable issue volume**'}
+            
+            ${mergedPRs === 0 ? '⚠️ **No PRs merged**: Check if there are blockers' : '✅ **Active development**'}
+            
+            ${uniqueContributors.size < 2 ? '💡 **Limited contributors**: Consider outreach or contribution guides' : '✅ **Healthy contributor diversity**'}
+            
+            ---
+            
+            *This report helps maintain project health and community engagement. Consider reviewing these metrics regularly.*`;
+            
+            // Store report as step output
+            core.setOutput('report', report);
+            
+            // Also create a summary
+            core.summary.addRaw(report).write();
+      
+      - name: Create or update community health issue
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const report = `${{ steps.generate-health-metrics.outputs.report }}`;
+            
+            // Check if there's an existing health report issue
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'community-health',
+              state: 'open'
+            });
+            
+            if (issues.length > 0) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                title: `📊 Community Health Report - ${new Date().toISOString().split('T')[0]}`,
+                body: report
+              });
+              
+              console.log(`Updated community health issue #${issues[0].number}`);
+            } else {
+              // Create new issue
+              const { data: newIssue } = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `📊 Community Health Report - ${new Date().toISOString().split('T')[0]}`,
+                body: report,
+                labels: ['community-health', 'meta']
+              });
+              
+              console.log(`Created new community health issue #${newIssue.number}`);
+            }
