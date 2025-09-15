@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3-rc.1](https://github.com/Shugur-Network/relay/compare/v1.3.3...v1.3.3-rc.1) (2025-09-15)
+
+
+### Features
+
+* add MaxConnections field to LimitationData and update related templates ([e710be9](https://github.com/Shugur-Network/relay/commit/e710be96c3359c4a9a3c59a366d5b487d2a8fe29))
+* Enhance event dispatcher for real-time broadcasting and improve changefeed capabilities ([f408d87](https://github.com/Shugur-Network/relay/commit/f408d87002786f5b99c4596abe9f505b01c6065d))
+* enhance installation script to support interactive, direct, and piped modes for domain input ([b674c6d](https://github.com/Shugur-Network/relay/commit/b674c6dc5d9447d31b65deb9b6f1e2d8f210c518))
+* enhance metrics tracking and add real-time metrics API ([37baf98](https://github.com/Shugur-Network/relay/commit/37baf98cb2f97cceb6bbd22cbd8601c32feab564))
+* Enhance NIP-28 validation and testing for public chat events ([106b0d9](https://github.com/Shugur-Network/relay/commit/106b0d99188960309e94241e6c8b8beb761bffad))
+* Enhance NIP-65 validation and testing for relay list metadata events ([9b868b2](https://github.com/Shugur-Network/relay/commit/9b868b25f30be50a4e6bb233a79d8c0c86d53208))
+* implement configurable content length limits for relay metadata and WebSocket connections ([94abbeb](https://github.com/Shugur-Network/relay/commit/94abbeb0887021d58e322afa16fb389af99e7689))
+* Implement cross-node event synchronization using polling instead of changefeed ([0dc0380](https://github.com/Shugur-Network/relay/commit/0dc0380e7353c7c2cb6ea9456cfa51dde679d69f))
+* Implement NIP-45 COUNT command and associated tests ([ec5c79d](https://github.com/Shugur-Network/relay/commit/ec5c79df24ec0db7bbe0d16c7a80e32e2bc3d421))
+* Integrate CockroachDB changefeed for real-time event synchronization across distributed relays ([aa005cd](https://github.com/Shugur-Network/relay/commit/aa005cddb7082d9802f194ee77eeef16542d4008))
+* optimize logging across relay components with proper levels and NIP validation visibility ([a79fa87](https://github.com/Shugur-Network/relay/commit/a79fa8782d58a607a9b559c6eaf7552e4741811b))
+* preserve CA certificates during cleanup for future node additions ([f32c7ed](https://github.com/Shugur-Network/relay/commit/f32c7ed4bc56a9a058277bb2c55d0a497304d247))
+* Release v1.2.0 with NIP-65 and enhanced relay features ([0ffd583](https://github.com/Shugur-Network/relay/commit/0ffd58338d22755d401fa02555e5da3f33d24dc1))
+* Skip storage of ephemeral events and enhance broadcasting logic ([408ce68](https://github.com/Shugur-Network/relay/commit/408ce686dc3cf7e97147a130d995033699c97666))
+* Update relay list event validation to use specific kind validation ([9fa3259](https://github.com/Shugur-Network/relay/commit/9fa3259b6bcc879239271ed360083714646257d0))
+
+
+### Bug Fixes
+
+* adjust certificate ownership for relay and cockroach certs to ensure proper access ([aded889](https://github.com/Shugur-Network/relay/commit/aded889763c7b7303b41c7b6e1450966e5cd4a47))
+* correct delegation logging to use struct field instead of slice indexing ([5d7d3cd](https://github.com/Shugur-Network/relay/commit/5d7d3cda6b1836252f48301b474dc7c12a2d5eec))
+* enhance cleanup process and add port availability checks in installation script ([2460bbb](https://github.com/Shugur-Network/relay/commit/2460bbb543c219e56fb7d0ba33ba097ba3a10504))
+* Extract real client IPs from proxy headers (v1.3.2.1) ([0cd278c](https://github.com/Shugur-Network/relay/commit/0cd278c8486bfff6cfff55d912ec51fdceb1f6ea))
+* update repository references from 'Relay' to 'relay' in various files ([3477d96](https://github.com/Shugur-Network/relay/commit/3477d962cb33b62d5fdb247c40bf7c838ba2390c))
+* update versioning prefix in CI configuration for consistency ([31a957d](https://github.com/Shugur-Network/relay/commit/31a957d72d1f9c91ff0c0596bc34fc0028129ccf))
+
+
+### Performance Improvements
+
+* set fixed preallocation for query results to 500 (matches typical filter cap) ([#20](https://github.com/Shugur-Network/relay/issues/20)) ([a6fb50e](https://github.com/Shugur-Network/relay/commit/a6fb50e8e7be6b689ab2b99317aa77d5b2059f06))
+
 ## [1.3.3](https://github.com/Shugur-Network/relay/compare/v1.3.2...v1.3.3) (2025-09-15)
 
 
