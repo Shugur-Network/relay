@@ -20,6 +20,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml
           sync-labels: true
+        continue-on-error: true
 
       - name: Label size
         uses: pascalgn/size-label-action@v0.5.4
@@ -34,6 +35,7 @@ jobs:
               "500": "L",
               "1000": "XL"
             }
+        continue-on-error: true
 
       - name: Label for dependency updates
         if: github.actor == 'dependabot[bot]'
@@ -41,6 +43,7 @@ jobs:
           gh pr edit ${{ github.event.number }} --add-label "dependencies"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
       - name: Label breaking changes
         if: contains(github.event.pull_request.title, 'BREAKING') || contains(github.event.pull_request.body, 'BREAKING CHANGE')
@@ -48,6 +51,7 @@ jobs:
           gh pr edit ${{ github.event.number }} --add-label "breaking-change"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
       - name: Label performance improvements
         if: contains(github.event.pull_request.title, 'perf') || contains(github.event.pull_request.body, 'Performance')
@@ -55,6 +59,7 @@ jobs:
           gh pr edit ${{ github.event.number }} --add-label "performance"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
       - name: Label security improvements
         if: contains(github.event.pull_request.title, 'security') || contains(github.event.pull_request.body, 'Security')
@@ -62,3 +67,4 @@ jobs:
           gh pr edit ${{ github.event.number }} --add-label "security"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
