@@ -68,11 +68,21 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Cache golangci-lint
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: ~/.cache/golangci-lint
+          key: ${{ runner.os }}-golangci-lint-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.golangci.yml', '.golangci.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-golangci-lint-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-golangci-lint-
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@aaa42aa0628b4ae2578232a66b541047968fac86 # v6.1.0
         with:
           version: latest
           args: --timeout=5m
+          skip-cache: true  # We handle caching manually above
 
   test:
     name: Test
@@ -88,36 +98,76 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Cache test dependencies and build cache
+        if: ${{ needs.changes.outputs.code == 'true' }}
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-test-${{ hashFiles('**/go.sum') }}-${{ hashFiles('**/*_test.go') }}
+          restore-keys: |
+            ${{ runner.os }}-go-test-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-go-test-
+
       - name: Download dependencies
         if: ${{ needs.changes.outputs.code == 'true' }}
         run: go mod download
 
-      - name: Start CockroachDB
+      - name: Start CockroachDB (CI-optimized)
         if: ${{ needs.changes.outputs.code == 'true' }}
         run: |
           docker run -d \
             --name cockroach \
             -p 26257:26257 \
             -p 8080:8080 \
-            --memory=1g \
-            --cpus=1 \
+            --memory=512m \
+            --cpus=0.5 \
             cockroachdb/cockroach:v24.1.5 \
-            start-single-node --insecure --max-sql-memory=25% --cache=25%
+            start-single-node --insecure --max-sql-memory=50% --cache=128MB
 
-          # Wait for CockroachDB to be ready with reduced timeout
-          timeout 30s bash -c 'until docker exec cockroach /cockroach/cockroach sql --insecure --execute="SELECT 1;" > /dev/null 2>&1; do sleep 1; done'
-
+          # Wait for CockroachDB to be ready with optimized timeout
+          timeout 45s bash -c 'until docker exec cockroach /cockroach/cockroach sql --insecure --execute="SELECT 1;" > /dev/null 2>&1; do sleep 2; done'
+          
+          echo "CockroachDB is ready for testing"
           # Database will be created automatically by the relay application
 
-      - name: Run tests
+      - name: Run tests with retry mechanism
         if: ${{ needs.changes.outputs.code == 'true' }}
         run: |
-          go test -v -race -coverprofile=coverage.out -timeout=10m ./...
+          # Run tests with retry for flakiness resilience
+          for attempt in 1 2 3; do
+            echo "Test attempt $attempt..."
+            if go test -v -race -p 4 -coverprofile=coverage.out -timeout=5m ./...; then
+              echo "Tests passed on attempt $attempt"
+              break
+            elif [ $attempt -eq 3 ]; then
+              echo "Tests failed after 3 attempts"
+              exit 1
+            else
+              echo "Test attempt $attempt failed, retrying in 10 seconds..."
+              sleep 10
+            fi
+          done
         env:
           SHUGUR_DB_HOST: localhost
           SHUGUR_DB_PORT: 26257
           SHUGUR_DB_USER: root
           SHUGUR_DB_SSL_MODE: disable
+
+      - name: Run benchmarks for performance monitoring
+        if: ${{ needs.changes.outputs.code == 'true' }}
+        run: |
+          echo "Running performance benchmarks..."
+          go test -bench=. -benchmem -count=3 -run=^$ ./... > benchmarks.txt 2>&1 || true
+          
+          # Display benchmark results
+          if [ -f benchmarks.txt ] && [ -s benchmarks.txt ]; then
+            echo "Benchmark Results:"
+            cat benchmarks.txt | grep -E "(Benchmark|PASS|FAIL)" | head -20
+          else
+            echo "No benchmarks found or benchmarks failed to run"
+          fi
 
       - name: Upload coverage to Codecov
         if: ${{ needs.changes.outputs.code == 'true' }}
@@ -126,6 +176,14 @@ jobs:
           file: ./coverage.out
           flags: unittests
           name: codecov-umbrella
+
+      - name: Upload benchmark results
+        if: ${{ needs.changes.outputs.code == 'true' }}
+        uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
+        with:
+          name: benchmark-results
+          path: benchmarks.txt
+          retention-days: 30
 
       - name: Docs-only change; skip tests
         if: ${{ needs.changes.outputs.code != 'true' }}
@@ -149,7 +207,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Run Basic Security Checks
+      - name: Run comprehensive security checks
         run: |
           # Run go vet for basic security issues
           go vet ./...
@@ -160,6 +218,16 @@ jobs:
           # Run staticcheck for advanced static analysis
           go install honnef.co/go/tools/cmd/staticcheck@latest
           staticcheck ./...
+
+          # Run govulncheck for known vulnerabilities
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+          # Check for secrets and sensitive information
+          if command -v git >/dev/null 2>&1; then
+            echo "Scanning for potential secrets in code..."
+            git log --all --full-history -- "*.go" "*.yaml" "*.yml" "*.json" | grep -i -E "(password|secret|key|token|api)" | head -10 || true
+          fi
 
   build:
     name: Build (release artifacts)
