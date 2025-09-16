@@ -1,0 +1,29 @@
+# Development Database Only - CockroachDB
+# Simple standalone database for development with different ports
+
+services:
+  cockroachdb:
+    image: cockroachdb/cockroach:latest
+    container_name: cockroachdb-dev
+    command: start-single-node --insecure
+    volumes:
+      - cockroach_dev_volume:/cockroach/cockroach-data
+    ports:
+      - "26260:26257" # CockroachDB SQL (different port)
+      - "9091:8080" # CockroachDB Admin UI (different port)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health?ready=1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - dev_network
+
+volumes:
+  cockroach_dev_volume:
+    driver: local
+    
+networks:
+  dev_network:
+    driver: bridge

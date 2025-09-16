@@ -28,7 +28,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
-    restart: unless-stopped
+      restart: unless-stopped
     networks:
       - distributed_network
 
@@ -64,7 +64,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    restart: unless-stopped
+      restart: unless-stopped
     network_mode: host
 
   # Caddy Reverse Proxy Node 1
@@ -90,7 +90,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-    restart: unless-stopped
+      restart: unless-stopped
     networks:
       - distributed_network
 
@@ -106,8 +106,6 @@ networks:
   distributed_network:
     driver: bridge
 
----
-
 # Additional nodes would have similar configurations with:
 # - Different node IDs (node2, node3, etc.)
 # - Different hostnames and container names
@@ -117,7 +115,10 @@ networks:
 
 # Example for Node 2:
 # cockroachdb-node2:
-#   command: start --certs-dir=/cockroach/cockroach-certs --advertise-addr=node2.example.com:26257 --join=node1.example.com:26257,node2.example.com:26257,node3.example.com:26257
+#   image: cockroachdb/cockroach:v22.2.7
+#   container_name: cockroachdb-node2
+#   hostname: cockroachdb-node2
+#   command: start --certs-dir=/cockroach/cockroach-certs --advertise-addr=cockroachdb-node2:26257 --join=cockroachdb-node1:26257,cockroachdb-node2:26257,cockroachdb-node3:26257
 #   volumes:
 #     - cockroach_data_node2:/cockroach/cockroach-data
 
