@@ -437,7 +437,7 @@ Shugur Relay is open-source software licensed under the [MIT License](LICENSE).
 
 <div align="center">
   <p>
-    <strong>Built with ❤️ by the Shugur Network team</strong>
+    <strong>Built with ❤️ by the Shugur Network</strong>
   </p>
   <p>
     <a href="https://shugur.com">Website</a> •
