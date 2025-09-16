@@ -1,0 +1,29 @@
+# Testing Database Only - CockroachDB
+# Simple standalone database for testing with different ports
+
+services:
+  cockroachdb:
+    image: cockroachdb/cockroach:latest
+    container_name: cockroachdb-test
+    command: start-single-node --insecure
+    volumes:
+      - cockroach_test_volume:/cockroach/cockroach-data
+    ports:
+      - "26262:26257" # CockroachDB SQL (different port)
+      - "9092:8080" # CockroachDB Admin UI (different port)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health?ready=1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - test_network
+
+volumes:
+  cockroach_test_volume:
+    driver: local
+    
+networks:
+  test_network:
+    driver: bridge

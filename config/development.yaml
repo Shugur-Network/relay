@@ -14,7 +14,7 @@ LOGGING:
 
 METRICS:
   ENABLED: true                  # Enable metrics collection
-  PORT: 8191                     # Port for Prometheus metrics
+  PORT: 8182                     # Port for Prometheus metrics
 
 RELAY:
   NAME: "shugur-relay-dev"       # Relay name (max 30 chars, shown in NIP-11)
@@ -22,8 +22,8 @@ RELAY:
   CONTACT: "dev@shugur.com"      # Relay contact email (shown in NIP-11)
   ICON: "https://github.com/Shugur-Network/relay/raw/main/logo.png" # Relay icon URL (shown in NIP-11)
   BANNER: "https://github.com/Shugur-Network/relay/raw/main/banner.png" # Relay banner URL (optional, shown in NIP-11)
-  WS_ADDR: ":8085"              # WebSocket listening address
-  PUBLIC_URL: "ws://localhost:8080" # Public URL (optional)
+  WS_ADDR: ":8081"              # WebSocket listening address
+  PUBLIC_URL: "ws://localhost:8081" # Public URL (optional)
   EVENT_CACHE_SIZE: 10000        # Event cache size
   SEND_BUFFER_SIZE: 4096         # WebSocket send buffer size
   WRITE_TIMEOUT: 10s             # WebSocket write timeout
@@ -53,4 +53,4 @@ CAPSULES:
 
 DATABASE:
   SERVER: "localhost"            # Database server hostname
-  PORT: 26267                    # Database port
+  PORT: 26260                    # Database port (matches dev docker-compose)
