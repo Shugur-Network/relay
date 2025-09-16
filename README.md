@@ -120,15 +120,57 @@ go build -o bin/relay ./cmd
 
 ## 🐳 Docker Quick Start
 
+### Development Environment
+
+```bash
+# Clone repository
+git clone https://github.com/Shugur-Network/Relay.git
+cd Relay
+
+# Start development database
+docker-compose -f docker/compose/docker-compose.development.yml up -d
+
+# Run relay
+go run ./cmd --config config/development.yaml
+```
+
+**Development Ports:**
+- **WebSocket**: `ws://localhost:8081`
+- **Metrics**: `http://localhost:8182/metrics`
+- **Database Admin**: `http://localhost:9091`
+
+### Production Environment
+
 ```bash
 # Using official Docker image
 docker run -p 8080:8080 ghcr.io/shugur-network/relay:latest
 
-# Or using Docker Compose (for development)
-git clone https://github.com/Shugur-Network/Relay.git
-cd Relay
-docker-compose up -d
+# Or using Docker Compose
+docker-compose -f docker/compose/docker-compose.standalone.yml up -d
 ```
+
+**Production Ports:**
+- **WebSocket**: `ws://localhost:8080`
+- **Metrics**: `http://localhost:8180/metrics`
+- **Database Admin**: `http://localhost:9090`
+
+### Multi-Environment Setup
+
+Run development, testing, and production environments simultaneously:
+
+```bash
+# Start all environments
+docker-compose -f docker/compose/docker-compose.development.yml up -d
+docker-compose -f docker/compose/docker-compose.test.yml up -d
+docker-compose -f docker/compose/docker-compose.standalone.yml up -d
+
+# Run relay instances
+go run ./cmd --config config/development.yaml &  # Port 8081
+go run ./cmd --config config/test.yaml &         # Port 8082
+go run ./cmd --config config/production.yaml &   # Port 8080
+```
+
+For detailed port mapping, see [config/PORT_MAPPING.md](config/PORT_MAPPING.md).
 
 ## 📚 Documentation
 
