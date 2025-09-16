@@ -5,7 +5,71 @@
   <p align="center">
     High-performance, reliable, and scalable Nostr relay.
   </p>
+  
+  <!-- Status Badges -->
+  <p align="center">
+    <a href="https://github.com/Shugur-Network/relay/actions/workflows/ci.yml">
+      <img src="https://github.com/Shugur-Network/relay/actions/workflows/ci.yml/badge.svg" alt="CI Status">
+    </a>
+    <a href="https://github.com/Shugur-Network/relay/releases">
+      <img src="https://img.shields.io/github/v/release/Shugur-Network/relay?include_prereleases" alt="Release">
+    </a>
+    <a href="https://github.com/Shugur-Network/relay/blob/main/LICENSE">
+      <img src="https://img.shields.io/github/license/Shugur-Network/relay" alt="License">
+    </a>
+    <a href="https://goreportcard.com/report/github.com/Shugur-Network/relay">
+      <img src="https://goreportcard.com/badge/github.com/Shugur-Network/relay" alt="Go Report Card">
+    </a>
+  </p>
+  
+  <!-- Technology Badges -->
+  <p align="center">
+    <a href="https://golang.org/">
+      <img src="https://img.shields.io/badge/Go-1.24.4+-00ADD8?style=flat&logo=go&logoColor=white" alt="Go Version">
+    </a>
+    <a href="https://www.cockroachlabs.com/">
+      <img src="https://img.shields.io/badge/CockroachDB-v24.1.5+-6933FF?style=flat&logo=cockroachlabs&logoColor=white" alt="CockroachDB">
+    </a>
+    <a href="https://nostr.com/">
+      <img src="https://img.shields.io/badge/Nostr-Protocol-8B5CF6?style=flat&logo=lightning&logoColor=white" alt="Nostr Protocol">
+    </a>
+    <a href="https://github.com/Shugur-Network/relay/pkgs/container/relay">
+      <img src="https://img.shields.io/badge/Docker-Available-2496ED?style=flat&logo=docker&logoColor=white" alt="Docker">
+    </a>
+  </p>
+  
+  <!-- Quality & Activity Badges -->
+  <p align="center">
+    <a href="https://github.com/Shugur-Network/relay/commits/main">
+      <img src="https://img.shields.io/github/commit-activity/m/Shugur-Network/relay" alt="Commit Activity">
+    </a>
+    <a href="https://github.com/Shugur-Network/relay">
+      <img src="https://img.shields.io/github/repo-size/Shugur-Network/relay" alt="Repository Size">
+    </a>
+    <a href="https://github.com/Shugur-Network/relay">
+      <img src="https://img.shields.io/github/languages/top/Shugur-Network/relay" alt="Top Language">
+    </a>
+    <a href="https://github.com/Shugur-Network/relay/commits/main">
+      <img src="https://img.shields.io/github/last-commit/Shugur-Network/relay" alt="Last Commit">
+    </a>
+  </p>
 </div>
+
+  <!-- Community & Stats Badges -->
+  <p align="center">
+    <a href="https://github.com/Shugur-Network/relay/issues">
+      <img src="https://img.shields.io/github/issues/Shugur-Network/relay" alt="Issues">
+    </a>
+    <a href="https://github.com/Shugur-Network/relay/pulls">
+      <img src="https://img.shields.io/github/issues-pr/Shugur-Network/relay" alt="Pull Requests">
+    </a>
+    <a href="https://github.com/Shugur-Network/relay/stargazers">
+      <img src="https://img.shields.io/github/stars/Shugur-Network/relay?style=social" alt="GitHub Stars">
+    </a>
+    <a href="https://github.com/Shugur-Network/relay/network/members">
+      <img src="https://img.shields.io/github/forks/Shugur-Network/relay?style=social" alt="GitHub Forks">
+    </a>
+  </p>
 
 ---
 
