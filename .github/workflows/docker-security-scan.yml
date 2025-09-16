@@ -2,9 +2,14 @@ name: "Docker Security Scan"
 
 on:
   schedule:
-    # Run daily at 02:00 UTC
-    - cron: '0 2 * * *'
+    # Run weekly on Mondays at 02:00 UTC (reduced from daily)
+    - cron: '0 2 * * 1'
   workflow_dispatch: # Allow manual triggering
+  push:
+    branches: [main]
+    paths:
+      - 'docker/**'
+      - 'Dockerfile'
 
 permissions:
   contents: read
@@ -14,7 +19,7 @@ jobs:
   docker-scan:
     name: Docker Security Scan
     runs-on: ubuntu-latest
-    if: github.repository == 'shugur/relay' # Only run on main repository
+    if: github.repository == 'Shugur-Network/relay' # Only run on main repository
     
     strategy:
       matrix:

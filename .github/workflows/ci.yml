@@ -516,7 +516,7 @@ jobs:
   build-summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [test, build, security-scan, lint]
+    needs: [test, build, security, lint]
     if: always()
     steps:
       - name: Check build results

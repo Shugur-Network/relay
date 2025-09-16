@@ -1,10 +1,11 @@
 name: "Merge Queue Management"
 
 on:
-  pull_request:
-    types: [labeled, unlabeled, synchronize]
-  schedule:
-    - cron: '*/15 * * * *'  # Check every 15 minutes
+  workflow_dispatch:  # Manual trigger only - not needed for solo development
+  # pull_request:
+  #   types: [labeled, unlabeled, synchronize]
+  # schedule:
+  #   - cron: '0 * * * *'  # Check every hour
 
 permissions:
   contents: write

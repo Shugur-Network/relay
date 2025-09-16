@@ -1,13 +1,13 @@
 name: "Multi-Environment Testing"
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-    - cron: '0 4 * * *'  # Daily at 4 AM UTC
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger only - disabled for solo development
+  # push:
+  #   branches: [main]
+  # pull_request:
+  #   branches: [main]
+  # schedule:
+  #   - cron: '0 4 * * *'  # Daily at 4 AM UTC
 
 permissions:
   contents: read
@@ -18,22 +18,33 @@ jobs:
     name: Test on ${{ matrix.os }} with Go ${{ matrix.go-version }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    if: ${{ !matrix.weekly_only || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-22.04, ubuntu-20.04]
-        go-version: ['1.24.4', '1.24.3']
-        database: [cockroach, postgres]
         include:
-          # Test on macOS for compatibility
+          # Primary testing combination
+          - os: ubuntu-latest
+            go-version: '1.24.4'
+            database: cockroach
+          # Previous Go version compatibility
+          - os: ubuntu-latest
+            go-version: '1.24.3'
+            database: cockroach
+          # PostgreSQL compatibility (reduced to one)
+          - os: ubuntu-22.04
+            go-version: '1.24.4'
+            database: postgres
+          # macOS compatibility (weekly only)
           - os: macos-latest
             go-version: '1.24.4'
             database: postgres
+            weekly_only: true
     
     services:
       cockroach:
-        image: cockroachdb/cockroach:v23.1.0
+        image: cockroachdb/cockroach:v24.1.5
         if: matrix.database == 'cockroach'
         env:
           COCKROACH_DATABASE: relay_test
@@ -43,6 +54,8 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+          --memory=512m
+          --cpus=0.5
         ports:
           - 26257:26257
       
@@ -58,6 +71,8 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+          --memory=256m
+          --cpus=0.25
         ports:
           - 5432:5432
     

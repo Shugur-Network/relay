@@ -10,6 +10,11 @@ on:
       - 'go.sum'
   push:
     branches: [main]
+    paths:
+      - 'internal/**'
+      - 'cmd/**'
+      - 'go.mod'
+      - 'go.sum'
   workflow_dispatch:
 
 permissions:
@@ -25,7 +30,7 @@ jobs:
     
     services:
       postgres:
-        image: cockroachdb/cockroach:v23.1.0
+        image: cockroachdb/cockroach:v24.1.5
         env:
           COCKROACH_DATABASE: relay_test
           COCKROACH_USER: root
@@ -34,6 +39,8 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+          --memory=512m
+          --cpus=0.5
         ports:
           - 26257:26257
     

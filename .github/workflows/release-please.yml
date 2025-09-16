@@ -3,6 +3,12 @@ name: Release Please
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - '.github/**'
+      - 'docker/**'
+      - 'docs/**'
+      - 'config/**'
   workflow_dispatch:
 
 permissions:
