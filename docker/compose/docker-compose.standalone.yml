@@ -11,7 +11,6 @@ services:
       - cockroach_volume:/cockroach/cockroach-data
     ports:
       - "26257:26257" # CockroachDB SQL
-      - "26258:26258" # CockroachDB RPC
       - "9090:8080" # CockroachDB Admin UI
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health?ready=1"]

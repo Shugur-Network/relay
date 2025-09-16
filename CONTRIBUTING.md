@@ -233,8 +233,8 @@ We use a **batched release approach** to group multiple contributions:
 git clone https://github.com/Shugur-Network/relay.git
 cd relay
 
-# Start development environment
-docker-compose -f docker/compose/docker-compose.local.yml up -d
+# Start development database
+docker-compose -f docker/compose/docker-compose.development.yml up -d
 
 # Install dependencies
 go mod download
@@ -243,14 +243,19 @@ go mod download
 go run ./cmd --config config/development.yaml
 ```
 
+**Development Environment Ports:**
+- **WebSocket**: `ws://localhost:8081`
+- **Metrics**: `http://localhost:8182/metrics`
+- **Database Admin**: `http://localhost:9091`
+
 #### Option 2: Manual Setup
 
 ```bash
-# 1. Setup CockroachDB
+# 1. Setup CockroachDB (Development Ports)
 docker run -d \
   --name cockroach-dev \
-  -p 26257:26257 \
-  -p 8080:8080 \
+  -p 26260:26257 \
+  -p 9091:8080 \
   cockroachdb/cockroach:v24.1.5 \
   start-single-node --insecure
 
@@ -259,11 +264,16 @@ cp config/development.yaml config.yaml
 # Edit database connection settings if needed
 
 # 3. Run relay
-go run ./cmd
+go run ./cmd --config config/development.yaml
 
 # 4. Verify installation
-curl http://localhost:8080/health
+curl http://localhost:8081/health
 ```
+
+**Manual Setup Ports:**
+- **WebSocket**: `ws://localhost:8081`
+- **Metrics**: `http://localhost:8182/metrics`
+- **Database Admin**: `http://localhost:9091`
 
 ### Development Tools
 
@@ -303,9 +313,9 @@ make clean
 #### **Development Environment Variables**
 
 ```bash
-# Required
+# Required (Development Ports)
 export SHUGUR_DB_HOST=localhost
-export SHUGUR_DB_PORT=26257
+export SHUGUR_DB_PORT=26260
 export SHUGUR_DB_USER=root
 export SHUGUR_DB_SSL_MODE=disable
 
@@ -313,15 +323,62 @@ export SHUGUR_DB_SSL_MODE=disable
 export SHUGUR_LOG_LEVEL=debug
 export SHUGUR_METRICS_ENABLED=true
 export SHUGUR_WEB_ENABLED=true
+export SHUGUR_WS_ADDR=:8081
+export SHUGUR_METRICS_PORT=8182
 ```
 
 #### **Configuration Files**
 
-| File | Purpose | Environment |
-|------|---------|-------------|
-| `config/development.yaml` | Local development | Development |
-| `config/production.yaml` | Production template | Production |
-| `config.yaml` | Your local config | Local override |
+| File | Purpose | Environment | Ports |
+|------|---------|-------------|-------|
+| `config/development.yaml` | Local development | Development | WS: 8081, Metrics: 8182, DB: 26260 |
+| `config/test.yaml` | Testing environment | Testing | WS: 8082, Metrics: 8183, DB: 26262 |
+| `config/production.yaml` | Production template | Production | WS: 8080, Metrics: 8180, DB: 26257 |
+| `config.yaml` | Your local config | Local override | Custom |
+
+### Multi-Environment Setup
+
+Shugur Relay supports running multiple environments simultaneously on the same host with different port configurations:
+
+#### **Environment Ports Overview**
+
+| Environment | WebSocket | Metrics | DB SQL | DB RPC | DB Admin |
+|-------------|-----------|---------|--------|--------|----------|
+| **Development** | 8081 | 8182 | 26260 | 26261 | 9091 |
+| **Testing** | 8082 | 8183 | 26262 | 26263 | 9092 |
+| **Production** | 8080 | 8180 | 26257 | 26258 | 9090 |
+
+#### **Running Multiple Environments**
+
+```bash
+# Start all environments simultaneously
+docker-compose -f docker/compose/docker-compose.development.yml up -d
+docker-compose -f docker/compose/docker-compose.test.yml up -d
+docker-compose -f docker/compose/docker-compose.standalone.yml up -d
+
+# Run relay instances
+go run ./cmd --config config/development.yaml &  # Port 8081
+go run ./cmd --config config/test.yaml &         # Port 8082
+go run ./cmd --config config/production.yaml &   # Port 8080
+```
+
+#### **Environment-Specific Commands**
+
+```bash
+# Development
+docker-compose -f docker/compose/docker-compose.development.yml up -d
+go run ./cmd --config config/development.yaml
+
+# Testing
+docker-compose -f docker/compose/docker-compose.test.yml up -d
+go run ./cmd --config config/test.yaml
+
+# Production
+docker-compose -f docker/compose/docker-compose.standalone.yml up -d
+go run ./cmd --config config/production.yaml
+```
+
+For detailed port mapping information, see [config/PORT_MAPPING.md](config/PORT_MAPPING.md).
 
 ### Database Management
 
@@ -375,13 +432,17 @@ go test -race ./...
 
 #### **Integration Tests**
 ```bash
-# Start test database
-docker run -d --name cockroach-test -p 26258:26257 \
-  cockroachdb/cockroach:v24.1.5 start-single-node --insecure
+# Start test database (Testing Ports)
+docker-compose -f docker/compose/docker-compose.test.yml up -d
 
 # Run integration tests
-SHUGUR_DB_PORT=26258 go test -tags=integration ./tests/integration/...
+go test -tags=integration ./tests/integration/... --config config/test.yaml
 ```
+
+**Testing Environment Ports:**
+- **WebSocket**: `ws://localhost:8082`
+- **Metrics**: `http://localhost:8183/metrics`
+- **Database Admin**: `http://localhost:9092`
 
 #### **NIP Compliance Tests**
 ```bash
@@ -393,18 +454,8 @@ cd tests/nips
 ./test_nip15.sh    # End of stored events notice
 ./test_nip50.sh    # Search capability
 
-# Test all implemented NIPs
-./run_all_tests.sh
 ```
 
-#### **Performance Tests**
-```bash
-# Run benchmarks
-go test -bench=. -benchmem ./...
-
-# Performance regression detection
-go test -bench=. -count=5 ./internal/storage/... > bench.txt
-```
 
 ### Test Writing Guidelines
 

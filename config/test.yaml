@@ -1,0 +1,56 @@
+# Test Configuration for Shugur Relay
+# Testing-specific settings with isolated ports and minimal resources
+
+GENERAL:
+  # Reserved for future general configuration options
+
+LOGGING:
+  LEVEL: info                     # Log level (debug, info, warn, error)
+  FILE:                          # Path for the log file (optional)
+  FORMAT: json                   # Log format (console, json)
+  MAX_SIZE: 10                   # Maximum size of the log file in MB
+  MAX_BACKUPS: 3                 # Maximum number of backup files
+  MAX_AGE: 7                     # Maximum age of backup files in days
+
+METRICS:
+  ENABLED: true                  # Enable metrics collection
+  PORT: 8183                     # Port for Prometheus metrics (different from dev/prod)
+
+RELAY:
+  NAME: "shugur-relay-test"      # Relay name (max 30 chars, shown in NIP-11)
+  DESCRIPTION: "High-performance, reliable, scalable Nostr relay for decentralized communication - Testing" # Relay description (max 200 chars, shown in NIP-11)
+  CONTACT: "test@shugur.com"     # Relay contact email (shown in NIP-11)
+  ICON: "https://github.com/Shugur-Network/relay/raw/main/logo.png" # Relay icon URL (shown in NIP-11)
+  BANNER: "https://github.com/Shugur-Network/relay/raw/main/banner.png" # Relay banner URL (optional, shown in NIP-11)
+  WS_ADDR: ":8082"              # WebSocket listening address (different from dev/prod)
+  PUBLIC_URL: "ws://localhost:8082" # Public URL (optional)
+  EVENT_CACHE_SIZE: 1000         # Event cache size (smaller for testing)
+  SEND_BUFFER_SIZE: 2048         # WebSocket send buffer size
+  WRITE_TIMEOUT: 5s              # WebSocket write timeout
+  IDLE_TIMEOUT: 30s              # Connection idle timeout
+  THROTTLING:
+    MAX_CONTENT_LENGTH: 32768    # Maximum content length in bytes
+    MAX_CONNECTIONS: 50          # Maximum concurrent connections (smaller for testing)
+    BAN_THRESHOLD: 5             # Number of violations before ban
+    BAN_DURATION: 30             # Ban duration in seconds
+    RATE_LIMIT:
+      ENABLED: true              # Enable rate limiting
+      MAX_EVENTS_PER_SECOND: 100 # Maximum events per second (lower for testing)
+      MAX_REQUESTS_PER_SECOND: 200 # Maximum requests per second
+      BURST_SIZE: 50             # Rate limit burst size
+      PROGRESSIVE_BAN: false     # Enable progressive ban duration
+      MAX_BAN_DURATION: 2m       # Maximum ban duration
+
+RELAY_POLICY:
+  BLACKLIST:
+    PUBKEYS: []                  # List of pubkeys to blacklist (hex format)
+  WHITELIST:
+    PUBKEYS: []                  # List of pubkeys to whitelist (hex format)
+
+CAPSULES:
+  ENABLED: true                  # Enable Time Capsules feature
+  MAX_WITNESSES: 5               # Maximum number of witnesses allowed per time capsule (smaller for testing)
+
+DATABASE:
+  SERVER: "localhost"            # Database server hostname
+  PORT: 26262                    # Database port (matches test docker-compose)
