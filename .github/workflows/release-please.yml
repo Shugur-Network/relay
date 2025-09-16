@@ -4,6 +4,12 @@ on:
   # Only run on push to main to update release PR (no direct releases)
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - '.github/**'
+      - 'docker/**'
+      - 'docs/**'
+      - 'config/**'
   # Manual trigger for creating releases
   workflow_dispatch:
     inputs:

@@ -1,0 +1,76 @@
+name: "Docker Security Scan"
+
+on:
+  schedule:
+    # Run weekly on Mondays at 02:00 UTC (reduced from daily)
+    - cron: '0 2 * * 1'
+  workflow_dispatch: # Allow manual triggering
+  push:
+    branches: [main]
+    paths:
+      - 'docker/**'
+      - 'Dockerfile'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  docker-scan:
+    name: Docker Security Scan
+    runs-on: ubuntu-latest
+    if: github.repository == 'Shugur-Network/relay' # Only run on main repository
+    
+    strategy:
+      matrix:
+        image:
+          - "relay:latest"
+          - "relay:dev"
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
+        
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ matrix.image }} -f docker/Dockerfile .
+          
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@5681af892cd0159a4d2bdbac5beb4b1ba17dc882 # v0.29.0
+        with:
+          image-ref: ${{ matrix.image }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.image }}.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@ea9e4e37992a54ee68a9622e985e60c8e8f12d9f # v3.27.4
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.image }}.sarif'
+          
+      - name: Generate summary report
+        if: always()
+        run: |
+          echo "## 🔍 Docker Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ matrix.image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Scan Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Count vulnerabilities by severity
+          if [[ -f "trivy-results-${{ matrix.image }}.sarif" ]]; then
+            CRITICAL=$(jq '.runs[0].results[] | select(.level == "error") | .ruleId' trivy-results-${{ matrix.image }}.sarif 2>/dev/null | wc -l || echo "0")
+            HIGH=$(jq '.runs[0].results[] | select(.level == "warning") | .ruleId' trivy-results-${{ matrix.image }}.sarif 2>/dev/null | wc -l || echo "0")
+            MEDIUM=$(jq '.runs[0].results[] | select(.level == "note") | .ruleId' trivy-results-${{ matrix.image }}.sarif 2>/dev/null | wc -l || echo "0")
+            
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔴 Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟠 High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟡 Medium | $MEDIUM |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Scan results file not found" >> $GITHUB_STEP_SUMMARY
+          fi

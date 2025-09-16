@@ -511,3 +511,71 @@ jobs:
             -ldflags "-w -s -X main.version=${VERSION} -X main.commit=${{ github.sha }} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o dist/relay-linux-amd64 \
             ./cmd
+
+  # Build Result Aggregation (inspired by AutoMQ)
+  build-summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [test, build, security, lint]
+    if: always()
+    steps:
+      - name: Check build results
+        run: |
+          echo "## 🏗️ Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check each job status
+          TEST_STATUS="${{ needs.test.result }}"
+          BUILD_STATUS="${{ needs.build.result }}"
+          SECURITY_STATUS="${{ needs.security.result }}"
+          LINT_STATUS="${{ needs.lint.result }}"
+          
+          echo "| Job | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Test results
+          case "$TEST_STATUS" in
+            "success") echo "| 🧪 Tests | ✅ Passed | All tests completed successfully |" >> $GITHUB_STEP_SUMMARY ;;
+            "skipped") echo "| 🧪 Tests | ⏭️ Skipped | Tests were skipped |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🧪 Tests | ❌ Failed | Tests failed or had issues |" >> $GITHUB_STEP_SUMMARY ;;
+          esac
+          
+          # Build results
+          case "$BUILD_STATUS" in
+            "success") echo "| 🏗️ Build | ✅ Passed | Binary compiled successfully |" >> $GITHUB_STEP_SUMMARY ;;
+            "skipped") echo "| 🏗️ Build | ⏭️ Skipped | Build was skipped |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🏗️ Build | ❌ Failed | Build compilation failed |" >> $GITHUB_STEP_SUMMARY ;;
+          esac
+          
+          # Security results
+          case "$SECURITY_STATUS" in
+            "success") echo "| 🔒 Security | ✅ Passed | No security issues found |" >> $GITHUB_STEP_SUMMARY ;;
+            "skipped") echo "| 🔒 Security | ⏭️ Skipped | Security scan was skipped |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🔒 Security | ❌ Failed | Security scan found issues |" >> $GITHUB_STEP_SUMMARY ;;
+          esac
+          
+          # Lint results
+          case "$LINT_STATUS" in
+            "success") echo "| 📝 Lint | ✅ Passed | Code meets quality standards |" >> $GITHUB_STEP_SUMMARY ;;
+            "skipped") echo "| 📝 Lint | ⏭️ Skipped | Linting was skipped |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 📝 Lint | ❌ Failed | Code quality issues found |" >> $GITHUB_STEP_SUMMARY ;;
+          esac
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Overall status - consider success and skipped as passing
+          FAILED_JOBS=0
+          [[ "$TEST_STATUS" != "success" && "$TEST_STATUS" != "skipped" ]] && ((FAILED_JOBS++))
+          [[ "$BUILD_STATUS" != "success" && "$BUILD_STATUS" != "skipped" ]] && ((FAILED_JOBS++))
+          [[ "$SECURITY_STATUS" != "success" && "$SECURITY_STATUS" != "skipped" ]] && ((FAILED_JOBS++))
+          [[ "$LINT_STATUS" != "success" && "$LINT_STATUS" != "skipped" ]] && ((FAILED_JOBS++))
+          
+          if [[ $FAILED_JOBS -eq 0 ]]; then
+            echo "## ✅ Overall Status: **PASSED**" >> $GITHUB_STEP_SUMMARY
+            echo "All checks completed successfully. Ready to merge!" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "## ❌ Overall Status: **FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "One or more checks failed. Please review the issues above." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
