@@ -88,7 +88,6 @@ All ports are carefully assigned to avoid conflicts:
 - WebSocket ports: 8080, 8081, 8082
 - Metrics ports: 8180, 8181, 8182, 8183
 - Database SQL ports: 26257, 26260, 26262
-- Database RPC ports: 26261, 26263 (development and testing only)
 - Database Admin UI ports: 9090, 9091, 9092
 
 ## Environment Variables

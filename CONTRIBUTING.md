@@ -344,8 +344,8 @@ Shugur Relay supports running multiple environments simultaneously on the same h
 
 | Environment | WebSocket | Metrics | DB SQL | DB RPC | DB Admin |
 |-------------|-----------|---------|--------|--------|----------|
-| **Development** | 8081 | 8182 | 26260 | 26261 | 9091 |
-| **Testing** | 8082 | 8183 | 26262 | 26263 | 9092 |
+| **Development** | 8081 | 8182 | 26260 |  | 9091 |
+| **Testing** | 8082 | 8183 | 26262 |  | 9092 |
 | **Production** | 8080 | 8180 | 26257 | 26258 | 9090 |
 
 #### **Running Multiple Environments**
