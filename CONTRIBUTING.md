@@ -382,19 +382,6 @@ For detailed port mapping information, see [config/PORT_MAPPING.md](config/PORT_
 
 ### Database Management
 
-#### **Database Schema**
-
-```bash
-# Apply migrations
-go run ./cmd migrate
-
-# Reset database (⚠️ destructive)
-go run ./cmd migrate --reset
-
-# Check migration status
-go run ./cmd migrate --status
-```
-
 #### **Database Operations**
 
 ```bash
