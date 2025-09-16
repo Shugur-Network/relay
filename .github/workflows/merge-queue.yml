@@ -1,0 +1,82 @@
+name: "Merge Queue Management"
+
+on:
+  workflow_dispatch:  # Manual trigger only - not needed for solo development
+  # pull_request:
+  #   types: [labeled, unlabeled, synchronize]
+  # schedule:
+  #   - cron: '0 * * * *'  # Check every hour
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  merge-queue:
+    name: Manage Merge Queue
+    runs-on: ubuntu-latest
+    if: github.repository == 'Shugur-Network/relay'
+    
+    steps:
+      - name: Auto-merge approved PRs
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              sort: 'created',
+              direction: 'asc'
+            });
+            
+            for (const pr of prs) {
+              // Skip draft PRs
+              if (pr.draft) continue;
+              
+              // Check if PR has required labels
+              const labels = pr.labels.map(l => l.name);
+              if (labels.includes('do-not-merge') || labels.includes('work-in-progress')) {
+                continue;
+              }
+              
+              // Check if PR is approved and ready
+              const { data: reviews } = await github.rest.pulls.listReviews({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number
+              });
+              
+              const approvedReviews = reviews.filter(r => r.state === 'APPROVED');
+              const requestedChanges = reviews.filter(r => r.state === 'CHANGES_REQUESTED');
+              
+              // Check status checks
+              const { data: statusChecks } = await github.rest.repos.getCombinedStatusForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: pr.head.sha
+              });
+              
+              // Auto-merge if conditions are met
+              if (approvedReviews.length >= 1 && 
+                  requestedChanges.length === 0 && 
+                  statusChecks.state === 'success' &&
+                  labels.includes('auto-merge')) {
+                
+                try {
+                  await github.rest.pulls.merge({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: pr.number,
+                    commit_title: `${pr.title} (#${pr.number})`,
+                    commit_message: `Co-authored-by: ${pr.user.login} <${pr.user.login}@users.noreply.github.com>`,
+                    merge_method: 'squash'
+                  });
+                  
+                  console.log(`✅ Auto-merged PR #${pr.number}: ${pr.title}`);
+                } catch (error) {
+                  console.log(`❌ Failed to merge PR #${pr.number}: ${error.message}`);
+                }
+              }
+            }
