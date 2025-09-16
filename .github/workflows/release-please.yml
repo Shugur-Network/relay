@@ -1,6 +1,7 @@
 name: Release Please
 
 on:
+  # Only run on push to main to update release PR (no direct releases)
   push:
     branches: [main]
     paths-ignore:
@@ -9,7 +10,17 @@ on:
       - 'docker/**'
       - 'docs/**'
       - 'config/**'
+  # Manual trigger for creating releases
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release to create'
+        required: true
+        default: 'prerelease'
+        type: choice
+        options:
+          - prerelease
+          - stable
 
 permissions:
   contents: write
@@ -19,9 +30,30 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - name: Run release-please
+      - name: Run release-please (Create/Update PR)
+        if: github.event_name == 'push'
+        id: release-pr
         uses: googleapis/release-please-action@7987652d64b4581673a76e33ad5e98e3dd56832f # v4.1.3
         with:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: .release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Create prerelease (Manual)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_type == 'prerelease'
+        uses: googleapis/release-please-action@7987652d64b4581673a76e33ad5e98e3dd56832f # v4.1.3
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+          command: github-release
+          prerelease: true
+
+      - name: Create stable release (Manual)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_type == 'stable'
+        uses: googleapis/release-please-action@7987652d64b4581673a76e33ad5e98e3dd56832f # v4.1.3
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+          command: github-release
