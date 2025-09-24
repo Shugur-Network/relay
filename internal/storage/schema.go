@@ -68,10 +68,21 @@ func (db *DB) InitializeSchema(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize database schema: %w", err)
 	}
 
-	// Initialize changefeed for distributed event synchronization
-	if err := db.InitializeChangefeed(ctx); err != nil {
-		logger.Warn("Failed to initialize changefeed (this is normal for single-node setups)", zap.Error(err))
-		// Don't return error as changefeed might not be available in all environments
+	// Check if database is running in cluster mode
+	isCluster, err := db.isClusterMode(ctx)
+	if err != nil {
+		logger.Warn("Failed to detect cluster mode, assuming standalone", zap.Error(err))
+		isCluster = false
+	}
+
+	if isCluster {
+		// Initialize changefeed for distributed event synchronization only in cluster mode
+		if err := db.InitializeChangefeed(ctx); err != nil {
+			logger.Warn("Failed to initialize changefeed", zap.Error(err))
+			// Don't return error as changefeed might not be available in all environments
+		}
+	} else {
+		logger.Info("Running in standalone mode - skipping changefeed initialization")
 	}
 
 	logger.Info("✅ Database schema initialized successfully")
@@ -111,6 +122,39 @@ func (db *DB) applyClusterSettingsAsync(ctx context.Context) {
 			logger.Debug("No cluster settings applied (this is normal for single-node or restricted environments)")
 		}
 	}()
+}
+
+// isClusterMode checks if the database is running in cluster mode (more than 1 node)
+func (db *DB) isClusterMode(ctx context.Context) (bool, error) {
+	if !db.isConnected() {
+		return false, fmt.Errorf("database is not connected")
+	}
+
+	// Query for the number of live nodes in the cluster
+	query := `
+		SELECT COUNT(*) as live_nodes
+		FROM crdb_internal.gossip_nodes 
+		WHERE is_live = true
+	`
+
+	var liveNodes int
+	err := db.Pool.QueryRow(ctx, query).Scan(&liveNodes)
+	if err != nil {
+		// If we can't query cluster info, assume standalone
+		logger.Debug("Failed to query cluster nodes, assuming standalone mode", zap.Error(err))
+		return false, err
+	}
+
+	// More than 1 node means it's a cluster
+	isCluster := liveNodes > 1
+	
+	if isCluster {
+		logger.Info("Detected cluster mode", zap.Int("live_nodes", liveNodes))
+	} else {
+		logger.Info("Detected standalone mode", zap.Int("live_nodes", liveNodes))
+	}
+
+	return isCluster, nil
 }
 
 // InitializeChangefeed verifies changefeed capability for distributed event synchronization

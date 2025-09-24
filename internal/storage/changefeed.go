@@ -84,18 +84,38 @@ func (ed *EventDispatcher) Start() error {
 		return logger.NewError("database is not connected")
 	}
 
-	logger.Info("Starting changefeed event dispatcher...")
+	logger.Info("Starting event dispatcher...")
+
+	// Check if we're running in cluster mode
+	isCluster, err := ed.db.isClusterMode(ed.ctx)
+	if err != nil {
+		logger.Warn("Failed to detect cluster mode, defaulting to standalone", zap.Error(err))
+		isCluster = false
+	}
+
+	if !isCluster {
+		logger.Info("Standalone mode detected - skipping cross-node synchronization")
+		// Only start local event processing
+		go ed.processEvents()
+		logger.Info("✅ Event dispatcher started in standalone mode")
+		return nil
+	}
+
+	logger.Info("Cluster mode detected - enabling cross-node synchronization")
 
 	// Verify changefeed capability before starting
 	if err := ed.verifyChangefeedSupport(); err != nil {
-		logger.Warn("Changefeed not supported, running without real-time sync", zap.Error(err))
-		return nil // Don't fail startup, just run without changefeed
+		logger.Warn("Changefeed not supported, running without cross-node sync", zap.Error(err))
+		// Still start local processing
+		go ed.processEvents()
+		logger.Info("✅ Event dispatcher started without cross-node sync")
+		return nil
 	}
 
 	go ed.processEvents()
 	go ed.listenToChangefeed()
 
-	logger.Info("✅ Changefeed event dispatcher started")
+	logger.Info("✅ Event dispatcher started with cross-node synchronization")
 	return nil
 }
 
