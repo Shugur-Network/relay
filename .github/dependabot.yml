@@ -18,6 +18,8 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "github.com/jackc/pgx/v5"
+        versions: ["5.7.5", "5.7.6", ">= 5.8.0"]
 
   - package-ecosystem: github-actions
     directory: "/"
