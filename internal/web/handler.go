@@ -95,6 +95,10 @@ func NewHandler(cfg *config.Config, logger *zap.Logger, node interface{}) *Handl
 
 // HandleDashboard serves the main dashboard page
 func (h *Handler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
+	// Apply security headers for dashboard
+	dashboardHeaders := DefaultSecurityHeaders()
+	dashboardHeaders.Apply(w)
+	
 	// Load template
 	tmplPath := filepath.Join("web", "templates", "index.html")
 	tmpl, err := template.ParseFiles(tmplPath)
@@ -117,6 +121,10 @@ func (h *Handler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 
 // HandleStatic serves static files
 func (h *Handler) HandleStatic(w http.ResponseWriter, r *http.Request) {
+	// Apply security headers for static files
+	staticHeaders := DefaultSecurityHeaders()
+	staticHeaders.Apply(w)
+	
 	// Serve static files safely, preventing path traversal
 	root := filepath.Join("web", "static")
 
@@ -140,6 +148,10 @@ func (h *Handler) HandleStatic(w http.ResponseWriter, r *http.Request) {
 
 // HandleStatsAPI serves the stats API endpoint
 func (h *Handler) HandleStatsAPI(w http.ResponseWriter, r *http.Request) {
+	// Apply security headers for API endpoints
+	apiHeaders := APISecurityHeaders()
+	apiHeaders.Apply(w)
+	
 	// Set headers
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -181,6 +193,10 @@ func (h *Handler) HandleStatsAPI(w http.ResponseWriter, r *http.Request) {
 
 // HandleMetricsAPI serves real-time metrics for dashboard
 func (h *Handler) HandleMetricsAPI(w http.ResponseWriter, r *http.Request) {
+	// Apply security headers for API endpoints
+	apiHeaders := APISecurityHeaders()
+	apiHeaders.Apply(w)
+	
 	// Set headers
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -372,6 +388,10 @@ func (h *Handler) getClusterData() *storage.CockroachClusterInfo {
 
 // HandleClusterAPI serves the cluster API endpoint
 func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
+	// Apply security headers for API endpoints
+	apiHeaders := APISecurityHeaders()
+	apiHeaders.Apply(w)
+	
 	// Set headers
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")

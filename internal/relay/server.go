@@ -69,6 +69,9 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 				// Serve dashboard for browser requests
 				s.webHandler.HandleDashboard(w, r)
 			case r.Header.Get("Accept") == "application/nostr+json":
+				// Apply security headers for API endpoints
+				apiHeaders := web.APISecurityHeaders()
+				apiHeaders.Apply(w)
 				// Serve NIP-11 metadata for Nostr clients
 				metadata := constants.DefaultRelayMetadata(s.fullCfg)
 				nips.ServeRelayMetadata(w, metadata)
@@ -76,6 +79,9 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 				// Serve static files
 				s.webHandler.HandleStatic(w, r)
 			case r.URL.Path == "/api/info":
+				// Apply security headers for API endpoints
+				apiHeaders := web.APISecurityHeaders()
+				apiHeaders.Apply(w)
 				// Serve relay info API
 				metadata := constants.DefaultRelayMetadata(s.fullCfg)
 				w.Header().Set("Content-Type", "application/json")

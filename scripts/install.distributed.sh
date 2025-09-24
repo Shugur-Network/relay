@@ -564,7 +564,7 @@ DATABASE:
   PORT: 26257
 EOF
 
-  # Caddyfile
+  # Caddyfile with comprehensive security headers
   cat > "$CLUSTER_DIR/$node_id/config/Caddyfile" << EOF
 $node_url {
     handle /api/* {
@@ -594,6 +594,7 @@ $node_url {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"
         Referrer-Policy "strict-origin-when-cross-origin"
+        X-XSS-Protection "1; mode=block"
         X-Cluster-Node "$node_id"
         -Server
         -X-Powered-By
