@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Shugur-Network/relay/internal/constants"
 	"github.com/Shugur-Network/relay/internal/logger"
 	"github.com/Shugur-Network/relay/internal/metrics"
 	"github.com/jackc/pgx/v5"
@@ -39,8 +40,56 @@ type DB struct {
 	errorCountMu    sync.RWMutex
 }
 
-// InitDB initializes the CockroachDB connection with retries
-func InitDB(ctx context.Context, dbURI string) (*DB, error) {
+// createPoolBasedOnLoad creates optimized pool configuration based on expected WebSocket load
+func createPoolBasedOnLoad(ctx context.Context, dbURI string, maxWSConnections int) (*pgxpool.Pool, error) {
+	config, err := pgxpool.ParseConfig(dbURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse database URI: %w", err)
+	}
+	
+	// Determine appropriate pool size based on WebSocket connection limits
+	// This provides a reliable scaling mechanism based on actual configuration
+	var maxConns, minConns int32
+	var scaleType string
+	
+	if maxWSConnections <= 200 {
+		// Small scale: development, testing, small deployments
+		maxConns = int32(constants.DBPoolSmallMaxConns)
+		minConns = int32(constants.DBPoolSmallMinConns)
+		scaleType = "small"
+	} else if maxWSConnections <= 2000 {
+		// Medium scale: typical production deployments
+		maxConns = int32(constants.DBPoolMediumMaxConns)
+		minConns = int32(constants.DBPoolMediumMinConns)
+		scaleType = "medium"
+	} else {
+		// Large scale: high-traffic production deployments
+		maxConns = int32(constants.DBPoolLargeMaxConns)
+		minConns = int32(constants.DBPoolLargeMinConns)
+		scaleType = "large"
+	}
+	
+	// Configure pool with production-optimized settings
+	config.MaxConns = maxConns
+	config.MinConns = minConns
+	config.MaxConnLifetime = constants.DBConnMaxLifetime
+	config.MaxConnIdleTime = constants.DBConnMaxIdleTime
+	config.ConnConfig.ConnectTimeout = constants.DBConnAcquireTimeout
+	config.HealthCheckPeriod = 30 * time.Second // Regular health checks
+	
+	logger.Info("Database connection pool configured based on load",
+		zap.String("scale_type", scaleType),
+		zap.Int("max_ws_connections", maxWSConnections),
+		zap.Int32("db_max_conns", maxConns),
+		zap.Int32("db_min_conns", minConns),
+		zap.Duration("max_lifetime", constants.DBConnMaxLifetime),
+		zap.Duration("max_idle_time", constants.DBConnMaxIdleTime))
+	
+	return pgxpool.NewWithConfig(ctx, config)
+}
+
+// InitDB initializes the CockroachDB connection with retries and optimized connection pooling
+func InitDB(ctx context.Context, dbURI string, maxWSConnections int) (*DB, error) {
 	var pool *pgxpool.Pool
 	var err error
 	backoff := 2 * time.Second
@@ -53,7 +102,8 @@ func InitDB(ctx context.Context, dbURI string) (*DB, error) {
 
 	for i := 0; i < 5; i++ { // Retry up to 5 times
 		attempts++
-		pool, err = pgxpool.New(ctx, dbURI)
+		// Create pool with load-based configuration
+		pool, err = createPoolBasedOnLoad(ctx, dbURI, maxWSConnections)
 		if err == nil {
 			// Test the actual connection
 			if err = pool.Ping(ctx); err == nil {
@@ -61,8 +111,13 @@ func InitDB(ctx context.Context, dbURI string) (*DB, error) {
 				db.Bloom = bloom.NewWithEstimates(10_000_000, 0.01) // 10M entries with 1% false positive rate
 				db.state = DBStateConnected
 
+				// Log pool configuration for verification
+				stat := pool.Stat()
 				logger.Info("✅ DB Connected Successfully",
-					zap.Int("attempts", attempts))
+					zap.Int("attempts", attempts),
+					zap.Int("max_ws_connections", maxWSConnections),
+					zap.Int32("db_max_connections", stat.MaxConns()),
+					zap.Int32("db_total_connections", stat.TotalConns()))
 				metrics.DBConnections.WithLabelValues("success").Inc()
 				return db, nil
 			}

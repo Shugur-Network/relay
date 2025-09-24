@@ -18,6 +18,7 @@ import (
 	"github.com/Shugur-Network/relay/internal/relay"
 	"github.com/Shugur-Network/relay/internal/storage"
 	"github.com/Shugur-Network/relay/internal/workers"
+
 	"go.uber.org/zap"
 )
 
@@ -254,7 +255,7 @@ func (b *NodeBuilder) BuildDB() error {
 	// Optionally connect to default DB to create the target DB (only when defaultDbURI is set).
 	if defaultDbURI != "" {
 		logger.Info("Connecting to default database to check/create target database...", zap.String("as_user", "root"))
-		defaultConn, err := storage.InitDB(b.ctx, defaultDbURI)
+		defaultConn, err := storage.InitDB(b.ctx, defaultDbURI, b.config.Relay.ThrottlingConfig.MaxConnections)
 		if err != nil {
 			// Don’t hard fail; installer may have already provisioned the DB
 			logger.Warn("Root connection to default database failed; skipping create step (assuming provisioned).", zap.Error(err))
@@ -272,7 +273,7 @@ func (b *NodeBuilder) BuildDB() error {
 	logger.Info("Connecting to target database...",
 		zap.String("db", dbName),
 		zap.String("as_user", targetUser))
-	dbConn, err := storage.InitDB(b.ctx, targetDbURI)
+	dbConn, err := storage.InitDB(b.ctx, targetDbURI, b.config.Relay.ThrottlingConfig.MaxConnections)
 	if err != nil {
 		b.cancel()
 		return fmt.Errorf("failed to initialize database connection to %s: %w", dbName, err)

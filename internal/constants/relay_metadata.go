@@ -1,6 +1,8 @@
 package constants
 
 import (
+	"time"
+	
 	"github.com/Shugur-Network/relay/internal/config"
 	"github.com/Shugur-Network/relay/internal/identity"
 	nip11 "github.com/nbd-wtf/go-nostr/nip11"
@@ -68,6 +70,25 @@ const (
 	DefaultQueryPrealloc = 500           // Default query result preallocation size
 	MaxDBRetries         = 3             // Maximum database connection retry attempts
 	DBRetryDelay         = 1             // Database retry delay in seconds
+	
+	// Database connection pool constants (production-optimized)
+	// Pool sizes are calculated based on expected load patterns:
+	// Small scale: Up to 200 WebSocket connections
+	// Medium scale: 200-2000 WebSocket connections  
+	// Large scale: 2000+ WebSocket connections
+	DBPoolSmallMaxConns     = 8   // For small deployments (up to 200 WS connections)
+	DBPoolSmallMinConns     = 2   // Minimum idle connections for small deployments
+	DBPoolMediumMaxConns    = 25  // For medium deployments (200-2000 WS connections) 
+	DBPoolMediumMinConns    = 5   // Minimum idle connections for medium deployments
+	DBPoolLargeMaxConns     = 50  // For large deployments (2000+ WS connections)
+	DBPoolLargeMinConns     = 10  // Minimum idle connections for large deployments
+)
+
+// Duration constants
+const (
+	DBConnMaxLifetime    = 60 * time.Minute  // Connection max lifetime (1 hour)
+	DBConnMaxIdleTime    = 15 * time.Minute  // Max idle time (15 minutes)
+	DBConnAcquireTimeout = 10 * time.Second  // Timeout for acquiring connection
 )
 
 // Timeout constants (in seconds)
