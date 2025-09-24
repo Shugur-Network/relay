@@ -155,7 +155,7 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 
 	if banned && time.Now().Before(banExpiry) {
 		// Use new error handling system
-		banErr := errors.ClientBannedError("excessive messages", banExpiry.Sub(time.Now()).String()).
+		banErr := errors.ClientBannedError("excessive messages", time.Until(banExpiry).String()).
 			WithSeverity(errors.SeverityMedium)
 		errors.HandleHTTPError(w, r, banErr)
 		return

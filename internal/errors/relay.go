@@ -3,6 +3,7 @@ package errors
 import (
 	"fmt"
 	"net"
+	"strings"
 	"syscall"
 	
 	"github.com/gorilla/websocket"
@@ -133,13 +134,16 @@ func NetworkError(operation string, cause error) *AppError {
 		if netErr.Timeout() {
 			code = "NETWORK_TIMEOUT"
 			userMessage = "Network operation timed out. Please try again."
-		} else if netErr.Temporary() {
-			code = "NETWORK_TEMPORARY"
-			severity = SeverityLow
-			userMessage = "Temporary network error. Please try again."
 		} else {
-			code = "NETWORK_ERROR"
-			severity = SeverityHigh
+			// Check for common temporary network errors
+			if isTemporaryNetError(cause) {
+				code = "NETWORK_TEMPORARY"
+				severity = SeverityLow
+				userMessage = "Temporary network error. Please try again."
+			} else {
+				code = "NETWORK_ERROR"
+				severity = SeverityHigh
+			}
 		}
 	} else if opErr, ok := cause.(*net.OpError); ok {
 		if opErr.Op == "dial" {
@@ -239,4 +243,32 @@ func ShouldRetry(err error, attemptCount int, maxAttempts int) bool {
 	}
 	
 	return IsRecoverable(err)
+}
+
+// isTemporaryNetError checks if a network error is temporary
+// This replaces the deprecated netErr.Temporary() method
+func isTemporaryNetError(err error) bool {
+	// Check for common temporary network errors
+	if err == nil {
+		return false
+	}
+	
+	errStr := err.Error()
+	// Common temporary network error patterns
+	temporaryPatterns := []string{
+		"connection refused",
+		"no route to host",
+		"network is unreachable", 
+		"connection reset by peer",
+		"broken pipe",
+		"i/o timeout",
+	}
+	
+	for _, pattern := range temporaryPatterns {
+		if strings.Contains(strings.ToLower(errStr), pattern) {
+			return true
+		}
+	}
+	
+	return false
 }

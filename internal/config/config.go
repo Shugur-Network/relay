@@ -375,7 +375,7 @@ func getFieldErrorMessage(fe validator.FieldError) string {
 	case "shutdown_timeout_too_short":
 		return fmt.Sprintf("%s should be longer than write timeout to allow proper connection closure", field)
 	case "port_conflict":
-		return fmt.Sprintf("database port conflicts with metrics port, they must be different")
+		return "database port conflicts with metrics port, they must be different"
 	case "invalid_websocket_scheme":
 		return fmt.Sprintf("%s must use 'ws://' or 'wss://' scheme for WebSocket connections", field)
 	default:

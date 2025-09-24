@@ -10,6 +10,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// Define a custom type for context keys to avoid collisions
+type contextKey string
+
+const requestIDKey contextKey = "request_id"
+
 // HandlerFunc is a function type that can return an error
 type HandlerFunc func(w http.ResponseWriter, r *http.Request) error
 
@@ -33,7 +38,7 @@ func NewHandler(handlerFunc HandlerFunc) *Handler {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Add request ID to context for error tracking
 	requestID := generateRequestID()
-	ctx := context.WithValue(r.Context(), "request_id", requestID)
+	ctx := context.WithValue(r.Context(), requestIDKey, requestID)
 	r = r.WithContext(ctx)
 	
 	// Add request ID header to response
