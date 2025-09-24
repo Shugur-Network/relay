@@ -12,6 +12,7 @@ import (
 	"github.com/Shugur-Network/relay/internal/config"
 	"github.com/Shugur-Network/relay/internal/constants"
 	"github.com/Shugur-Network/relay/internal/domain"
+	"github.com/Shugur-Network/relay/internal/errors"
 	"github.com/Shugur-Network/relay/internal/limiter"
 	"github.com/Shugur-Network/relay/internal/logger"
 	"github.com/Shugur-Network/relay/internal/metrics"
@@ -356,6 +357,10 @@ func (b *NodeBuilder) BuildLists() {
 
 // Build finalizes the node construction.
 func (b *NodeBuilder) Build() (*Node, error) {
+	// Initialize error handling system early
+	errors.InitErrorHandling()
+	logger.Info("Error handling system initialized", zap.String("component", "node_builder"))
+
 	// Validate required components
 	if b.database == nil {
 		return nil, fmt.Errorf("database must be built before calling Build()")

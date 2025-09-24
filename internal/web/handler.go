@@ -13,6 +13,7 @@ import (
 
 	"github.com/Shugur-Network/relay/internal/config"
 	"github.com/Shugur-Network/relay/internal/constants"
+	"github.com/Shugur-Network/relay/internal/errors"
 	"github.com/Shugur-Network/relay/internal/identity"
 	"github.com/Shugur-Network/relay/internal/metrics"
 	"github.com/Shugur-Network/relay/internal/storage"
@@ -420,12 +421,20 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 
 	// Only allow GET requests
 	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		// Use new error handling system
+		methodErr := errors.ValidationError("METHOD_NOT_ALLOWED", 
+			"Only GET requests are allowed for this endpoint").
+			WithUserMessage("Method not allowed.")
+		errors.HandleHTTPError(w, r, methodErr)
 		return
 	}
 
 	if h.db == nil {
-		http.Error(w, "Database not available", http.StatusInternalServerError)
+		// Use new error handling system
+		dbErr := errors.InternalError("Database not available", nil).
+			WithSeverity(errors.SeverityCritical).
+			WithUserMessage("Database service is temporarily unavailable.")
+		errors.HandleHTTPError(w, r, dbErr)
 		return
 	}
 
@@ -438,10 +447,11 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 		requestType = SanitizeQueryParam(requestType)
 		// Only allow specific values
 		if requestType != "health" && requestType != "info" {
-			h.logger.Warn("Invalid cluster API request type",
-				zap.String("type", requestType),
-				zap.String("client_ip", r.RemoteAddr))
-			http.Error(w, "Invalid type parameter", http.StatusBadRequest)
+			// Use new error handling system
+			validationErr := errors.ValidationError("INVALID_TYPE_PARAMETER", 
+				"Type parameter must be 'health' or 'info'").
+				WithUserMessage("Invalid type parameter. Use 'health' or 'info'.")
+			errors.HandleHTTPError(w, r, validationErr)
 			return
 		}
 	}
@@ -449,22 +459,25 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 	if requestType == "health" {
 		health, err := h.db.GetClusterHealth(ctx)
 		if err != nil {
-			h.logger.Error("Failed to get cluster health", zap.Error(err))
-			http.Error(w, "Failed to get cluster health", http.StatusInternalServerError)
+			// Use new error handling system
+			dbErr := errors.HandleDatabaseError("cluster health check", err)
+			errors.HandleHTTPError(w, r, dbErr)
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(health); err != nil {
-			h.logger.Error("Failed to encode cluster health response", zap.Error(err))
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			// Use new error handling system
+			encodeErr := errors.InternalError("Failed to encode cluster health response", err)
+			errors.HandleHTTPError(w, r, encodeErr)
 			return
 		}
 	} else {
 		clusterInfo, err := h.db.GetCockroachClusterInfo(ctx)
 		if err != nil {
-			h.logger.Error("Failed to get cluster information", zap.Error(err))
-			http.Error(w, "Failed to get cluster information", http.StatusInternalServerError)
+			// Use new error handling system
+			dbErr := errors.HandleDatabaseError("cluster info retrieval", err)
+			errors.HandleHTTPError(w, r, dbErr)
 			return
 		}
 
