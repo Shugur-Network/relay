@@ -393,6 +393,7 @@ func (b *NodeBuilder) Build() (*Node, error) {
 
 		blacklistPubKeys: b.blacklist,
 		whitelistPubKeys: b.whitelist,
+		startTime:        time.Now(),
 	}
 
 	logger.Debug("Node initialized successfully via builder")

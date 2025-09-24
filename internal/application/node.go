@@ -39,6 +39,7 @@ type Node struct {
 	whitelistPubKeys map[string]struct{}
 
 	rateLimiter *limiter.RateLimiter
+	startTime   time.Time
 }
 
 // Ensure Node implements domain.NodeInterface
@@ -283,4 +284,16 @@ func (n *Node) GetActiveConnectionCount() int64 {
 // GetEventCount returns the count of events matching the given filter
 func (n *Node) GetEventCount(ctx context.Context, filter nostr.Filter) (int64, error) {
 	return n.db.GetEventCount(ctx, filter)
+}
+
+// GetConnectionCount returns the current number of active connections (for health checks)
+func (n *Node) GetConnectionCount() int {
+	n.wsConnsMu.RLock()
+	defer n.wsConnsMu.RUnlock()
+	return len(n.wsConns)
+}
+
+// GetStartTime returns when the node was started (for health checks)
+func (n *Node) GetStartTime() time.Time {
+	return n.startTime
 }

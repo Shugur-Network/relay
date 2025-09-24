@@ -9,9 +9,11 @@ import (
 	"github.com/Shugur-Network/relay/internal/config"
 	"github.com/Shugur-Network/relay/internal/constants"
 	"github.com/Shugur-Network/relay/internal/domain"
+	"github.com/Shugur-Network/relay/internal/health"
 	"github.com/Shugur-Network/relay/internal/logger"
 	"github.com/Shugur-Network/relay/internal/metrics"
 	"github.com/Shugur-Network/relay/internal/relay/nips"
+	"github.com/Shugur-Network/relay/internal/storage"
 	"github.com/Shugur-Network/relay/internal/web"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -19,21 +21,36 @@ import (
 
 // Server holds references to the relay configuration and node logic.
 type Server struct {
-	cfg        config.RelayConfig
-	fullCfg    *config.Config
-	node       domain.NodeInterface
-	webHandler *web.Handler
+	cfg           config.RelayConfig
+	fullCfg       *config.Config
+	node          domain.NodeInterface
+	webHandler    *web.Handler
+	healthChecker *health.HealthChecker
 }
 
 // NewServer constructs a new Server with the given RelayConfig and NodeInterface.
 func NewServer(relayCfg config.RelayConfig, node domain.NodeInterface, fullCfg *config.Config) *Server {
 	webHandler := web.NewHandler(fullCfg, logger.New("web"), node)
+	
+	// Create adapters for health checker
+	dbAdapter := &dbHealthAdapter{db: node.DB()}
+	nodeAdapter := &nodeHealthAdapter{node: node}
+	
+	// Create health checker
+	healthChecker := health.NewHealthChecker(
+		dbAdapter,
+		nodeAdapter,
+		fullCfg,
+		logger.New("health"),
+		config.Version,
+	)
 
 	return &Server{
-		cfg:        relayCfg,
-		fullCfg:    fullCfg,
-		node:       node,
-		webHandler: webHandler,
+		cfg:           relayCfg,
+		fullCfg:       fullCfg,
+		node:          node,
+		webHandler:    webHandler,
+		healthChecker: healthChecker,
 	}
 }
 
@@ -99,6 +116,9 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 			case r.URL.Path == "/api/cluster":
 				// Serve cluster information API with validation
 				web.SecureValidatedAPIHandlerFunc(s.webHandler.HandleClusterAPI)(w, r)
+			case r.URL.Path == "/health":
+				// Serve health check endpoint - no validation needed for basic health checks
+				s.healthChecker.HandleHealth(w, r)
 			default:
 				// Log invalid requests for security monitoring
 				logger.Warn("Invalid request path",
@@ -134,4 +154,41 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 func isWebSocketRequest(r *http.Request) bool {
 	return strings.Contains(strings.ToLower(r.Header.Get("Connection")), "upgrade") &&
 		strings.ToLower(r.Header.Get("Upgrade")) == "websocket"
+}
+
+// dbHealthAdapter adapts storage.DB to health.DatabaseInterface
+type dbHealthAdapter struct {
+	db *storage.DB
+}
+
+func (d *dbHealthAdapter) Ping() error {
+	return d.db.Ping()
+}
+
+func (d *dbHealthAdapter) Stats() health.DatabaseStats {
+	stats := d.db.Stats()
+	return health.DatabaseStats{
+		OpenConnections:    stats.OpenConnections,
+		InUse:              stats.InUse,
+		Idle:               stats.Idle,
+		MaxOpenConnections: stats.MaxOpenConnections,
+		MaxIdleConnections: stats.MaxIdleConnections,
+	}
+}
+
+func (d *dbHealthAdapter) GetClusterHealth(ctx context.Context) (map[string]interface{}, error) {
+	return d.db.GetClusterHealth(ctx)
+}
+
+// nodeHealthAdapter adapts domain.NodeInterface to health.NodeInterface  
+type nodeHealthAdapter struct {
+	node domain.NodeInterface
+}
+
+func (n *nodeHealthAdapter) GetConnectionCount() int {
+	return n.node.GetConnectionCount()
+}
+
+func (n *nodeHealthAdapter) GetStartTime() time.Time {
+	return n.node.GetStartTime()
 }

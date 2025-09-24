@@ -282,3 +282,40 @@ func (db *DB) executeWithRetry(ctx context.Context, f func(context.Context) erro
 func (db *DB) SetEventDispatcher(ed *EventDispatcher) {
 	db.eventDispatcher = ed
 }
+
+// Ping checks database connectivity
+func (db *DB) Ping() error {
+	if db.Pool == nil {
+		return fmt.Errorf("database pool is not initialized")
+	}
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	return db.Pool.Ping(ctx)
+}
+
+// Stats returns database connection pool statistics
+func (db *DB) Stats() DatabaseStats {
+	if db.Pool == nil {
+		return DatabaseStats{}
+	}
+	
+	stat := db.Pool.Stat()
+	return DatabaseStats{
+		OpenConnections:     int(stat.TotalConns()),
+		InUse:               int(stat.AcquiredConns()),
+		Idle:                int(stat.IdleConns()),
+		MaxOpenConnections:  int(stat.MaxConns()),
+		MaxIdleConnections:  int(stat.MaxConns()), // pgxpool doesn't separate max idle
+	}
+}
+
+// DatabaseStats represents database connection pool statistics
+type DatabaseStats struct {
+	OpenConnections    int
+	InUse             int  
+	Idle              int
+	MaxOpenConnections int
+	MaxIdleConnections int
+}
