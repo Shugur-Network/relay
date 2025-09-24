@@ -138,13 +138,9 @@ func Load(path string, log *zap.Logger) (*Config, error) {
 	return &cfg, nil
 }
 
-// MustLoad panics on failure (handy in tests / main()).
-func MustLoad(path string, log *zap.Logger) *Config {
-	cfg, err := Load(path, log)
-	if err != nil {
-		panic(err)
-	}
-	return cfg
+// MustLoad loads configuration and returns error instead of panicking (production-safe)
+func MustLoad(path string, log *zap.Logger) (*Config, error) {
+	return Load(path, log)
 }
 
 // initializeLogger initializes the logger using the LoggingConfig

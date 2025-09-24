@@ -69,7 +69,10 @@ func New(ctx context.Context, cfg *config.Config, privKey ed25519.PrivateKey) (*
 	builder.BuildLists()
 
 	// 8) Finally assemble the Node
-	node := builder.Build()
+	node, err := builder.Build()
+	if err != nil {
+		return nil, fmt.Errorf("failed to build node: %w", err)
+	}
 	return node, nil
 }
 

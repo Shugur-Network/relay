@@ -354,28 +354,28 @@ func (b *NodeBuilder) BuildLists() {
 }
 
 // Build finalizes the node construction.
-func (b *NodeBuilder) Build() *Node {
+func (b *NodeBuilder) Build() (*Node, error) {
 	// Validate required components
 	if b.database == nil {
-		panic("database must be built before calling Build()")
+		return nil, fmt.Errorf("database must be built before calling Build()")
 	}
 	if b.eventDispatcher == nil {
-		panic("event dispatcher must be built before calling Build()")
+		return nil, fmt.Errorf("event dispatcher must be built before calling Build()")
 	}
 	if b.workerPool == nil {
-		panic("worker pool must be built before calling Build()")
+		return nil, fmt.Errorf("worker pool must be built before calling Build()")
 	}
 	if b.validator == nil {
-		panic("validator must be built before calling Build()")
+		return nil, fmt.Errorf("validator must be built before calling Build()")
 	}
 	if b.eventVal == nil {
-		panic("event validator must be built before calling Build()")
+		return nil, fmt.Errorf("event validator must be built before calling Build()")
 	}
 	if b.eventProc == nil {
-		panic("event processor must be built before calling Build()")
+		return nil, fmt.Errorf("event processor must be built before calling Build()")
 	}
 	if b.rateLimiter == nil {
-		panic("rate limiter must be built before calling Build()")
+		return nil, fmt.Errorf("rate limiter must be built before calling Build()")
 	}
 
 	node := &Node{
@@ -397,5 +397,5 @@ func (b *NodeBuilder) Build() *Node {
 
 	logger.Debug("Node initialized successfully via builder")
 	b.database.StartExpiredEventsCleaner(b.ctx, time.Hour)
-	return node
+	return node, nil
 }
