@@ -136,12 +136,12 @@ func init() {
 			if cfgFile != "" {
 				absPath, err := filepath.Abs(cfgFile)
 				if err != nil {
-					fmt.Printf("❌ Failed to resolve absolute path for config: %v\n", err)
+					logger.Error("Failed to resolve absolute path for config", zap.Error(err))
 					os.Exit(1)
 				}
 				cfgFile = absPath
 			}
-			fmt.Printf("🔍 Using config file: %s\n", cfgFile)
+			logger.Info("Using config file", zap.String("config_file", cfgFile))
 
 			// Use the context passed down from main.go
 			ctx := cmd.Context()
@@ -154,14 +154,12 @@ func init() {
 			app, err := application.New(ctx, cfg, nil)
 			if err != nil {
 				logger.Error("Failed to initialize the relay", zap.Error(err))
-				fmt.Printf("❌ Failed to initialize relay: %v\n", err)
 				os.Exit(1)
 			}
 
 			// Start the relay
 			if err := app.Start(ctx); err != nil {
 				logger.Error("Failed to start the relay", zap.Error(err))
-				fmt.Printf("❌ Failed to start relay: %v\n", err)
 				os.Exit(1)
 			}
 
