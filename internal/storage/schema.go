@@ -57,6 +57,9 @@ func (db *DB) InitializeSchema(ctx context.Context) error {
 	// Note: The database connection should already be to the "shugur" database
 	// If we're here, it means the database exists and we're connected to it
 
+	// First, apply cluster settings (each setting in its own transaction)
+	db.applyClusterSettingsAsync(ctx)
+
 	// Execute the schema DDL to create tables
 	_, err := db.Pool.Exec(ctx, schemaDDL)
 	if err != nil {
@@ -72,6 +75,41 @@ func (db *DB) InitializeSchema(ctx context.Context) error {
 
 	logger.Info("✅ Database schema initialized successfully")
 	return nil
+}
+
+// applyClusterSettingsAsync applies CockroachDB cluster performance settings asynchronously
+// Each setting is executed in its own transaction to avoid "cannot be used inside a multi-statement transaction" errors
+func (db *DB) applyClusterSettingsAsync(ctx context.Context) {
+	// Don't block schema initialization on cluster settings
+	go func() {
+		clusterSettings := []string{
+			"SET CLUSTER SETTING storage.sstable.compression_algorithm = 'zstd'",
+			"SET CLUSTER SETTING storage.sstable.compression_algorithm_backup_storage = 'zstd'", 
+			"SET CLUSTER SETTING storage.sstable.compression_algorithm_backup_transport = 'zstd'",
+		}
+
+		settingsApplied := 0
+		for _, setting := range clusterSettings {
+			// Create a new context with timeout for each setting
+			settingCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			_, err := db.Pool.Exec(settingCtx, setting)
+			cancel()
+			
+			if err != nil {
+				logger.Debug("Failed to apply cluster setting (this is normal for single-node or restricted environments)", 
+					zap.String("setting", setting),
+					zap.Error(err))
+				continue
+			}
+			settingsApplied++
+		}
+
+		if settingsApplied > 0 {
+			logger.Info("✅ Cluster settings applied successfully", zap.Int("applied", settingsApplied), zap.Int("total", len(clusterSettings)))
+		} else {
+			logger.Debug("No cluster settings applied (this is normal for single-node or restricted environments)")
+		}
+	}()
 }
 
 // InitializeChangefeed verifies changefeed capability for distributed event synchronization
@@ -97,10 +135,14 @@ func (db *DB) InitializeChangefeed(ctx context.Context) error {
 	}
 
 	// Ensure rangefeed is enabled for changefeeds to work
+	// Execute in its own transaction to avoid multi-statement transaction issues
 	logger.Info("Enabling rangefeed setting for changefeed support...")
-	_, err = db.Pool.Exec(ctx, "SET CLUSTER SETTING kv.rangefeed.enabled = true")
+	rangefeedCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	
+	_, err = db.Pool.Exec(rangefeedCtx, "SET CLUSTER SETTING kv.rangefeed.enabled = true")
 	if err != nil {
-		logger.Warn("Failed to enable rangefeed setting", zap.Error(err))
+		logger.Warn("Failed to enable rangefeed setting (this is normal for single-node or restricted environments)", zap.Error(err))
 		return fmt.Errorf("failed to enable rangefeed setting: %w", err)
 	}
 	logger.Info("✅ Rangefeed setting enabled successfully")
@@ -117,8 +159,8 @@ func (db *DB) InitializeChangefeed(ctx context.Context) error {
 
 	// This will fail fast if user doesn't have changefeed permissions
 	// or if changefeeds aren't properly configured
-	ctx_test, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+	ctx_test, cancel_test := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel_test()
 
 	// Try to create a changefeed (it will start running, so we need to close it immediately)
 	rows, err := db.Pool.Query(ctx_test, testChangefeedSQL)
