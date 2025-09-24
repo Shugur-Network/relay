@@ -39,10 +39,6 @@ func extractRealClientIP(r *http.Request) string {
 	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
 		extractedIP = strings.TrimSpace(realIP)
 		source = "X-Real-IP"
-		logger.Debug("Client IP extracted from X-Real-IP header",
-			zap.String("real_ip", extractedIP),
-			zap.String("source", source),
-			zap.String("raw_remote_addr", r.RemoteAddr))
 		return extractedIP
 	}
 

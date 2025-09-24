@@ -459,10 +459,6 @@ func (pv *PluginValidator) ValidateAndProcessEvent(ctx context.Context, event no
 			zap.String("delegator", delegationTag.MasterPubkey))
 	}
 
-	logger.Debug("Event validation successful",
-		zap.String("event_id", event.ID),
-		zap.String("pubkey", event.PubKey),
-		zap.Int("kind", event.Kind))
 	return true, "", nil
 }
 
