@@ -1,6 +1,19 @@
-name: Dependabot Auto-Merge
+name: Dependabot      - uses: actions/checkout@v4
+      
+      - name: Set up Go (for caching)
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-on:
+      - name: Enable auto-merge (squash) for minor/patch updates
+        if: ${{ steps.meta.outputs.update-type == 'version-update:semver-minor' || steps.meta.outputs.update-type == 'version-update:semver-patch' }}
+        uses: peter-evans/enable-pull-request-automerge@v3
   pull_request:
     types: [opened, synchronize, reopened, labeled]
 
@@ -23,13 +36,13 @@ jobs:
           cache: true
       - name: Fetch Dependabot metadata
         id: meta
-        uses: dependabot/fetch-metadata@5e5f99653a5b510e8555840e80cbf1514ad4af38 # v2.2.0
+        uses: dependabot/fetch-metadata@c9c4182bf1b97fd6f27b293f181ee1dd0f5d2286 # v2.2.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge (squash) for minor/patch updates
         if: ${{ steps.meta.outputs.update-type == 'version-update:semver-minor' || steps.meta.outputs.update-type == 'version-update:semver-patch' }}
-        uses: peter-evans/enable-pull-request-automerge@a660677d5469627492c4047346bed75f8b9cf837 # v3.0.0
+        uses: peter-evans/enable-pull-request-automerge@de7e7e6c6c5ade7c7d96a9c2a5b1aacbaca5b59d # v3.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           merge-method: squash
