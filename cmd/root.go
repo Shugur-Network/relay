@@ -157,6 +157,13 @@ func init() {
 				os.Exit(1)
 			}
 
+			// Set up graceful shutdown handling
+			go func() {
+				<-ctx.Done() // Wait for cancellation signal
+				logger.Info("Shutdown signal received, initiating graceful shutdown...")
+				app.Shutdown() // Call the enhanced shutdown method
+			}()
+
 			// Start the relay
 			if err := app.Start(ctx); err != nil {
 				logger.Error("Failed to start the relay", zap.Error(err))

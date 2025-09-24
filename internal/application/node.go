@@ -104,61 +104,155 @@ func (n *Node) Start(ctx context.Context) error {
 	return nil
 }
 
-// Shutdown cancels the node context and closes all resources.
+// Shutdown gracefully shuts down the node with configurable timeout.
 func (n *Node) Shutdown() {
-	logger.Debug("Shutting down node...")
+	logger.Info("Initiating graceful shutdown...")
+	shutdownTimeout := n.config.Relay.ShutdownTimeout
 
-	// Stop the event dispatcher
-	if n.EventDispatcher != nil {
-		n.EventDispatcher.Stop()
-	}
-
-	// Shut down the EventProcessor
-	if n.EventProcessor != nil {
-		n.EventProcessor.Shutdown()
-	}
-
-	// Wait for all WorkerPool tasks to finish
-	n.WorkerPool.Wait()
-
-	// Cancel the context
-	if n.cancel != nil {
-		n.cancel()
-	}
+	// Create a timeout context for shutdown operations
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
 
 	var shutdownErrors []error
 
-	// Close DB with retry mechanism
+	// Step 1: Stop accepting new connections and close existing WebSocket connections gracefully
+	n.shutdownWebSocketConnections(shutdownCtx)
+
+	// Step 2: Stop the event dispatcher
+	if n.EventDispatcher != nil {
+		logger.Debug("Stopping event dispatcher...")
+		n.EventDispatcher.Stop()
+		logger.Debug("✅ Event dispatcher stopped")
+	}
+
+	// Step 3: Shut down the EventProcessor
+	if n.EventProcessor != nil {
+		logger.Debug("Shutting down event processor...")
+		n.EventProcessor.Shutdown()
+		logger.Debug("✅ Event processor stopped")
+	}
+
+	// Step 4: Wait for all WorkerPool tasks to finish with timeout
+	logger.Debug("Waiting for worker pool to finish...")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		n.WorkerPool.Wait()
+	}()
+
+	select {
+	case <-done:
+		logger.Debug("✅ Worker pool finished")
+	case <-shutdownCtx.Done():
+		shutdownErrors = append(shutdownErrors, fmt.Errorf("worker pool shutdown timed out after %v", shutdownTimeout))
+		logger.Warn("Worker pool shutdown timed out", zap.Duration("timeout", shutdownTimeout))
+	}
+
+	// Step 5: Cancel the node context
+	if n.cancel != nil {
+		logger.Debug("Canceling node context...")
+		n.cancel()
+		logger.Debug("✅ Node context canceled")
+	}
+
+	// Step 6: Close DB with retry mechanism and timeout
 	if n.db != nil {
-		var lastErr error
-
-		for i := 0; i < constants.MaxDBRetries; i++ {
-			if err := n.db.CloseDB(); err != nil {
-				lastErr = err
-				logger.Warn("Failed to close database, retrying...",
-					zap.Int("attempt", i+1),
-					zap.Int("max_attempts", constants.MaxDBRetries),
-					zap.Error(err))
-				time.Sleep(constants.DBRetryDelay * time.Second)
-				continue
-			}
-			lastErr = nil
-			break
-		}
-
-		if lastErr != nil {
-			shutdownErrors = append(shutdownErrors, fmt.Errorf("storage shutdown error after %d retries: %w", constants.MaxDBRetries, lastErr))
-			logger.Error("Failed to close database after multiple attempts", zap.Error(lastErr))
+		logger.Debug("Closing database connection...")
+		if err := n.shutdownDatabase(shutdownCtx); err != nil {
+			shutdownErrors = append(shutdownErrors, err)
+		} else {
+			logger.Debug("✅ Database connection closed")
 		}
 	}
 
+	// Report final shutdown status
 	if len(shutdownErrors) > 0 {
 		logger.Warn("Node shutdown completed with errors",
 			zap.Int("error_count", len(shutdownErrors)),
-			zap.Errors("errors", shutdownErrors))
+			zap.Errors("errors", shutdownErrors),
+			zap.Duration("shutdown_timeout", shutdownTimeout))
 	} else {
-		logger.Debug("Node shut down successfully")
+		logger.Info("✅ Node shutdown completed successfully",
+			zap.Duration("shutdown_timeout", shutdownTimeout))
 	}
+}
+
+// shutdownWebSocketConnections gracefully closes all active WebSocket connections.
+func (n *Node) shutdownWebSocketConnections(ctx context.Context) {
+	n.wsConnsMu.Lock()
+	connectionCount := len(n.wsConns)
+	connections := make([]domain.WebSocketConnection, 0, connectionCount)
+	for conn := range n.wsConns {
+		connections = append(connections, conn)
+	}
+	n.wsConnsMu.Unlock()
+
+	if connectionCount == 0 {
+		logger.Debug("✅ No WebSocket connections to close")
+		return
+	}
+
+	logger.Info("Closing WebSocket connections gracefully",
+		zap.Int("connection_count", connectionCount))
+
+	// Close connections gracefully with timeout
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		
+		// Close all connections - the connection.Close() method handles graceful closure
+		for _, conn := range connections {
+			conn.Close()
+		}
+
+		// Clear the connections map
+		n.wsConnsMu.Lock()
+		n.wsConns = make(map[domain.WebSocketConnection]bool)
+		n.wsConnsMu.Unlock()
+	}()
+
+	select {
+	case <-done:
+		logger.Debug("✅ WebSocket connections closed")
+	case <-ctx.Done():
+		logger.Warn("WebSocket connection shutdown timed out")
+		// Force clear the map in case of timeout
+		n.wsConnsMu.Lock()
+		n.wsConns = make(map[domain.WebSocketConnection]bool)
+		n.wsConnsMu.Unlock()
+	}
+}
+
+// shutdownDatabase closes the database connection with timeout and retry logic.
+func (n *Node) shutdownDatabase(ctx context.Context) error {
+	var lastErr error
+
+	for i := 0; i < constants.MaxDBRetries; i++ {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("database shutdown timed out after %d attempts: %w", i, ctx.Err())
+		default:
+		}
+
+		if err := n.db.CloseDB(); err != nil {
+			lastErr = err
+			logger.Warn("Failed to close database, retrying...",
+				zap.Int("attempt", i+1),
+				zap.Int("max_attempts", constants.MaxDBRetries),
+				zap.Error(err))
+			
+			// Wait with context timeout awareness
+			select {
+			case <-time.After(constants.DBRetryDelay * time.Second):
+				continue
+			case <-ctx.Done():
+				return fmt.Errorf("database shutdown timed out during retry delay: %w", ctx.Err())
+			}
+		}
+		return nil // Success
+	}
+
+	return fmt.Errorf("database shutdown failed after %d retries: %w", constants.MaxDBRetries, lastErr)
 }
 
 // RegisterConn tracks a new WebSocket client

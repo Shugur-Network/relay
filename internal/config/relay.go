@@ -16,6 +16,7 @@ type RelayConfig struct {
 	WriteTimeout     time.Duration    `mapstructure:"WRITE_TIMEOUT"     json:"write_timeout"     validate:"required,min=1"`
 	SendBufferSize   int              `mapstructure:"SEND_BUFFER_SIZE"  json:"send_buffer_size"  validate:"required,min=1024"`
 	EventCacheSize   int              `mapstructure:"EVENT_CACHE_SIZE"  json:"event_cache_size"  validate:"required,min=100"`
+	ShutdownTimeout  time.Duration    `mapstructure:"SHUTDOWN_TIMEOUT"  json:"shutdown_timeout"  validate:"required,min=1"`
 	ThrottlingConfig ThrottlingConfig `mapstructure:"THROTTLING"        json:"throttling"        validate:"required"`
 }
 

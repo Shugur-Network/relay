@@ -29,6 +29,7 @@ RELAY:
   SEND_BUFFER_SIZE: 8192         # WebSocket send buffer size
   WRITE_TIMEOUT: 60s             # WebSocket write timeout
   IDLE_TIMEOUT: 300s             # Connection idle timeout
+  SHUTDOWN_TIMEOUT: 30s          # Graceful shutdown timeout
   THROTTLING:
     MAX_CONTENT_LENGTH: 2048     # Maximum content length in bytes
     MAX_CONNECTIONS: 1000        # Maximum concurrent connections
