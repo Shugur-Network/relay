@@ -431,53 +431,6 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// HandleCapsuleStatus serves the time capsule status endpoint
-func (h *Handler) HandleCapsuleStatus(w http.ResponseWriter, r *http.Request) {
-	// Set headers
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	// Handle preflight requests
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	// Only allow GET requests
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Extract capsule ID from URL path
-	// Path format: /.well-known/capsule/{id}
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 4 {
-		http.Error(w, "Invalid capsule ID", http.StatusBadRequest)
-		return
-	}
-	capsuleID := pathParts[3]
-
-	// For now, return a basic status response
-	// TODO: Implement actual database lookup when Phase 1 is complete
-	response := map[string]interface{}{
-		"capsule_id": capsuleID,
-		"status":     "pending",
-		"message":    "Time capsule status endpoint - database integration pending",
-		"timestamp":  time.Now().Unix(),
-		"relay":      "Shugur Relay",
-		"version":    "1.0.0",
-	}
-
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.logger.Error("Failed to encode capsule status response", zap.Error(err))
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-}
-
 // formatUptime formats duration as a human-readable string
 func (h *Handler) formatUptime(duration time.Duration) string {
 	days := int(duration.Hours()) / 24
