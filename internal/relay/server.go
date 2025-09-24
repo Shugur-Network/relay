@@ -63,11 +63,11 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 			// Handle as relay WebSocket connection
 			handleWebSocketConnection(ctx, w, r, upgrader, s.node, s.cfg)
 		} else {
-			// Handle HTTP requests
+			// Handle HTTP requests with input validation
 			switch {
 			case r.URL.Path == "/" && r.Header.Get("Accept") != "application/nostr+json":
-				// Serve dashboard for browser requests
-				s.webHandler.HandleDashboard(w, r)
+				// Serve dashboard for browser requests with validation
+				web.SecureValidatedHandlerFunc(s.webHandler.HandleDashboard)(w, r)
 			case r.Header.Get("Accept") == "application/nostr+json":
 				// Apply security headers for API endpoints
 				apiHeaders := web.APISecurityHeaders()
@@ -76,28 +76,35 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 				metadata := constants.DefaultRelayMetadata(s.fullCfg)
 				nips.ServeRelayMetadata(w, metadata)
 			case strings.HasPrefix(r.URL.Path, "/static/"):
-				// Serve static files
-				s.webHandler.HandleStatic(w, r)
+				// Serve static files with validation
+				web.SecureValidatedHandlerFunc(s.webHandler.HandleStatic)(w, r)
 			case r.URL.Path == "/api/info":
 				// Apply security headers for API endpoints
 				apiHeaders := web.APISecurityHeaders()
 				apiHeaders.Apply(w)
-				// Serve relay info API
-				metadata := constants.DefaultRelayMetadata(s.fullCfg)
-				w.Header().Set("Content-Type", "application/json")
-				w.Header().Set("Access-Control-Allow-Origin", "*")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-				nips.ServeRelayMetadata(w, metadata)
+				// Serve relay info API with validation
+				web.ValidatedHandlerFunc(web.APIInputValidation(), func(w http.ResponseWriter, r *http.Request) {
+					metadata := constants.DefaultRelayMetadata(s.fullCfg)
+					w.Header().Set("Content-Type", "application/json")
+					w.Header().Set("Access-Control-Allow-Origin", "*")
+					w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+					nips.ServeRelayMetadata(w, metadata)
+				})(w, r)
 			case r.URL.Path == "/api/stats":
-				// Serve relay statistics API
-				s.webHandler.HandleStatsAPI(w, r)
+				// Serve relay statistics API with validation
+				web.SecureValidatedAPIHandlerFunc(s.webHandler.HandleStatsAPI)(w, r)
 			case r.URL.Path == "/api/metrics":
-				// Serve real-time metrics API
-				s.webHandler.HandleMetricsAPI(w, r)
+				// Serve real-time metrics API with validation
+				web.SecureValidatedAPIHandlerFunc(s.webHandler.HandleMetricsAPI)(w, r)
 			case r.URL.Path == "/api/cluster":
-				// Serve cluster information API
-				s.webHandler.HandleClusterAPI(w, r)
+				// Serve cluster information API with validation
+				web.SecureValidatedAPIHandlerFunc(s.webHandler.HandleClusterAPI)(w, r)
 			default:
+				// Log invalid requests for security monitoring
+				logger.Warn("Invalid request path",
+					zap.String("path", r.URL.Path),
+					zap.String("client_ip", r.RemoteAddr),
+					zap.String("user_agent", r.Header.Get("User-Agent")))
 				http.NotFound(w, r)
 			}
 		}

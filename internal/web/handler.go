@@ -128,14 +128,29 @@ func (h *Handler) HandleStatic(w http.ResponseWriter, r *http.Request) {
 	// Serve static files safely, preventing path traversal
 	root := filepath.Join("web", "static")
 
-	// Clean and trim the incoming path
-	p := strings.TrimPrefix(r.URL.Path, "/static/")
-	p = filepath.Clean(p)
+	// Extract and validate the requested path
+	requestedPath := strings.TrimPrefix(r.URL.Path, "/static/")
+	
+	// Use our new sanitization function
+	sanitizedPath, err := SanitizePath(requestedPath)
+	if err != nil {
+		h.logger.Warn("Static file path validation failed",
+			zap.Error(err),
+			zap.String("requested_path", requestedPath),
+			zap.String("client_ip", r.RemoteAddr))
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
 
 	// Join and ensure the resolved path remains within the static root
-	fullPath := filepath.Join(root, p)
+	fullPath := filepath.Join(root, sanitizedPath)
 	if rel, err := filepath.Rel(root, fullPath); err != nil || strings.HasPrefix(rel, "..") {
-		http.Error(w, "invalid path", http.StatusBadRequest)
+		h.logger.Warn("Path traversal attempt detected",
+			zap.String("requested_path", requestedPath),
+			zap.String("sanitized_path", sanitizedPath),
+			zap.String("full_path", fullPath),
+			zap.String("client_ip", r.RemoteAddr))
+		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
 
@@ -417,8 +432,19 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.HealthCheckTimeout*time.Second)
 	defer cancel()
 
-	// Check if requesting health or full cluster info
+	// Check if requesting health or full cluster info - validate query parameter
 	requestType := r.URL.Query().Get("type")
+	if requestType != "" {
+		requestType = SanitizeQueryParam(requestType)
+		// Only allow specific values
+		if requestType != "health" && requestType != "info" {
+			h.logger.Warn("Invalid cluster API request type",
+				zap.String("type", requestType),
+				zap.String("client_ip", r.RemoteAddr))
+			http.Error(w, "Invalid type parameter", http.StatusBadRequest)
+			return
+		}
+	}
 
 	if requestType == "health" {
 		health, err := h.db.GetClusterHealth(ctx)
