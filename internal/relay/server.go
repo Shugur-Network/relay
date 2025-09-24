@@ -121,7 +121,7 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 	go func() {
 		<-ctx.Done()
 		logger.Info("Shutting down WebSocket server...")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), s.cfg.ShutdownTimeout)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		_ = httpSrv.Shutdown(shutdownCtx)
 	}()

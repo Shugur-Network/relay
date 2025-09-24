@@ -107,7 +107,7 @@ func (n *Node) Start(ctx context.Context) error {
 // Shutdown gracefully shuts down the node with configurable timeout.
 func (n *Node) Shutdown() {
 	logger.Info("Initiating graceful shutdown...")
-	shutdownTimeout := n.config.Relay.ShutdownTimeout
+	shutdownTimeout := 30 * time.Second // Hardcoded 30-second timeout
 
 	// Create a timeout context for shutdown operations
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)

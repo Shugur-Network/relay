@@ -39,6 +39,7 @@ RELAY:
       MAX_REQUESTS_PER_SECOND: 200 # Maximum requests per second
       BURST_SIZE: 50             # Rate limit burst size
       PROGRESSIVE_BAN: true      # Enable progressive ban duration
+      BAN_DURATION: 5m           # Ban duration
       MAX_BAN_DURATION: 24h      # Maximum ban duration
 
 RELAY_POLICY:
@@ -46,6 +47,10 @@ RELAY_POLICY:
     PUBKEYS: []                  # List of pubkeys to blacklist (hex format)
   WHITELIST:
     PUBKEYS: []                  # List of pubkeys to whitelist (hex format)
+
+CAPSULES:
+  ENABLED: false                 # Enable Time Capsules feature (disabled in production by default)
+  MAX_WITNESSES: 5               # Maximum number of witnesses allowed per time capsule
 
 DATABASE:
   SERVER: "cockroachdb"          # Database server hostname
