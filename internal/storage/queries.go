@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Shugur-Network/relay/internal/constants"
 	"github.com/Shugur-Network/relay/internal/logger"
 	"github.com/Shugur-Network/relay/internal/relay/nips"
 	"github.com/jackc/pgx/v5"
@@ -43,14 +44,11 @@ func (db *DB) GetEvents(ctx context.Context, filter nostr.Filter) ([]nostr.Event
 	}
 	defer rows.Close()
 
-	// Pre-allocate results slice with a fixed cap to avoid
-	// any user‑influenced allocation size. 500 matches the
+	// Preallocate slice with capacity to reduce allocations.
+	// This size balances memory usage with performance for
 	// typical filter cap used by the relay and reduces slice
 	// growth for common queries while keeping memory modest.
-	const defaultQueryPrealloc = 500
-	events := make([]nostr.Event, 0, defaultQueryPrealloc)
-
-	// Process rows
+	events := make([]nostr.Event, 0, constants.DefaultQueryPrealloc)	// Process rows
 	for rows.Next() {
 		var evt nostr.Event
 		var createdAt int64

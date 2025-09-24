@@ -300,7 +300,7 @@ func (h *Handler) getStatsData() *StatsData {
 
 	// Get events stored from database if available
 	if h.db != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), constants.HealthCheckTimeout*time.Second)
 		defer cancel()
 
 		count, err := h.db.GetTotalEventCount(ctx)
@@ -319,7 +319,7 @@ func (h *Handler) getStatsData() *StatsData {
 	memUsage := getMemoryUsage()
 
 	// Calculate load percentage (based on active connections vs max)
-	maxConnections := int64(1000) // Default max, should come from config
+	maxConnections := int64(1000) // Fallback default if not configured
 	if h.config != nil && h.config.Relay.ThrottlingConfig.MaxConnections > 0 {
 		maxConnections = int64(h.config.Relay.ThrottlingConfig.MaxConnections)
 	}
@@ -356,7 +356,7 @@ func (h *Handler) getClusterData() *storage.CockroachClusterInfo {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.HealthCheckTimeout*time.Second)
 	defer cancel()
 
 	clusterInfo, err := h.db.GetCockroachClusterInfo(ctx)
@@ -394,7 +394,7 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.HealthCheckTimeout*time.Second)
 	defer cancel()
 
 	// Check if requesting health or full cluster info

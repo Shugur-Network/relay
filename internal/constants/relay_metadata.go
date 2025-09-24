@@ -63,6 +63,20 @@ const (
 	RestrictedWrites = false
 )
 
+// Database operation constants
+const (
+	DefaultQueryPrealloc = 500           // Default query result preallocation size
+	MaxDBRetries         = 3             // Maximum database connection retry attempts
+	DBRetryDelay         = 1             // Database retry delay in seconds
+)
+
+// Timeout constants (in seconds)
+const (
+	ClusterSettingTimeout = 10 // Timeout for cluster setting operations
+	ChangefeedTestTimeout = 5  // Timeout for changefeed capability tests
+	HealthCheckTimeout    = 5  // Timeout for health check operations
+)
+
 // DefaultRelayMetadata returns the default relay metadata document
 func DefaultRelayMetadata(cfg *config.Config) nip11.RelayInformationDocument {
 	// Get or create relay identity, using configured public key if provided
@@ -102,7 +116,7 @@ func DefaultRelayMetadata(cfg *config.Config) nip11.RelayInformationDocument {
 	// Use relay banner from config if provided
 	relayBanner := cfg.Relay.Banner
 
-	// Use actual configuration values for limitations instead of hardcoded constants
+	// Use actual configuration values for limitations where available, fallback to constants
 	maxContentLength := cfg.Relay.ThrottlingConfig.MaxContentLen
 	if maxContentLength == 0 {
 		maxContentLength = MaxContentLength // fallback to default constant
@@ -120,15 +134,15 @@ func DefaultRelayMetadata(cfg *config.Config) nip11.RelayInformationDocument {
 		Banner:        relayBanner,
 		Limitation: &nip11.RelayLimitationDocument{
 			MaxMessageLength: maxContentLength, // Use actual configured content length
-			MaxSubscriptions: MaxSubscriptions, // Keep default for now (could be made configurable)
-			MaxLimit:         MaxLimit,         // Keep default for now (could be made configurable)
-			MaxSubidLength:   MaxSubIDLength,   // Keep default for now (could be made configurable)
-			MaxEventTags:     MaxEventTags,     // Keep default for now (could be made configurable)
+			MaxSubscriptions: MaxSubscriptions, // Use constant (configurable via config if needed)
+			MaxLimit:         MaxLimit,         // Use constant (configurable via config if needed)
+			MaxSubidLength:   MaxSubIDLength,   // Use constant (configurable via config if needed)
+			MaxEventTags:     MaxEventTags,     // Use constant (configurable via config if needed)
 			MaxContentLength: maxContentLength, // Use actual configured content length
-			MinPowDifficulty: MinPowDifficulty, // Keep default for now (could be made configurable)
-			AuthRequired:     AuthRequired,     // Keep default for now (could be made configurable)
-			PaymentRequired:  PaymentRequired,  // Keep default for now (could be made configurable)
-			RestrictedWrites: RestrictedWrites, // Keep default for now (could be made configurable)
+			MinPowDifficulty: MinPowDifficulty, // Use constant (configurable via config if needed)
+			AuthRequired:     AuthRequired,     // Use constant (configurable via config if needed)
+			PaymentRequired:  PaymentRequired,  // Use constant (configurable via config if needed)
+			RestrictedWrites: RestrictedWrites, // Use constant (configurable via config if needed)
 		},
 	}
 }

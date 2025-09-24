@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Shugur-Network/relay/internal/constants"
 	"github.com/Shugur-Network/relay/internal/logger"
 	"go.uber.org/zap"
 )
@@ -91,7 +92,7 @@ func (db *DB) applyClusterSettingsAsync(ctx context.Context) {
 		settingsApplied := 0
 		for _, setting := range clusterSettings {
 			// Create a new context with timeout for each setting
-			settingCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			settingCtx, cancel := context.WithTimeout(context.Background(), constants.ClusterSettingTimeout*time.Second)
 			_, err := db.Pool.Exec(settingCtx, setting)
 			cancel()
 			
@@ -137,7 +138,7 @@ func (db *DB) InitializeChangefeed(ctx context.Context) error {
 	// Ensure rangefeed is enabled for changefeeds to work
 	// Execute in its own transaction to avoid multi-statement transaction issues
 	logger.Info("Enabling rangefeed setting for changefeed support...")
-	rangefeedCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	rangefeedCtx, cancel := context.WithTimeout(ctx, constants.ClusterSettingTimeout*time.Second)
 	defer cancel()
 	
 	_, err = db.Pool.Exec(rangefeedCtx, "SET CLUSTER SETTING kv.rangefeed.enabled = true")
@@ -159,7 +160,7 @@ func (db *DB) InitializeChangefeed(ctx context.Context) error {
 
 	// This will fail fast if user doesn't have changefeed permissions
 	// or if changefeeds aren't properly configured
-	ctx_test, cancel_test := context.WithTimeout(ctx, 5*time.Second)
+	ctx_test, cancel_test := context.WithTimeout(ctx, constants.ChangefeedTestTimeout*time.Second)
 	defer cancel_test()
 
 	// Try to create a changefeed (it will start running, so we need to close it immediately)

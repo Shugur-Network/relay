@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Shugur-Network/relay/internal/config"
+	"github.com/Shugur-Network/relay/internal/constants"
 	"github.com/Shugur-Network/relay/internal/domain"
 	"github.com/Shugur-Network/relay/internal/limiter"
 	"github.com/Shugur-Network/relay/internal/logger"
@@ -129,18 +130,16 @@ func (n *Node) Shutdown() {
 
 	// Close DB with retry mechanism
 	if n.db != nil {
-		const maxRetries = 3
-		const retryDelay = 1 * time.Second
 		var lastErr error
 
-		for i := 0; i < maxRetries; i++ {
+		for i := 0; i < constants.MaxDBRetries; i++ {
 			if err := n.db.CloseDB(); err != nil {
 				lastErr = err
 				logger.Warn("Failed to close database, retrying...",
 					zap.Int("attempt", i+1),
-					zap.Int("max_attempts", maxRetries),
+					zap.Int("max_attempts", constants.MaxDBRetries),
 					zap.Error(err))
-				time.Sleep(retryDelay)
+				time.Sleep(constants.DBRetryDelay * time.Second)
 				continue
 			}
 			lastErr = nil
@@ -148,7 +147,7 @@ func (n *Node) Shutdown() {
 		}
 
 		if lastErr != nil {
-			shutdownErrors = append(shutdownErrors, fmt.Errorf("storage shutdown error after %d retries: %w", maxRetries, lastErr))
+			shutdownErrors = append(shutdownErrors, fmt.Errorf("storage shutdown error after %d retries: %w", constants.MaxDBRetries, lastErr))
 			logger.Error("Failed to close database after multiple attempts", zap.Error(lastErr))
 		}
 	}
