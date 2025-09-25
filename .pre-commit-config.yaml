@@ -1,0 +1,113 @@
+# Pre-commit hooks configuration for Relay project
+# Install with: pip install pre-commit && pre-commit install
+
+repos:
+  # General hooks for file formatting and validation
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        description: Trim trailing whitespace
+      - id: end-of-file-fixer
+        description: Ensure files end with a newline
+      - id: check-yaml
+        description: Validate YAML files
+        args: ['--unsafe']  # Allow custom YAML tags
+      - id: check-json
+        description: Validate JSON files
+      - id: check-toml
+        description: Validate TOML files
+      - id: check-added-large-files
+        description: Prevent large files from being committed
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+        description: Check for merge conflict markers
+      - id: check-case-conflict
+        description: Check for case conflicts
+      - id: mixed-line-ending
+        description: Check for mixed line endings
+        args: ['--fix=lf']
+
+  # Go-specific hooks
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+        description: Run gofmt
+      - id: go-vet-mod
+        description: Run go vet
+      - id: go-imports
+        description: Run goimports
+      - id: go-cyclo
+        description: Check cyclomatic complexity
+        args: [-over=15]
+      - id: go-mod-tidy
+        description: Run go mod tidy
+      - id: go-unit-tests
+        description: Run go unit tests
+      - id: golangci-lint
+        description: Run golangci-lint
+        args: [--timeout=5m]
+
+  # Security scanning
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        description: Detect secrets in code
+        args: ['--baseline', '.secrets.baseline']
+        exclude: |
+          (?x)^(
+            .*\.lock$|
+            .*\.sum$|
+            .*\.mod$|
+            go\.sum|
+            go\.mod
+          )$
+
+  # Docker hooks
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        description: Lint Dockerfiles
+        files: Dockerfile.*
+
+  # Markdown and documentation
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+        description: Lint Markdown files
+        args: ['--fix']
+        exclude: |
+          (?x)^(
+            CHANGELOG\.md|
+            \.github/.*\.md
+          )$
+
+  # YAML formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.3
+    hooks:
+      - id: prettier
+        description: Format YAML, JSON, and Markdown files
+        types_or: [yaml, json, markdown]
+        exclude: |
+          (?x)^(
+            CHANGELOG\.md|
+            \.github/workflows/.*\.yml
+          )$
+
+# Configuration for specific hooks
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

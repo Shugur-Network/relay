@@ -1,38 +1,75 @@
 version: 2
 updates:
-  - package-ecosystem: gomod
+  # Go modules
+  - package-ecosystem: "gomod"
     directory: "/"
     schedule:
-      interval: weekly
-      day: monday
-      time: "03:00"
-      timezone: UTC
-    target-branch: main
-    open-pull-requests-limit: 2
-    rebase-strategy: auto
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    # Enable security updates
+    open-pull-requests-limit: 10
     groups:
-      gomod-minor-patch:
-        applies-to: version-updates
-        update-types: ["minor", "patch"]
-        patterns: ["*"]
+      # Group minor and patch updates together
+      minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
+      # Ignore major version updates for Go modules (manual review required)
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      # Ignore specific problematic versions
       - dependency-name: "github.com/jackc/pgx/v5"
-        versions: ["5.7.5", "5.7.6", ">= 5.8.0"]
+        versions: ["5.4.0", "5.4.1"]
+    # Custom commit message
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+      include: "scope"
+    # Add labels for better organization
+    labels:
+      - "dependencies"
+      - "go"
 
-  - package-ecosystem: github-actions
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: weekly
-      day: monday
-      time: "03:15"
-      timezone: UTC
-    target-branch: main
-    open-pull-requests-limit: 2
-    rebase-strategy: auto
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
     groups:
-      actions-minor-patch:
-        applies-to: version-updates
-        update-types: ["minor", "patch"]
-        patterns: ["*"]
+      # Group all GitHub Actions updates
+      actions:
+        patterns:
+          - "*"
+    # Custom commit message for actions
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    # Add labels for better organization
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "ci-cd"
+
+  # Docker dependencies (if using Docker Compose or multi-stage builds)
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    # Custom commit message for Docker
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    # Add labels for better organization
+    labels:
+      - "dependencies"
+      - "docker"

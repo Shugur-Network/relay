@@ -118,26 +118,28 @@ perf(filter): optimize subscription matching algorithm
 
 ## 🔄 Release Process
 
-### Batched Release Strategy
+### Tag-Based Release Strategy
 
-We use a **batched release approach** to group multiple contributions:
+We use a **tag-based release approach** for streamlined releases:
 
 1. **Development Phase**
    - Contributors submit PRs with conventional commits
    - PRs are reviewed and merged to `main` branch
-   - **No automatic releases created**
+   - Changes are tracked in the `CHANGELOG.md` under "Unreleased" section
 
 2. **Release Preparation**
-   - Maintainers trigger release-please when ready
-   - System creates a **Release PR** with:
-     - Version bump based on accumulated changes
-     - Generated changelog
-     - Updated VERSION file
+   - Update the `VERSION` file with the new version number
+   - Move changes from "Unreleased" to the new version section in `CHANGELOG.md`
+   - Commit these changes to `main` branch
 
 3. **Release Execution**
-   - Review and merge the Release PR
-   - Automated release with artifacts (binaries, Docker images)
-   - Tags created automatically
+   - Create and push a Git tag matching the version (e.g., `v1.3.4`)
+   - GitHub Actions automatically triggers the release workflow
+   - Automated release with artifacts:
+     - Multi-platform binaries (Linux, macOS, Windows for amd64/arm64)
+     - Compressed archives (.tar.gz for Unix, .zip for Windows)
+     - SHA256 checksums file
+     - Docker images (ghcr.io/shugur-network/relay)
 
 ### Version Strategy
 - **Patch** (`1.3.3` → `1.3.4`): Bug fixes only
@@ -147,7 +149,7 @@ We use a **batched release approach** to group multiple contributions:
 ### Release Candidates
 - Used for testing before stable releases
 - Format: `v1.4.0-rc.1`, `v1.4.0-rc.2`
-- Automatically progress until stable release
+- Automatically detected and marked as prerelease
 
 ## 📋 Pull Request Guidelines
 
@@ -286,27 +288,62 @@ curl http://localhost:8081/health
 #### **Development Commands**
 
 ```bash
-# Build binary
-make build
+# Building
+make build          # Build production binary
+make dev            # Build development binary
+make build-race     # Build with race detection
 
-# Run tests
-make test
+# Testing
+make test           # Run unit tests
+make test-coverage  # Run tests with coverage
+make test-integration # Run integration tests
 
-# Run with race detection
-make test-race
+# Code Quality
+make fmt            # Format code
+make lint           # Run linters
+make qa             # Full quality assurance (fmt + lint + test)
 
-# Lint code
-make lint
+# Development Environment
+make dev-up         # Start development environment
+make dev-down       # Stop development environment
+make run-dev        # Run development build
 
-# Format code
-make fmt
+# Database
+make db-up          # Start database only
+make db-migrate     # Run database migrations
+make db-reset       # Reset database
 
-# Generate documentation
-make docs
-
-# Clean build artifacts
-make clean
+# Utilities
+make clean          # Clean build artifacts
+make help           # Show all available targets
+make version        # Show version information
 ```
+
+#### **Pre-commit Hooks**
+
+We use pre-commit hooks to ensure code quality and consistency. These hooks automatically run checks before each commit.
+
+```bash
+# Install pre-commit (one-time setup)
+pip install pre-commit
+
+# Install hooks for this repository
+pre-commit install
+
+# Run hooks manually on all files
+pre-commit run --all-files
+
+# Update hooks to latest versions
+pre-commit autoupdate
+```
+
+**Configured Hooks:**
+- **File formatting**: Trailing whitespace, end-of-file fixes, line endings
+- **Validation**: YAML, JSON, TOML file validation
+- **Go tools**: `gofmt`, `goimports`, `go vet`, `go mod tidy`
+- **Code quality**: `golangci-lint`, cyclomatic complexity checks
+- **Testing**: Unit tests execution
+- **Security**: Large file detection, merge conflict markers
 
 ### Environment Configuration
 

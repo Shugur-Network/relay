@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **ci**: Infrastructure (#72) ([b25bdb0](https://github.com/Shugur-Network/Relay/commit/b25bdb0))
+- Include both compressed and uncompressed binaries in releases ([90a772a](https://github.com/Shugur-Network/Relay/commit/90a772a83652f725cf87f526cd102bfa223954c1))
+- **ci**: Optimize ci infrastructure (#70) ([dfe700f](https://github.com/Shugur-Network/Relay/commit/dfe700f3959eec7ea8c74e51133587be3c6b03af))
+- **ci**: Release modifications (#71) ([c62002b](https://github.com/Shugur-Network/Relay/commit/c62002be1333854463c2951d2539cd34d463e4a2))
+
+### Configuration
+
+- Update development setup and port configurations (#52) ([ff68727](https://github.com/Shugur-Network/Relay/commit/ff68727))
+
+### Continuous Integration
+
+- Optimize workflows for development efficiency (#54) ([dcafa23](https://github.com/Shugur-Network/Relay/commit/dcafa23d90c66ad406d6afd2b69741a8bb8ed575))
+- Fix multi-env-testing workflow syntax errors (#57) ([d357ca9](https://github.com/Shugur-Network/Relay/commit/d357ca9688d1d8c3501fe7c3a6d04441f6b17394))
+- Fix dependabot fetch-metadata errors and release workflow automation (#66) ([d292be6](https://github.com/Shugur-Network/Relay/commit/d292be6e94201ea30d19ff3bbf6fd6465bd579ee))
+- Fix dependabot fetch-metadata errors and release workflow automation (#67) ([3870e76](https://github.com/Shugur-Network/Relay/commit/3870e7662da3c68e362a8b69d49a3a6430dfe6b2))
+
+### Dependencies
+
+- **deps**: Bump the actions-minor-patch group across 1 directory with 10 updates (#64) ([6198672](https://github.com/Shugur-Network/Relay/commit/619867280fc105a5341d131530ef9554fef2041c))
+- **deps**: Bump actions/setup-go from 5.0.2 to 6.0.0 (#59) ([5048a00](https://github.com/Shugur-Network/Relay/commit/5048a0037ffb34841cec5805f3f299f8ce4a4531))
+
+### Documentation
+
+- Enhance README with comprehensive improvements (#55) ([de38fac](https://github.com/Shugur-Network/Relay/commit/de38fac))
+- Enhance contributor guidelines and optimize release workflow (#49) ([db281b6](https://github.com/Shugur-Network/Relay/commit/db281b6619968c2c6c01d446f8f4abd362c6bad0))
+- Enhance README (#56) ([c2cdfd1](https://github.com/Shugur-Network/Relay/commit/c2cdfd16233b80953600f4c0d55b5bac0917bde0))
+
+### Features
+
+- Production improvements with comprehensive error handling and optimization (#68) ([e79d4b9](https://github.com/Shugur-Network/Relay/commit/e79d4b9c39e305df8db9b91f3fe4669da997b7e0))
+- Simplify release workflow with direct version input ([e76fe3b](https://github.com/Shugur-Network/Relay/commit/e76fe3b639874768d6d2f830ce1403a0a673bb1e))
+- Comprehensive lean release system with full CI/CD pipeline ([cf458ee](https://github.com/Shugur-Network/Relay/commit/cf458ee11bb8b4471b08b7fa02c7198c0ad36f5c))
+- Simplify release workflow with direct version input (#69) ([ff1316a](https://github.com/Shugur-Network/Relay/commit/ff1316a767697b6c46edf305b9ea08f44a0baad8))
+
+### Miscellaneous Tasks
+
+- Update actions/checkout and actions/setup-go versions in CI workflows (#63) ([ecccedd](https://github.com/Shugur-Network/Relay/commit/ecccedd3bd29bf975985e79f409c994450d316d9))
+- Remove deprecated GitHub workflows for enhanced release notes and PR status comments ([4ffb59f](https://github.com/Shugur-Network/Relay/commit/4ffb59f50f9d1deb054bddc31e4b36efd6accd56))
+- Remove release-please configuration files ([00827f5](https://github.com/Shugur-Network/Relay/commit/00827f5912d575a0d75ac599b66b2e9c3186f309))
+
+### Performance Improvements
+
+- Optimize cockroachdb schema with zstd compression and enhanced indexes (#61) ([6542d13](https://github.com/Shugur-Network/Relay/commit/6542d13766f0c444120dedc573d8302253f44db8))
+
 ## [1.3.3-rc.2](https://github.com/Shugur-Network/relay/compare/v1.3.3-rc.2...v1.3.3-rc.2) (2025-09-15)
 
 ### Features
