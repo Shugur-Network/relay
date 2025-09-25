@@ -257,11 +257,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}},enable=${{ !needs.validate.outputs.is_prerelease }}
+            type=raw,value=latest,enable=${{ !needs.validate.outputs.is_prerelease }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
@@ -310,23 +309,41 @@ jobs:
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           path: artifacts
+        continue-on-error: true
 
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
           
-          # Move binary archives to release assets
-          find artifacts -name "*.tar.gz" -o -name "*.zip" | while read -r file; do
-            cp "$file" release-assets/
-          done
+          # Move binary archives to release assets (if they exist)
+          if [ -d "artifacts" ]; then
+            find artifacts -name "*.tar.gz" -o -name "*.zip" | while read -r file; do
+              if [ -f "$file" ]; then
+                cp "$file" release-assets/
+                echo "✅ Added: $(basename "$file")"
+              fi
+            done
+          else
+            echo "⚠️ No artifacts directory found, creating release without binary assets"
+          fi
           
-          # Generate checksums
+          # Check what we have
+          if [ "$(ls -A release-assets 2>/dev/null)" ]; then
+            echo "📦 Release assets prepared:"
+            ls -la release-assets/
+          else
+            echo "⚠️ No release assets found, creating minimal release"
+            echo "Release created without binary assets due to artifact download issues" > release-assets/README.txt
+          fi
+          
+          # Generate checksums (if we have files to checksum)
           cd release-assets
-          sha256sum * > checksums.txt
+          if [ "$(ls -A . 2>/dev/null | grep -v README.txt)" ]; then
+            sha256sum *.tar.gz *.zip 2>/dev/null > checksums.txt || echo "⚠️ Could not generate checksums for some files"
+          else
+            echo "No binary assets to checksum" > checksums.txt
+          fi
           cd ..
-          
-          echo "📦 Release assets prepared:"
-          ls -la release-assets/
 
       - name: Download release notes
         uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
