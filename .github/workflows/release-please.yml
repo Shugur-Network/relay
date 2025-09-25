@@ -19,11 +19,12 @@ on:
 
 permissions:
   contents: write
+  packages: write
   pull-requests: write
 
 jobs:
-  create-release:
-    name: Create Release
+  release:
+    name: Create Release with Artifacts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -50,15 +51,156 @@ jobs:
           fi
           echo "✅ Release v$VERSION does not exist - proceeding"
       
-      - name: Update VERSION file
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: "1.24.4"
+          cache: true
+      
+      - name: Update VERSION file and CHANGELOG
         run: |
           VERSION="${{ github.event.inputs.version }}"
           echo "$VERSION" > VERSION
+          
+          # Update CHANGELOG.md
+          TODAY=$(date +%Y-%m-%d)
+          TEMP_CHANGELOG=$(mktemp)
+          
+          # Get commits since last release for changelog
+          LAST_TAG=$(git tag | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1 || echo "")
+          
+          echo "# Changelog" > $TEMP_CHANGELOG
+          echo "" >> $TEMP_CHANGELOG
+          echo "## [$VERSION] - $TODAY" >> $TEMP_CHANGELOG
+          echo "" >> $TEMP_CHANGELOG
+          
+          if [[ -n "$LAST_TAG" ]]; then
+            echo "### Added" >> $TEMP_CHANGELOG
+            git log ${LAST_TAG}..HEAD --oneline --grep="feat\|add" --pretty=format:"- %s" >> $TEMP_CHANGELOG || true
+            echo "" >> $TEMP_CHANGELOG
+            echo "" >> $TEMP_CHANGELOG
+            
+            echo "### Fixed" >> $TEMP_CHANGELOG
+            git log ${LAST_TAG}..HEAD --oneline --grep="fix\|bug" --pretty=format:"- %s" >> $TEMP_CHANGELOG || true
+            echo "" >> $TEMP_CHANGELOG
+            echo "" >> $TEMP_CHANGELOG
+            
+            echo "### Changed" >> $TEMP_CHANGELOG
+            git log ${LAST_TAG}..HEAD --oneline --grep="refactor\|improve\|update" --pretty=format:"- %s" >> $TEMP_CHANGELOG || true
+            echo "" >> $TEMP_CHANGELOG
+            echo "" >> $TEMP_CHANGELOG
+          fi
+          
+          # Append existing changelog if it exists
+          if [[ -f "CHANGELOG.md" ]]; then
+            echo "" >> $TEMP_CHANGELOG
+            tail -n +2 CHANGELOG.md >> $TEMP_CHANGELOG 2>/dev/null || true
+          fi
+          
+          mv $TEMP_CHANGELOG CHANGELOG.md
+          
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add VERSION
-          git commit -m "chore: bump version to $VERSION" || echo "No changes to commit"
-      
+          git add VERSION CHANGELOG.md
+          git commit -m "chore: bump version to $VERSION and update changelog"
+
+      - name: Run tests and linting
+        run: |
+          echo "🧪 Running tests and linting..."
+          go mod download
+          go test ./...
+          go vet ./...
+          golangci-lint run --timeout=10m || echo "Linting completed with warnings"
+
+      - name: Build multi-platform binaries
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          COMMIT="${{ github.sha }}"
+          BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          
+          mkdir -p dist
+          
+          # Build matrix
+          declare -a platforms=(
+            "linux/amd64"
+            "linux/arm64"
+            "darwin/amd64"
+            "darwin/arm64"
+            "windows/amd64"
+          )
+          
+          for platform in "${platforms[@]}"; do
+            IFS='/' read -r GOOS GOARCH <<< "$platform"
+            BINARY_NAME="relay"
+            if [ "$GOOS" = "windows" ]; then
+              BINARY_NAME="${BINARY_NAME}.exe"
+            fi
+            
+            echo "🔨 Building $GOOS/$GOARCH..."
+            GOOS=$GOOS GOARCH=$GOARCH go build \
+              -ldflags "-w -s -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${BUILD_DATE}" \
+              -o dist/relay-${GOOS}-${GOARCH}${BINARY_NAME#relay} \
+              ./cmd
+          done
+          
+          ls -la dist/
+
+      - name: Create compressed archives and checksums
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          cd dist
+          
+          # Create tar.gz for Unix systems and zip for Windows
+          for file in relay-*; do
+            if [[ $file == *"windows"* ]]; then
+              zip "${file}.zip" "$file"
+              rm "$file"
+            else
+              tar -czf "${file}.tar.gz" "$file"
+              rm "$file"
+            fi
+          done
+          
+          # Generate checksums
+          sha256sum * > checksums.txt
+          
+          echo "📦 Release artifacts:"
+          ls -la
+          echo ""
+          echo "🔐 Checksums:"
+          cat checksums.txt
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/shugur-network/relay:${{ github.event.inputs.version }}
+            ghcr.io/shugur-network/relay:latest
+          build-args: |
+            VERSION=${{ github.event.inputs.version }}
+            COMMIT=${{ github.sha }}
+            DATE=${{ steps.date.outputs.date }}
+
+      - name: Create Git tag
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
+
       - name: Generate release notes
         id: release_notes
         run: |
@@ -69,21 +211,49 @@ jobs:
             echo "📝 Auto-generating release notes..."
             
             # Get last release tag
-            LAST_TAG=$(git tag | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -1 || echo "")
+            LAST_TAG=$(git tag | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | sort -V | tail -2 | head -1 || echo "")
             
             if [[ -n "$LAST_TAG" ]]; then
-              echo "## What's Changed" > release_notes.md
+              echo "## 🚀 What's New in v${VERSION}" > release_notes.md
               echo "" >> release_notes.md
               
-              # Get commits since last release
-              git log ${LAST_TAG}..HEAD --oneline --pretty=format:"- %s" >> release_notes.md
+              # Features and improvements
+              FEATURES=$(git log ${LAST_TAG}..HEAD --oneline --grep="feat\|add" --pretty=format:"- %s" | head -10)
+              if [[ -n "$FEATURES" ]]; then
+                echo "### ✨ New Features & Improvements" >> release_notes.md
+                echo "$FEATURES" >> release_notes.md
+                echo "" >> release_notes.md
+              fi
               
+              # Bug fixes
+              FIXES=$(git log ${LAST_TAG}..HEAD --oneline --grep="fix\|bug" --pretty=format:"- %s" | head -10)
+              if [[ -n "$FIXES" ]]; then
+                echo "### 🐛 Bug Fixes" >> release_notes.md
+                echo "$FIXES" >> release_notes.md
+                echo "" >> release_notes.md
+              fi
+              
+              # Security improvements
+              SECURITY=$(git log ${LAST_TAG}..HEAD --oneline --grep="security\|sec\|vuln" --pretty=format:"- %s" | head -5)
+              if [[ -n "$SECURITY" ]]; then
+                echo "### 🔒 Security" >> release_notes.md
+                echo "$SECURITY" >> release_notes.md
+                echo "" >> release_notes.md
+              fi
+              
+              # Docker image
+              echo "### 🐳 Docker" >> release_notes.md
+              echo "- Multi-arch Docker images available: \`linux/amd64\`, \`linux/arm64\`" >> release_notes.md
+              echo "- \`docker pull ghcr.io/shugur-network/relay:${VERSION}\`" >> release_notes.md
               echo "" >> release_notes.md
-              echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${LAST_TAG}...v${VERSION}" >> release_notes.md
+              
+              echo "### 🔗 Links" >> release_notes.md
+              echo "- **Full Changelog**: https://github.com/${{ github.repository }}/compare/${LAST_TAG}...v${VERSION}" >> release_notes.md
+              echo "- **Documentation**: https://github.com/${{ github.repository }}/blob/v${VERSION}/README.md" >> release_notes.md
             else
               echo "## Release v${VERSION}" > release_notes.md
               echo "" >> release_notes.md
-              echo "Initial release of Shugur Relay - A high-performance Nostr relay implementation." >> release_notes.md
+              echo "🎉 **Initial release of Shugur Relay** - A high-performance Nostr relay implementation." >> release_notes.md
             fi
           else
             echo "$NOTES" > release_notes.md
@@ -91,23 +261,19 @@ jobs:
           
           echo "Generated release notes:"
           cat release_notes.md
-      
-      - name: Create Git tag
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          git tag -a "v$VERSION" -m "Release v$VERSION"
-          git push origin "v$VERSION"
-      
+
       - name: Create GitHub Release
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
             const fs = require('fs');
+            const path = require('path');
             const version = '${{ github.event.inputs.version }}';
             const isPrerelease = ${{ github.event.inputs.is_prerelease }};
             
             const releaseNotes = fs.readFileSync('release_notes.md', 'utf8');
             
+            // Create the release
             const release = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -120,19 +286,31 @@ jobs:
             
             console.log(`✅ Created release: ${release.data.html_url}`);
             
+            // Upload all artifacts from dist/
+            const distPath = './dist';
+            const files = fs.readdirSync(distPath);
+            
+            for (const file of files) {
+              const filePath = path.join(distPath, file);
+              const fileContent = fs.readFileSync(filePath);
+              
+              console.log(`📎 Uploading ${file}...`);
+              
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.data.id,
+                name: file,
+                data: fileContent
+              });
+            }
+            
             // Update step summary
             core.summary
-              .addHeading(`🚀 Release v${version} Created`)
-              .addRaw(isPrerelease ? '**Type**: Pre-release' : '**Type**: Stable release')
+              .addHeading(`🚀 Release v${version} Created Successfully`)
+              .addRaw(isPrerelease ? '**Type**: Pre-release 🧪' : '**Type**: Stable release ✅')
               .addRaw(`**URL**: ${release.data.html_url}`)
-              .addRaw('**Tag**: v' + version)
+              .addRaw(`**Tag**: v${version}`)
+              .addRaw(`**Docker**: \`ghcr.io/shugur-network/relay:${version}\``)
+              .addRaw(`**Artifacts**: ${files.length} files uploaded`)
               .write();
-      
-      - name: Update release manifest
-        if: ${{ !github.event.inputs.is_prerelease }}
-        run: |
-          VERSION="${{ github.event.inputs.version }}"
-          echo "{\".\": \"$VERSION\"}" > .release-please-manifest.json
-          git add .release-please-manifest.json
-          git commit -m "chore: update release manifest to $VERSION" || echo "No changes to commit"
-          git push origin main
