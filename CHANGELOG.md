@@ -7,7 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.3-rc.2](https://github.com/Shugur-Network/relay/compare/v1.3.3-rc.2...v1.3.3-rc.2) (2025-09-15)
 
-
 ### Features
 
 * add MaxConnections field to LimitationData and update related templates ([e710be9](https://github.com/Shugur-Network/relay/commit/e710be96c3359c4a9a3c59a366d5b487d2a8fe29))
