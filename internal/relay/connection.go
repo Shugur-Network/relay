@@ -15,6 +15,7 @@ import (
 
 	"github.com/Shugur-Network/relay/internal/config"
 	"github.com/Shugur-Network/relay/internal/domain"
+	"github.com/Shugur-Network/relay/internal/errors"
 	"github.com/Shugur-Network/relay/internal/logger"
 	"github.com/Shugur-Network/relay/internal/metrics"
 	"github.com/gorilla/websocket"
@@ -38,11 +39,6 @@ func extractRealClientIP(r *http.Request) string {
 	// Try X-Real-IP first (set by Caddy)
 	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
 		extractedIP = strings.TrimSpace(realIP)
-		source = "X-Real-IP"
-		logger.Debug("Client IP extracted from X-Real-IP header",
-			zap.String("real_ip", extractedIP),
-			zap.String("source", source),
-			zap.String("raw_remote_addr", r.RemoteAddr))
 		return extractedIP
 	}
 
@@ -157,10 +153,10 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 	banListMutex.Unlock()
 
 	if banned && time.Now().Before(banExpiry) {
-		logger.Info("Blocked connection attempt from banned client",
-			zap.String("client", clientIP),
-			zap.Time("ban_expires", banExpiry))
-		http.Error(w, "You are temporarily banned due to excessive messages.", http.StatusForbidden)
+		// Use new error handling system
+		banErr := errors.ClientBannedError("excessive messages", time.Until(banExpiry).String()).
+			WithSeverity(errors.SeverityMedium)
+		errors.HandleHTTPError(w, r, banErr)
 		return
 	}
 
@@ -171,12 +167,12 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 
 	// Check global connection limit using metrics counter
 	if metrics.GetActiveConnectionsCount() >= int64(relayConfig.ThrottlingConfig.MaxConnections) {
-		metrics.ErrorsCount.WithLabelValues("max_connections").Inc()
-		logger.Info("Max connections limit reached, rejecting new connection",
-			zap.Int64("active_connections", metrics.GetActiveConnectionsCount()),
-			zap.Int("max_connections", relayConfig.ThrottlingConfig.MaxConnections),
-			zap.String("client", r.RemoteAddr))
-		http.Error(w, "Max connections reached", http.StatusServiceUnavailable)
+		// Use new error handling system
+		limitErr := errors.ConnectionLimitError(
+			int(metrics.GetActiveConnectionsCount()), 
+			relayConfig.ThrottlingConfig.MaxConnections).
+			WithSeverity(errors.SeverityMedium)
+		errors.HandleHTTPError(w, r, limitErr)
 		return
 	}
 	// Ensure we decrement on error
@@ -190,7 +186,10 @@ func handleWebSocketConnection(ctx context.Context, w http.ResponseWriter, r *ht
 	// Upgrade the connection
 	wsConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		logger.Error("Failed to upgrade to WebSocket", zap.Error(err))
+		// Use new error handling system
+		upgradeErr := errors.WebSocketError("connection upgrade", err).
+			WithSeverity(errors.SeverityMedium)
+		errors.HandleWebSocketError(wsConn, "upgrade", upgradeErr)
 		return
 	}
 

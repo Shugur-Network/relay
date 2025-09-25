@@ -1,11 +1,91 @@
 package metrics
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+// SlidingWindow represents a simple sliding window for rate calculations
+type SlidingWindow struct {
+	mu       sync.RWMutex
+	events   []int64 // timestamps of events
+	window   time.Duration
+	maxSize  int
+}
+
+// NewSlidingWindow creates a new sliding window
+func NewSlidingWindow(window time.Duration, maxSize int) *SlidingWindow {
+	return &SlidingWindow{
+		events:  make([]int64, 0, maxSize),
+		window:  window,
+		maxSize: maxSize,
+	}
+}
+
+// Add adds an event timestamp to the window
+func (sw *SlidingWindow) Add(timestamp int64) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	
+	// Add new timestamp
+	sw.events = append(sw.events, timestamp)
+	
+	// Remove old events outside the window
+	now := time.Now().Unix()
+	cutoff := now - int64(sw.window.Seconds())
+	
+	// Find first event within window
+	i := 0
+	for i < len(sw.events) && sw.events[i] < cutoff {
+		i++
+	}
+	
+	// Keep only events within window
+	if i > 0 {
+		sw.events = sw.events[i:]
+	}
+	
+	// Limit size if needed
+	if len(sw.events) > sw.maxSize {
+		sw.events = sw.events[len(sw.events)-sw.maxSize:]
+	}
+}
+
+// Rate returns the current rate (events per second)
+func (sw *SlidingWindow) Rate() float64 {
+	sw.mu.RLock()
+	defer sw.mu.RUnlock()
+	
+	if len(sw.events) == 0 {
+		return 0
+	}
+	
+	now := time.Now().Unix()
+	cutoff := now - int64(sw.window.Seconds())
+	
+	// Count events within the window
+	count := 0
+	for _, timestamp := range sw.events {
+		if timestamp >= cutoff {
+			count++
+		}
+	}
+	
+	if count == 0 {
+		return 0
+	}
+	
+	return float64(count) / sw.window.Seconds()
+}
+
+// Global sliding windows for rate calculations
+var (
+	eventWindow      = NewSlidingWindow(60*time.Second, 10000) // 1 minute window, max 10k events
+	connectionWindow = NewSlidingWindow(60*time.Second, 1000)  // 1 minute window, max 1k connections
 )
 
 // Global counters for dashboard display (since prometheus metrics can't be read directly)
@@ -30,7 +110,9 @@ func GetMessagesProcessedCount() int64 {
 func IncrementMessagesProcessed() {
 	MessagesReceived.Inc()
 	atomic.AddInt64(&messagesProcessedCount, 1)
-	atomic.StoreInt64(&lastEventTimestamp, time.Now().Unix())
+	now := time.Now().Unix()
+	atomic.StoreInt64(&lastEventTimestamp, now)
+	eventWindow.Add(now)
 }
 
 // GetActiveConnectionsCount returns the current number of active WebSocket connections
@@ -42,7 +124,9 @@ func GetActiveConnectionsCount() int64 {
 func IncrementActiveConnections() {
 	ActiveConnections.Inc()
 	atomic.AddInt64(&activeConnectionsCount, 1)
-	atomic.StoreInt64(&lastConnTimestamp, time.Now().Unix())
+	now := time.Now().Unix()
+	atomic.StoreInt64(&lastConnTimestamp, now)
+	connectionWindow.Add(now)
 }
 
 // DecrementActiveConnections decrements both the prometheus gauge and our local counter
@@ -105,37 +189,14 @@ func GetErrorCount() int64 {
 	return atomic.LoadInt64(&errorCount)
 }
 
-// GetEventsPerSecond calculates events per second over the last minute
+// GetEventsPerSecond calculates events per second using a sliding window
 func GetEventsPerSecond() float64 {
-	lastEvent := atomic.LoadInt64(&lastEventTimestamp)
-	if lastEvent == 0 {
-		return 0
-	}
-
-	now := time.Now().Unix()
-	timeDiff := now - lastEvent
-	if timeDiff == 0 {
-		return 0
-	}
-
-	// Simple approximation - in production you'd want a sliding window
-	return float64(atomic.LoadInt64(&messagesProcessedCount)) / float64(timeDiff)
+	return eventWindow.Rate()
 }
 
-// GetConnectionsPerSecond calculates connections per second
+// GetConnectionsPerSecond calculates new connections per second using a sliding window
 func GetConnectionsPerSecond() float64 {
-	lastConn := atomic.LoadInt64(&lastConnTimestamp)
-	if lastConn == 0 {
-		return 0
-	}
-
-	now := time.Now().Unix()
-	timeDiff := now - lastConn
-	if timeDiff == 0 {
-		return 0
-	}
-
-	return float64(atomic.LoadInt64(&activeConnectionsCount)) / float64(timeDiff)
+	return connectionWindow.Rate()
 }
 
 // GetErrorRate calculates the error rate as a percentage

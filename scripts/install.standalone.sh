@@ -348,6 +348,7 @@ is_ip() {
 create_caddyfile() {
   local server_url="$1"
   log_info "Creating Caddyfile for: $server_url"
+  log_info "Security: Comprehensive security headers will be applied at proxy level"
 
   # For localhost: HTTP only (no HTTPS/TLS)
   if [[ "$server_url" == "localhost" ]]; then
@@ -373,6 +374,7 @@ http://localhost {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"
         Referrer-Policy "strict-origin-when-cross-origin"
+        X-XSS-Protection "1; mode=block"
         -Server
         -X-Powered-By
     }
@@ -410,6 +412,7 @@ $server_url {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"
         Referrer-Policy "strict-origin-when-cross-origin"
+        X-XSS-Protection "1; mode=block"
         -Server
         -X-Powered-By
     }
@@ -446,6 +449,7 @@ $server_url {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"
         Referrer-Policy "strict-origin-when-cross-origin"
+        X-XSS-Protection "1; mode=block"
         -Server
         -X-Powered-By
     }
@@ -505,6 +509,7 @@ RELAY:
       MAX_REQUESTS_PER_SECOND: 100
       BURST_SIZE: 20
       PROGRESSIVE_BAN: true
+      BAN_DURATION: 5m
       MAX_BAN_DURATION: 24h
 
 RELAY_POLICY:
@@ -512,6 +517,10 @@ RELAY_POLICY:
     PUBKEYS: []
   WHITELIST:
     PUBKEYS: []
+
+CAPSULES:
+  ENABLED: true
+  MAX_WITNESSES: 9
 
 DATABASE:
   SERVER: "cockroachdb"
@@ -724,6 +733,7 @@ show_completion_message() {
     log_info "  • Automatic HTTPS with Let's Encrypt certificate"
     log_info "  • Production-ready configuration"
   fi
+  log_info "  • Security headers: HSTS, CSP, X-Frame-Options, XSS Protection applied"
   log_info "  • Metrics port (8181) is not exposed via Caddy."
   echo
   log_info "DNS Requirements:"

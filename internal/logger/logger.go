@@ -146,7 +146,7 @@ func buildWriter(cfg *Config) (zapcore.WriteSyncer, bool, error) {
 	if cfg.FilePath == "" {
 		return zapcore.AddSync(os.Stdout), false, nil
 	}
-	if err := os.MkdirAll(filepath.Dir(cfg.FilePath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cfg.FilePath), 0o750); err != nil {
 		return nil, false, fmt.Errorf("create log dir: %w", err)
 	}
 	ws := zapcore.AddSync(&lumberjack.Logger{
