@@ -93,9 +93,51 @@ jobs:
           LATEST_VERSION=$(curl -s https://api.github.com/repos/orhun/git-cliff/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
           echo "Installing git-cliff version: $LATEST_VERSION"
           
-          # Download and install
-          curl -L "https://github.com/orhun/git-cliff/releases/download/${LATEST_VERSION}/git-cliff-${LATEST_VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar xz
-          sudo mv git-cliff-*/git-cliff /usr/local/bin/
+          # Try different URL formats for git-cliff
+          SUCCESS=false
+          
+          # Format 1: Standard format
+          if ! $SUCCESS; then
+            echo "Trying standard format..."
+            if curl -L "https://github.com/orhun/git-cliff/releases/download/${LATEST_VERSION}/git-cliff-${LATEST_VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar xz 2>/dev/null; then
+              SUCCESS=true
+              echo "✅ Downloaded using standard format"
+            fi
+          fi
+          
+          # Format 2: Without version prefix in filename
+          if ! $SUCCESS; then
+            echo "Trying alternative format..."
+            VERSION_NO_V=${LATEST_VERSION#v}
+            if curl -L "https://github.com/orhun/git-cliff/releases/download/${LATEST_VERSION}/git-cliff-${VERSION_NO_V}-x86_64-unknown-linux-gnu.tar.gz" | tar xz 2>/dev/null; then
+              SUCCESS=true
+              echo "✅ Downloaded using alternative format"
+            fi
+          fi
+          
+          # Format 3: Use GitHub CLI as fallback
+          if ! $SUCCESS; then
+            echo "Trying GitHub CLI download..."
+            gh release download "${LATEST_VERSION}" --repo orhun/git-cliff --pattern "*x86_64-unknown-linux-gnu.tar.gz"
+            tar xz -f git-cliff-*-x86_64-unknown-linux-gnu.tar.gz
+            SUCCESS=true
+            echo "✅ Downloaded using GitHub CLI"
+          fi
+          
+          # Install the binary
+          if [ -d git-cliff-* ]; then
+            sudo mv git-cliff-*/git-cliff /usr/local/bin/
+          elif [ -f git-cliff ]; then
+            sudo mv git-cliff /usr/local/bin/
+          else
+            echo "❌ Could not find git-cliff binary"
+            exit 1
+          fi
+          
+          # Verify installation
+          git-cliff --version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate release changelog
         run: |
