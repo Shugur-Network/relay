@@ -441,11 +441,63 @@ jobs:
         with:
           sarif_file: 'docker-trivy-results.sarif'
 
+  # Status check jobs that always run (for required status checks)
+  lint-status:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: [changes, quality]
+    if: always()
+    steps:
+      - name: Report lint status
+        run: |
+          if [[ "${{ needs.quality.result }}" == "success" ]]; then
+            echo "✅ Linting passed"
+          elif [[ "${{ needs.quality.result }}" == "skipped" ]]; then
+            echo "⏭️ Linting skipped (no code changes)"
+          else
+            echo "❌ Linting failed"
+            exit 1
+          fi
+
+  security-scan-status:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: [changes, quality]
+    if: always()
+    steps:
+      - name: Report security scan status
+        run: |
+          if [[ "${{ needs.quality.result }}" == "success" ]]; then
+            echo "✅ Security scan passed"
+          elif [[ "${{ needs.quality.result }}" == "skipped" ]]; then
+            echo "⏭️ Security scan skipped (no code changes)"
+          else
+            echo "❌ Security scan failed"
+            exit 1
+          fi
+
+  test-status:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: [changes, test]
+    if: always()
+    steps:
+      - name: Report test status
+        run: |
+          if [[ "${{ needs.test.result }}" == "success" ]]; then
+            echo "✅ Tests passed"
+          elif [[ "${{ needs.test.result }}" == "skipped" ]]; then
+            echo "⏭️ Tests skipped (no code changes)"
+          else
+            echo "❌ Tests failed"
+            exit 1
+          fi
+
   # CI Summary
   ci-summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [changes, quality, test, build-verify, docker-verify]
+    needs: [changes, quality, test, build-verify, docker-verify, lint-status, security-scan-status, test-status]
     if: always()
     
     steps:
