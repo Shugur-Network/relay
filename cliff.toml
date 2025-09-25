@@ -1,25 +1,30 @@
 # cliff.toml
 # Configuration file for git-cliff
+# Supports automated changelog management with "Unreleased" section tracking
 
 [changelog]
 # changelog header
 header = """
 # Changelog
+
 All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 """
 # template for the changelog body
 # https://tera.netlify.app/docs/#introduction
 body = """
 {% if version %}\
-    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+    ## [{{ version | trim_start_matches(pat="v") }}](https://github.com/Shugur-Network/Relay/compare/{{ previous.version }}...{{ version }}) ({{ timestamp | date(format="%Y-%m-%d") }})
 {% else %}\
-    ## [unreleased]
+    ## [Unreleased]
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
     ### {{ group | upper_first }}
     {% for commit in commits %}
-        - {% if commit.scope %}(**{{ commit.scope }}**) {% endif %}{{ commit.message | upper_first }} ([`{{ commit.id | truncate(length=7, end="") }}`](https://github.com/{{ remote.owner }}/{{ remote.repo }}/commit/{{ commit.id }}))\
+        - {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | upper_first }}{% if commit.breaking %} **BREAKING CHANGE**{% endif %} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/Shugur-Network/Relay/commit/{{ commit.id }}))\
     {% endfor %}
 {% endfor %}
 
@@ -35,25 +40,30 @@ footer = """
 # parse the commits based on https://www.conventionalcommits.org
 conventional_commits = true
 # filter out the commits that are not conventional
-filter_unconventional = true
+filter_unconventional = false
 # process the commits starting from the latest tag
 starting_commit = "latest_tag"
 # sort the commits chronologically
 sort_commits = "oldest"
 # limit the number of commits to parse
-commit_limit = 100
+commit_limit = 200
 # regex for parsing and grouping commits
 commit_parsers = [
     { message = "^feat", group = "Features" },
     { message = "^fix", group = "Bug Fixes" },
     { message = "^doc", group = "Documentation" },
-    { message = "^perf", group = "Performance" },
-    { message = "^refactor", group = "Refactoring" },
+    { message = "^perf", group = "Performance Improvements" },
+    { message = "^refactor", group = "Code Refactoring" },
     { message = "^style", group = "Styling" },
-    { message = "^test", group = "Testing" },
+    { message = "^test", group = "Tests" },
+    { message = "^build", group = "Build System" },
+    { message = "^ci", group = "Continuous Integration" },
     { message = "^chore\\(release\\):", skip = true },
+    { message = "^chore\\(deps\\)", group = "Dependencies" },
     { message = "^chore", group = "Miscellaneous Tasks" },
+    { message = "^revert", group = "Reverts" },
     { body = ".*security", group = "Security" },
+    { body = ".*breaking change", group = "BREAKING CHANGES" },
 ]
 # protect breaking changes from being skipped
 protect_breaking_commits = true
@@ -74,4 +84,4 @@ tag_limit = 20
 # custom remote for parsing commits
 [git.remote]
 owner = "Shugur-Network"
-repo = "relay"
+repo = "Relay"

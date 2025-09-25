@@ -1,0 +1,174 @@
+name: Changelog Management
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'announcements/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.svg'
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Force changelog update'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: changelog-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CHANGELOG_FILE: CHANGELOG.md
+
+jobs:
+  update-changelog:
+    name: Update Changelog
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install git-cliff
+        run: |
+          curl -L https://github.com/orhun/git-cliff/releases/latest/download/git-cliff-0.24.2-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          sudo mv git-cliff-*/git-cliff /usr/local/bin/
+          git-cliff --version
+
+      - name: Check if changelog update is needed
+        id: check_update
+        run: |
+          # Get the last commit that modified the changelog
+          LAST_CHANGELOG_COMMIT=$(git log -1 --format="%H" -- ${{ env.CHANGELOG_FILE }} 2>/dev/null || echo "")
+          
+          # Get the latest commit on main
+          LATEST_COMMIT=$(git rev-parse HEAD)
+          
+          # Check if there are new commits since last changelog update
+          if [ -z "$LAST_CHANGELOG_COMMIT" ] || [ "$LAST_CHANGELOG_COMMIT" != "$LATEST_COMMIT" ]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "Changelog update needed - new commits detected"
+          else
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+            echo "No changelog update needed - no new commits"
+          fi
+          
+          # Force update if requested via workflow_dispatch
+          if [ "${{ github.event.inputs.force_update }}" = "true" ]; then
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+            echo "Forcing changelog update as requested"
+          fi
+
+      - name: Generate unreleased changelog
+        if: steps.check_update.outputs.update_needed == 'true'
+        run: |
+          echo "Generating unreleased changelog entries..."
+          
+          # Create backup of current changelog
+          cp ${{ env.CHANGELOG_FILE }} ${{ env.CHANGELOG_FILE }}.backup
+          
+          # Generate new changelog with unreleased entries
+          git-cliff --unreleased --prepend ${{ env.CHANGELOG_FILE }}
+          
+          # Verify the changelog was updated
+          if ! diff -q ${{ env.CHANGELOG_FILE }} ${{ env.CHANGELOG_FILE }}.backup > /dev/null; then
+            echo "Changelog successfully updated with new unreleased entries"
+            echo "changelog_updated=true" >> $GITHUB_ENV
+          else
+            echo "No new entries to add to changelog"
+            echo "changelog_updated=false" >> $GITHUB_ENV
+            # Restore backup if no changes
+            mv ${{ env.CHANGELOG_FILE }}.backup ${{ env.CHANGELOG_FILE }}
+          fi
+
+      - name: Validate changelog format
+        if: env.changelog_updated == 'true'
+        run: |
+          echo "Validating changelog format..."
+          
+          # Check if changelog has proper structure
+          if ! grep -q "## \[Unreleased\]" ${{ env.CHANGELOG_FILE }}; then
+            echo "Error: Changelog missing [Unreleased] section"
+            exit 1
+          fi
+          
+          # Check for proper markdown formatting
+          if ! head -1 ${{ env.CHANGELOG_FILE }} | grep -q "# Changelog"; then
+            echo "Error: Changelog missing proper header"
+            exit 1
+          fi
+          
+          echo "Changelog format validation passed"
+
+      - name: Commit changelog updates
+        if: env.changelog_updated == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add and commit the changelog
+          git add ${{ env.CHANGELOG_FILE }}
+          
+          # Create commit message with details
+          COMMIT_COUNT=$(git rev-list --count HEAD ^$(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD))
+          git commit -m "chore(changelog): update unreleased entries
+          
+          - Added $COMMIT_COUNT new commit(s) to unreleased section
+          - Generated via automated changelog workflow
+          - Ready for next release conversion
+          
+          [skip ci]"
+
+      - name: Push changelog updates
+        if: env.changelog_updated == 'true'
+        run: |
+          # Push the changes
+          git push origin main
+          
+          echo "Changelog successfully updated and pushed to main branch"
+
+      - name: Create summary
+        if: always()
+        run: |
+          echo "## 📝 Changelog Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.check_update.outputs.update_needed }}" = "true" ]; then
+            if [ "${{ env.changelog_updated }}" = "true" ]; then
+              echo "✅ **Changelog Updated Successfully**" >> $GITHUB_STEP_SUMMARY
+              echo "- New unreleased entries have been added to ${{ env.CHANGELOG_FILE }}" >> $GITHUB_STEP_SUMMARY
+              echo "- Changes committed and pushed to main branch" >> $GITHUB_STEP_SUMMARY
+              echo "- Ready for conversion to versioned release during next release" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "ℹ️ **No Changelog Updates Needed**" >> $GITHUB_STEP_SUMMARY
+              echo "- No new conventional commits found since last update" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "⏭️ **Changelog Update Skipped**" >> $GITHUB_STEP_SUMMARY
+            echo "- No new commits detected since last changelog update" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next Steps:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Unreleased entries will be converted to versioned sections during release" >> $GITHUB_STEP_SUMMARY
+          echo "- Release workflow will handle final changelog formatting" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Remove backup file if it exists
+          rm -f ${{ env.CHANGELOG_FILE }}.backup

@@ -1,0 +1,403 @@
+name: Release
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: read
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*' # Matches v1.2.3, v1.2.3-rc1, etc.
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false # Don't cancel releases
+
+env:
+  GO_VERSION: "1.24.4"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: shugur-network/relay
+
+jobs:
+  # Validate release prerequisites
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Extract and validate version
+        id: version
+        run: |
+          TAG_VERSION=${GITHUB_REF_NAME#v}
+          echo "version=${TAG_VERSION}" >> $GITHUB_OUTPUT
+          
+          # Check if this is a prerelease (contains alpha, beta, rc, etc.)
+          if [[ "$TAG_VERSION" =~ (alpha|beta|rc|dev) ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "📦 Detected prerelease version: $TAG_VERSION"
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "🚀 Detected stable release version: $TAG_VERSION"
+          fi
+
+      - name: Validate VERSION file (if exists)
+        run: |
+          if [ -f VERSION ]; then
+            FILE_VERSION=$(cat VERSION)
+            echo "Git Tag Version: ${{ steps.version.outputs.version }}"
+            echo "VERSION File: $FILE_VERSION"
+            if [[ "${{ steps.version.outputs.version }}" != "$FILE_VERSION" ]]; then
+              echo "❌ Error: Git tag version (${{ steps.version.outputs.version }}) does not match VERSION file ($FILE_VERSION)."
+              exit 1
+            fi
+            echo "✅ Version validation passed"
+          else
+            echo "ℹ️ No VERSION file found, using git tag version"
+          fi
+
+      - name: Check for existing release
+        run: |
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            echo "❌ Release ${{ github.ref_name }} already exists"
+            exit 1
+          fi
+          echo "✅ Release ${{ github.ref_name }} does not exist yet"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Update changelog for release
+  changelog:
+    name: Update Changelog
+    runs-on: ubuntu-latest
+    needs: [validate]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install git-cliff
+        run: |
+          curl -L https://github.com/orhun/git-cliff/releases/latest/download/git-cliff-0.1.0-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          sudo mv git-cliff-*/git-cliff /usr/local/bin/
+
+      - name: Generate release changelog
+        run: |
+          echo "📝 Generating changelog for release ${{ needs.validate.outputs.version }}..."
+          
+          # Generate changelog for this specific version
+          git-cliff --tag "v${{ needs.validate.outputs.version }}" --output CHANGELOG.md
+          
+          # Verify changelog was updated
+          if ! grep -q "## \[v${{ needs.validate.outputs.version }}\]" CHANGELOG.md; then
+            echo "❌ Failed to generate changelog entry for v${{ needs.validate.outputs.version }}"
+            exit 1
+          fi
+          
+          echo "✅ Changelog updated successfully"
+
+      - name: Extract release notes
+        id: release_notes
+        run: |
+          echo "📋 Extracting release notes for v${{ needs.validate.outputs.version }}..."
+          
+          # Extract the release notes for this version
+          awk '/^## \[v${{ needs.validate.outputs.version }}\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > release_notes.md
+          
+          # Verify we have content
+          if [ ! -s release_notes.md ]; then
+            echo "⚠️ No release notes found, generating from commits..."
+            git-cliff --tag "v${{ needs.validate.outputs.version }}" --unreleased --strip header > release_notes.md
+          fi
+          
+          echo "Release notes content:"
+          cat release_notes.md
+
+      - name: Commit changelog updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if git diff --quiet CHANGELOG.md; then
+            echo "ℹ️ No changelog changes to commit"
+          else
+            git add CHANGELOG.md
+            git commit -m "docs: update changelog for v${{ needs.validate.outputs.version }}"
+            git push origin HEAD:main
+            echo "✅ Changelog committed and pushed"
+          fi
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-notes
+          path: release_notes.md
+          retention-days: 1
+
+  # Build multi-platform binaries
+  build:
+    name: Build Binaries
+    runs-on: ubuntu-latest
+    needs: [validate]
+    
+    strategy:
+      matrix:
+        platform:
+          - { os: linux, arch: amd64 }
+          - { os: linux, arch: arm64 }
+          - { os: darwin, arch: amd64 }
+          - { os: darwin, arch: arm64 }
+          - { os: windows, arch: amd64 }
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build binary for ${{ matrix.platform.os }}/${{ matrix.platform.arch }}
+        run: |
+          VERSION="v${{ needs.validate.outputs.version }}"
+          COMMIT="${{ github.sha }}"
+          BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          
+          BINARY_NAME="relay"
+          if [ "${{ matrix.platform.os }}" = "windows" ]; then
+            BINARY_NAME="${BINARY_NAME}.exe"
+          fi
+          
+          echo "🔨 Building ${BINARY_NAME} for ${{ matrix.platform.os }}/${{ matrix.platform.arch }}..."
+          
+          GOOS=${{ matrix.platform.os }} GOARCH=${{ matrix.platform.arch }} go build \
+            -ldflags "-w -s -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${BUILD_DATE}" \
+            -o ${BINARY_NAME} \
+            ./cmd
+          
+          # Create archive
+          ARCHIVE_NAME="relay-${{ matrix.platform.os }}-${{ matrix.platform.arch }}"
+          if [ "${{ matrix.platform.os }}" = "windows" ]; then
+            zip "${ARCHIVE_NAME}.zip" "${BINARY_NAME}"
+            echo "archive=${ARCHIVE_NAME}.zip" >> $GITHUB_ENV
+          else
+            tar -czf "${ARCHIVE_NAME}.tar.gz" "${BINARY_NAME}"
+            echo "archive=${ARCHIVE_NAME}.tar.gz" >> $GITHUB_ENV
+          fi
+          
+          echo "✅ Built and archived: ${archive}"
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: binary-${{ matrix.platform.os }}-${{ matrix.platform.arch }}
+          path: ${{ env.archive }}
+          retention-days: 1
+
+  # Build and push Docker images
+  docker:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [validate]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}},enable=${{ !needs.validate.outputs.is_prerelease }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=v${{ needs.validate.outputs.version }}
+            COMMIT=${{ github.sha }}
+            DATE=${{ github.event.head_commit.timestamp }}
+          target: production
+
+      - name: Generate Docker image summary
+        run: |
+          echo "## 🐳 Docker Images Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The following Docker images have been built and pushed:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags:" >> $GITHUB_STEP_SUMMARY
+          echo '${{ steps.meta.outputs.tags }}' | while read -r tag; do
+            echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull Command:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  # Create GitHub release
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [validate, changelog, build, docker]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          
+          # Move binary archives to release assets
+          find artifacts -name "*.tar.gz" -o -name "*.zip" | while read -r file; do
+            cp "$file" release-assets/
+          done
+          
+          # Generate checksums
+          cd release-assets
+          sha256sum * > checksums.txt
+          cd ..
+          
+          echo "📦 Release assets prepared:"
+          ls -la release-assets/
+
+      - name: Download release notes
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: release-notes
+          path: .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          body_path: release_notes.md
+          files: release-assets/*
+          prerelease: ${{ needs.validate.outputs.is_prerelease }}
+          generate_release_notes: false # We provide our own
+          make_latest: ${{ !needs.validate.outputs.is_prerelease }}
+
+  # Release summary
+  summary:
+    name: Release Summary
+    runs-on: ubuntu-latest
+    needs: [validate, changelog, build, docker, release]
+    if: always()
+    
+    steps:
+      - name: Generate release summary
+        run: |
+          echo "## 🚀 Release Summary: v${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Release info
+          echo "### 📋 Release Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** v${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type:** ${{ needs.validate.outputs.is_prerelease == 'true' && 'Pre-release' || 'Stable Release' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Job status
+          CHANGELOG_STATUS="${{ needs.changelog.result }}"
+          BUILD_STATUS="${{ needs.build.result }}"
+          DOCKER_STATUS="${{ needs.docker.result }}"
+          RELEASE_STATUS="${{ needs.release.result }}"
+          
+          echo "### 📊 Component Status" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          case "$CHANGELOG_STATUS" in
+            "success") echo "| 📝 Changelog | ✅ Updated | Changelog updated and committed |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 📝 Changelog | ❌ Failed | Changelog update failed |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 📝 Changelog | ❔ Unknown | Status: $CHANGELOG_STATUS |" >> $GITHUB_STEP_SUMMARY ;;
+          esac
+          
+          case "$BUILD_STATUS" in
+            "success") echo "| 🔨 Binaries | ✅ Built | Multi-platform binaries created |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 🔨 Binaries | ❌ Failed | Binary build failed |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🔨 Binaries | ❔ Unknown | Status: $BUILD_STATUS |" >> $GITHUB_STEP_SUMMARY ;;
+          esac
+          
+          case "$DOCKER_STATUS" in
+            "success") echo "| 🐳 Docker | ✅ Published | Docker images pushed to registry |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 🐳 Docker | ❌ Failed | Docker build/push failed |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🐳 Docker | ❔ Unknown | Status: $DOCKER_STATUS |" >> $GITHUB_STEP_SUMMARY ;;
+          esac
+          
+          case "$RELEASE_STATUS" in
+            "success") echo "| 🚀 GitHub Release | ✅ Created | Release published successfully |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 🚀 GitHub Release | ❌ Failed | Release creation failed |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🚀 GitHub Release | ❔ Unknown | Status: $RELEASE_STATUS |" >> $GITHUB_STEP_SUMMARY ;;
+          esac
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Overall status
+          FAILED_JOBS=0
+          [[ "$CHANGELOG_STATUS" == "failure" ]] && ((FAILED_JOBS++))
+          [[ "$BUILD_STATUS" == "failure" ]] && ((FAILED_JOBS++))
+          [[ "$DOCKER_STATUS" == "failure" ]] && ((FAILED_JOBS++))
+          [[ "$RELEASE_STATUS" == "failure" ]] && ((FAILED_JOBS++))
+          
+          if [[ $FAILED_JOBS -eq 0 ]]; then
+            echo "## ✅ Release Status: **SUCCESS**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 **Release v${{ needs.validate.outputs.version }} has been successfully published!**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔗 Quick Links" >> $GITHUB_STEP_SUMMARY
+            echo "- [📋 Release Page](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})" >> $GITHUB_STEP_SUMMARY
+            echo "- [🐳 Docker Image](${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ needs.validate.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+            echo "- [📝 Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Release Status: **FAILED**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ $FAILED_JOBS component(s) failed during the release process." >> $GITHUB_STEP_SUMMARY
+            echo "Please review the failed jobs and retry the release." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
