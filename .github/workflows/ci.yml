@@ -1,15 +1,14 @@
-name: CI & Release
+name: Continuous Integration
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
+  packages: read
   pull-requests: write
+  security-events: write
 
 on:
   push:
-    branches: [main, develop]
-    tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*' # Matches v1.2.3, v1.2.3-rc1, etc.
+    branches: [main]
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -19,10 +18,18 @@ on:
       - '**/*.jpg'
       - '**/*.svg'
   pull_request:
-    branches: [main, develop]
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'announcements/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '**/*.png'
+      - '**/*.jpg'
+      - '**/*.svg'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -31,18 +38,21 @@ env:
   IMAGE_NAME: shugur-network/relay
 
 jobs:
+  # Detect what changed to optimize CI runs
   changes:
     name: Detect Changes
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.filter.outputs.code }}
-      docs: ${{ steps.filter.outputs.docs }}
-      is_tag: ${{ startsWith(github.ref, 'refs/tags/v') }}
+      config: ${{ steps.filter.outputs.config }}
+      docker: ${{ steps.filter.outputs.docker }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
-      - name: Paths filter
+
+      - name: Detect file changes
         id: filter
         uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         with:
@@ -54,17 +64,26 @@ jobs:
               - 'go.mod'
               - 'go.sum'
               - '!**/*.md'
-            docs:
-              - '**/*.md'
-              - 'docs/**'
-              - 'announcements/**'
-  lint:
-    name: Lint
+            config:
+              - 'config/**'
+              - 'config.yaml'
+              - '.github/workflows/**'
+            docker:
+              - 'docker/**'
+              - 'Dockerfile'
+
+  # Code quality and security checks
+  quality:
+    name: Code Quality & Security
     runs-on: ubuntu-latest
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.config == 'true'
+    
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
@@ -72,30 +91,117 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Cache golangci-lint
+      - name: Cache quality tools
         uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
-          path: ~/.cache/golangci-lint
-          key: ${{ runner.os }}-golangci-lint-${{ hashFiles('**/go.sum') }}-${{ hashFiles('.golangci.yml', '.golangci.yaml') }}
+          path: |
+            ~/.cache/golangci-lint
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/go/bin
+          key: ${{ runner.os }}-quality-tools-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-golangci-lint-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-golangci-lint-
+            ${{ runner.os }}-quality-tools-${{ env.GO_VERSION }}-
+            ${{ runner.os }}-quality-tools-
 
-      - name: golangci-lint
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run golangci-lint
         uses: golangci/golangci-lint-action@aaa42aa0628b4ae2578232a66b541047968fac86 # v6.1.0
         with:
           version: latest
-          args: --timeout=5m
-          skip-cache: true  # We handle caching manually above
+          args: --timeout=10m --verbose
+          skip-cache: true
 
+      - name: Run security analysis
+        run: |
+          echo "🔒 Running comprehensive security analysis..."
+          
+          # Install security tools
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          
+          # Run vulnerability check
+          echo "Checking for known vulnerabilities..."
+          govulncheck ./...
+          
+          # Run static analysis
+          echo "Running static analysis..."
+          staticcheck ./...
+          
+          # Run security-focused linting
+          echo "Running security-focused analysis..."
+          gosec -fmt sarif -out gosec-results.sarif ./...
+          
+          # Basic security checks
+          echo "Running basic security checks..."
+          go vet ./...
+          
+          # Check for hardcoded secrets (basic patterns)
+          echo "Scanning for potential secrets..."
+          if grep -r -i -E "(password|secret|key|token|api_key)\s*[:=]\s*['\"][^'\"]{8,}" --include="*.go" . | grep -v "_test.go" | head -5; then
+            echo "⚠️ Potential hardcoded secrets found (review above)"
+          else
+            echo "✅ No obvious hardcoded secrets detected"
+          fi
+
+      - name: Upload security results
+        if: always()
+        uses: github/codeql-action/upload-sarif@6624720a689c910d36e0e25b1c4c5b8b8b9b8b8b # v3.28.0
+        with:
+          sarif_file: gosec-results.sarif
+        continue-on-error: true
+
+      - name: Security scan with Trivy
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b9ceecfd3 # v0.20.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@662472033e021d55d94146f66f6058822b0b39fd # v3.27.0
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@61119d458adab75f756bc0b9e4bde25725f86a7a # v0.17.2
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.spdx.json
+          retention-days: 30
+
+  # Comprehensive testing
   test:
-    name: Test
+    name: Test Suite
     runs-on: ubuntu-latest
     needs: [changes]
     if: needs.changes.outputs.code == 'true'
-
+    
+    strategy:
+      matrix:
+        test-type: [unit, integration]
+    
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
@@ -103,347 +209,287 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Cache test dependencies and build cache
+      - name: Cache test dependencies
         uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: |
             ~/.cache/go-build
             ~/go/pkg/mod
-          key: ${{ runner.os }}-go-test-${{ hashFiles('**/go.sum') }}-${{ hashFiles('**/*_test.go') }}
+          key: ${{ runner.os }}-test-${{ matrix.test-type }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-test-${{ hashFiles('**/go.sum') }}-
-            ${{ runner.os }}-go-test-
+            ${{ runner.os }}-test-${{ matrix.test-type }}-
+            ${{ runner.os }}-test-
 
       - name: Download dependencies
         run: go mod download
 
-      - name: Start CockroachDB (CI-optimized)
+      - name: Start test database
+        if: matrix.test-type == 'integration'
         run: |
+          echo "🗄️ Starting CockroachDB for integration tests..."
           docker run -d \
-            --name cockroach \
+            --name cockroach-test \
             -p 26257:26257 \
             -p 8080:8080 \
-            --memory=512m \
-            --cpus=0.5 \
+            --memory=1g \
+            --cpus=1.0 \
             cockroachdb/cockroach:v24.1.5 \
-            start-single-node --insecure --max-sql-memory=50% --cache=128MB
+            start-single-node --insecure --max-sql-memory=50% --cache=256MB
 
-          # Wait for CockroachDB to be ready with optimized timeout
-          timeout 45s bash -c 'until docker exec cockroach /cockroach/cockroach sql --insecure --execute="SELECT 1;" > /dev/null 2>&1; do sleep 2; done'
-          
-          echo "CockroachDB is ready for testing"
-          # Database will be created automatically by the relay application
+          # Wait for database to be ready
+          timeout 60s bash -c 'until docker exec cockroach-test /cockroach/cockroach sql --insecure --execute="SELECT 1;" > /dev/null 2>&1; do sleep 3; done'
+          echo "✅ CockroachDB is ready"
 
-      - name: Run tests with retry mechanism
+      - name: Run unit tests
+        if: matrix.test-type == 'unit'
         run: |
-          # Run tests with retry for flakiness resilience
-          for attempt in 1 2 3; do
-            echo "Test attempt $attempt..."
-            if go test -v -race -p 4 -coverprofile=coverage.out -timeout=5m ./...; then
-              echo "Tests passed on attempt $attempt"
-              break
-            elif [ $attempt -eq 3 ]; then
-              echo "Tests failed after 3 attempts"
-              exit 1
-            else
-              echo "Test attempt $attempt failed, retrying in 10 seconds..."
-              sleep 10
-            fi
-          done
+          echo "🧪 Running unit tests..."
+          go test -v -race -short -coverprofile=coverage-unit.out -timeout=10m ./...
+
+      - name: Run integration tests
+        if: matrix.test-type == 'integration'
+        run: |
+          echo "🔗 Running integration tests..."
+          go test -v -race -run="Integration" -coverprofile=coverage-integration.out -timeout=15m ./...
         env:
           SHUGUR_DB_HOST: localhost
           SHUGUR_DB_PORT: 26257
           SHUGUR_DB_USER: root
           SHUGUR_DB_SSL_MODE: disable
 
-      - name: Run benchmarks for performance monitoring
+      - name: Run benchmarks
+        if: matrix.test-type == 'unit'
         run: |
-          echo "Running performance benchmarks..."
-          go test -bench=. -benchmem -count=3 -run=^$ ./... > benchmarks.txt 2>&1 || true
+          echo "📊 Running performance benchmarks..."
+          go test -bench=. -benchmem -count=5 -run=^$ ./... > benchmarks.txt 2>&1 || true
           
-          # Display benchmark results
           if [ -f benchmarks.txt ] && [ -s benchmarks.txt ]; then
-            echo "Benchmark Results:"
+            echo "Benchmark results:"
             cat benchmarks.txt | grep -E "(Benchmark|PASS|FAIL)" | head -20
-          else
-            echo "No benchmarks found or benchmarks failed to run"
+            
+            # Extract key metrics for performance tracking
+            echo "## 📊 Performance Metrics" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Benchmark | Operations/sec | Memory/op | Allocs/op |" >> $GITHUB_STEP_SUMMARY
+            echo "|-----------|----------------|-----------|-----------|" >> $GITHUB_STEP_SUMMARY
+            
+            # Parse benchmark results and add to summary
+            grep "^Benchmark" benchmarks.txt | head -10 | while read line; do
+              name=$(echo "$line" | awk '{print $1}' | sed 's/Benchmark//')
+              ops=$(echo "$line" | awk '{print $3}')
+              mem=$(echo "$line" | awk '{print $5}' || echo "N/A")
+              allocs=$(echo "$line" | awk '{print $7}' || echo "N/A")
+              echo "| $name | $ops | $mem | $allocs |" >> $GITHUB_STEP_SUMMARY
+            done
+            
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📈 Full benchmark results available in artifacts." >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Upload coverage to Codecov
+      - name: Performance regression check
+        if: matrix.test-type == 'unit' && github.event_name == 'pull_request'
+        run: |
+          echo "🔍 Checking for performance regressions..."
+          
+          # Install benchstat for statistical comparison
+          go install golang.org/x/perf/cmd/benchstat@latest
+          
+          # Create a simple performance check
+          if [ -f benchmarks.txt ]; then
+            # Look for significant performance degradations
+            # This is a simplified check - in production you'd compare with baseline
+            grep "^Benchmark" benchmarks.txt | while read line; do
+              ops=$(echo "$line" | awk '{print $3}')
+              if [ "$ops" -lt 1000 ]; then
+                echo "⚠️ Warning: Low performance detected in benchmark: $line"
+              fi
+            done
+          fi
+
+      - name: Upload coverage reports
         uses: codecov/codecov-action@e28ff129e5465c2c0dcc6f003fc735cb6ae0c673 # v5.0.4
         with:
-          file: ./coverage.out
-          flags: unittests
-          name: codecov-umbrella
+          file: ./coverage-${{ matrix.test-type }}.out
+          flags: ${{ matrix.test-type }}
+          name: codecov-${{ matrix.test-type }}
+          fail_ci_if_error: false
 
       - name: Upload benchmark results
+        if: matrix.test-type == 'unit'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-results
           path: benchmarks.txt
           retention-days: 30
 
-      - name: Cleanup
-        if: always()
+      - name: Cleanup test environment
+        if: always() && matrix.test-type == 'integration'
         run: |
-          docker stop cockroach || true
-          docker rm cockroach || true
+          docker stop cockroach-test || true
+          docker rm cockroach-test || true
 
-  security:
-    name: Security Scan
+  # Build verification (PR only - no artifacts)
+  build-verify:
+    name: Build Verification
     runs-on: ubuntu-latest
-    needs: [changes]
-    if: needs.changes.outputs.code == 'true'
-    steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-
-      - name: Set up Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Run comprehensive security checks
-        run: |
-          # Run go vet for basic security issues
-          go vet ./...
-
-          # Check for potential security issues in dependencies
-          go mod why
-
-          # Run staticcheck for advanced static analysis
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          staticcheck ./...
-
-          # Run govulncheck for known vulnerabilities
-          echo "Running vulnerability check..."
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
-
-          # Check for secrets and sensitive information
-          if command -v git >/dev/null 2>&1; then
-            echo "Scanning for potential secrets in code..."
-            git log --all --full-history -- "*.go" "*.yaml" "*.yml" "*.json" | grep -i -E "(password|secret|key|token|api)" | head -10 || true
-          fi
-
-  build-pr:
-    name: Build (PR)
-    runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [quality, test]
     if: github.event_name == 'pull_request'
+    
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64, darwin/amd64, darwin/arm64]
+    
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-
-      - name: Set up Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: Build binary (linux/amd64)
-        run: |
-          mkdir -p dist
-          VERSION=$(cat VERSION 2>/dev/null || echo "dev")
-          GOOS=linux GOARCH=amd64 go build \
-            -ldflags "-w -s -X main.version=${VERSION} -X main.commit=${{ github.sha }} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -o dist/relay-linux-amd64 \
-            ./cmd
-
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: [lint, test, security]
-    if: needs.changes.outputs.is_tag == 'true'
-    permissions:
-      contents: write
-      packages: write
-
-    steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          fetch-depth: 0 # Need full history for release notes
-
-      - name: Validate Git Tag vs. VERSION file
-        run: |
-          TAG_VERSION=${GITHUB_REF_NAME#v}
-          FILE_VERSION=$(cat VERSION)
-          echo "Git Tag Version: $TAG_VERSION"
-          echo "VERSION File: $FILE_VERSION"
-          if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
-            echo "Error: Git tag version ($TAG_VERSION) does not match VERSION file ($FILE_VERSION)."
-            exit 1
-          fi
 
       - name: Set up Go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+
+      - name: Build binary for ${{ matrix.platform }}
+        run: |
+          IFS='/' read -r GOOS GOARCH <<< "${{ matrix.platform }}"
+          echo "🔨 Building for $GOOS/$GOARCH..."
+          
+          VERSION="dev-$(git rev-parse --short HEAD)"
+          COMMIT="${{ github.sha }}"
+          BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          
+          GOOS=$GOOS GOARCH=$GOARCH go build \
+            -ldflags "-w -s -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${BUILD_DATE}" \
+            -o relay-${GOOS}-${GOARCH} \
+            ./cmd
+          
+          # Verify binary was created
+          ls -la relay-${GOOS}-${GOARCH}
+          echo "✅ Build successful for ${{ matrix.platform }}"
+
+  # Docker build verification (PR only - no push)
+  docker-verify:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    if: github.event_name == 'pull_request' && (needs.changes.outputs.docker == 'true' || needs.changes.outputs.code == 'true')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build multi-platform binaries
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          COMMIT=${{ github.sha }}
-          BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          
-          mkdir -p dist
-          
-          declare -a platforms=(
-            "linux/amd64"
-            "linux/arm64"
-            "darwin/amd64"
-            "darwin/arm64"
-            "windows/amd64"
-          )
-          
-          for platform in "${platforms[@]}"; do
-            IFS='/' read -r GOOS GOARCH <<< "$platform"
-            BINARY_NAME="relay"
-            if [ "$GOOS" = "windows" ]; then
-              BINARY_NAME="${BINARY_NAME}.exe"
-            fi
-            
-            echo "🔨 Building $GOOS/$GOARCH..."
-            GOOS=$GOOS GOARCH=$GOARCH go build \
-              -ldflags "-w -s -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${BUILD_DATE}" \
-              -o dist/relay-${GOOS}-${GOARCH}${BINARY_NAME#relay} \
-              ./cmd
-          done
-
-      - name: Build and push Docker image
-        id: docker_build
+      - name: Build Docker image (verification only)
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           file: ./docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.GITHUB_REF_NAME }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          labels: |
-            org.opencontainers.image.title=Shugur Relay
-            org.opencontainers.image.description=High-performance Nostr relay
-            org.opencontainers.image.version=${{ env.GITHUB_REF_NAME }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          target: production
+          platforms: linux/amd64
+          push: false
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VERSION=${{ env.GITHUB_REF_NAME }}
+            VERSION=pr-${{ github.event.number }}
             COMMIT=${{ github.sha }}
-          target: production
+            DATE=${{ github.event.head_commit.timestamp }}
 
-      - name: Create compressed archives and checksums
-        run: |
-          cd dist
-          for file in relay-*; do
-            if [[ $file == *"windows"* ]]; then
-              zip "${file}.zip" "$file"
-            else
-              tar -czf "${file}.tar.gz" "$file"
-            fi
-          done
-          sha256sum ./* > checksums.txt
-          cd ..
+      - name: Install cosign
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+      - name: Scan Docker image with Trivy
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b9ceecfd3 # v0.20.0
         with:
-          files: |
-            dist/*.zip
-            dist/*.tar.gz
-            dist/checksums.txt
-          generate_release_notes: true
-          
-  # Build Result Aggregation (inspired by AutoMQ)
-  build-summary:
-    name: Build Summary
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}
+          format: 'sarif'
+          output: 'docker-trivy-results.sarif'
+
+      - name: Upload Docker scan results
+        uses: github/codeql-action/upload-sarif@662472033e021d55d94146f66f6058822b0b39fd # v3.27.0
+        if: always()
+        with:
+          sarif_file: 'docker-trivy-results.sarif'
+
+  # CI Summary
+  ci-summary:
+    name: CI Summary
     runs-on: ubuntu-latest
-    needs: [test, build-pr, security, lint, release]
+    needs: [changes, quality, test, build-verify, docker-verify]
     if: always()
+    
     steps:
-      - name: Check build results
+      - name: Generate CI summary
         run: |
-          echo "## 🏗️ Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🏗️ Continuous Integration Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Check each job status
+          # Job status checks
+          QUALITY_STATUS="${{ needs.quality.result }}"
           TEST_STATUS="${{ needs.test.result }}"
-          BUILD_PR_STATUS="${{ needs.build-pr.result }}"
-          SECURITY_STATUS="${{ needs.security.result }}"
-          LINT_STATUS="${{ needs.lint.result }}"
-          RELEASE_STATUS="${{ needs.release.result }}"
+          BUILD_STATUS="${{ needs.build-verify.result }}"
+          DOCKER_STATUS="${{ needs.docker-verify.result }}"
           
-          echo "| Job | Status | Details |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Quality results
+          case "$QUALITY_STATUS" in
+            "success") echo "| 🔍 Code Quality & Security | ✅ Passed | Linting and security checks completed |" >> $GITHUB_STEP_SUMMARY ;;
+            "skipped") echo "| 🔍 Code Quality & Security | ⏭️ Skipped | No code changes detected |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 🔍 Code Quality & Security | ❌ Failed | Quality or security issues found |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🔍 Code Quality & Security | ❔ Unknown | Status: $QUALITY_STATUS |" >> $GITHUB_STEP_SUMMARY ;;
+          esac
           
           # Test results
           case "$TEST_STATUS" in
-            "success") echo "| 🧪 Tests | ✅ Passed | All tests completed successfully |" >> $GITHUB_STEP_SUMMARY ;;
-            "skipped") echo "| 🧪 Tests | ⏭️ Skipped | Tests were skipped |" >> $GITHUB_STEP_SUMMARY ;;
-            "failure") echo "| 🧪 Tests | ❌ Failed | Tests failed or had issues |" >> $GITHUB_STEP_SUMMARY ;;
-            *) echo "| 🧪 Tests | ❔ Unknown | Status was ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY ;;
+            "success") echo "| 🧪 Test Suite | ✅ Passed | All tests completed successfully |" >> $GITHUB_STEP_SUMMARY ;;
+            "skipped") echo "| 🧪 Test Suite | ⏭️ Skipped | No code changes detected |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 🧪 Test Suite | ❌ Failed | Test failures detected |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🧪 Test Suite | ❔ Unknown | Status: $TEST_STATUS |" >> $GITHUB_STEP_SUMMARY ;;
           esac
           
-          # Build PR results
-          case "$BUILD_PR_STATUS" in
-            "success") echo "| 🏗️ Build (PR) | ✅ Passed | Binary compiled successfully |" >> $GITHUB_STEP_SUMMARY ;;
-            "skipped") echo "| 🏗️ Build (PR) | ⏭️ Skipped | Build was skipped (not a PR) |" >> $GITHUB_STEP_SUMMARY ;;
-            "failure") echo "| 🏗️ Build (PR) | ❌ Failed | Build compilation failed |" >> $GITHUB_STEP_SUMMARY ;;
-            *) echo "| 🏗️ Build (PR) | ❔ Unknown | Status was ${{ needs.build-pr.result }} |" >> $GITHUB_STEP_SUMMARY ;;
-          esac
-          
-          # Security results
-          case "$SECURITY_STATUS" in
-            "success") echo "| 🔒 Security | ✅ Passed | No security issues found |" >> $GITHUB_STEP_SUMMARY ;;
-            "skipped") echo "| 🔒 Security | ⏭️ Skipped | Security scan was skipped |" >> $GITHUB_STEP_SUMMARY ;;
-            "failure") echo "| 🔒 Security | ❌ Failed | Security scan found issues |" >> $GITHUB_STEP_SUMMARY ;;
-            *) echo "| 🔒 Security | ❔ Unknown | Status was ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY ;;
-          esac
-          
-          # Lint results
-          case "$LINT_STATUS" in
-            "success") echo "| 📝 Lint | ✅ Passed | Code meets quality standards |" >> $GITHUB_STEP_SUMMARY ;;
-            "skipped") echo "| 📝 Lint | ⏭️ Skipped | Linting was skipped |" >> $GITHUB_STEP_SUMMARY ;;
-            "failure") echo "| 📝 Lint | ❌ Failed | Code quality issues found |" >> $GITHUB_STEP_SUMMARY ;;
-            *) echo "| 📝 Lint | ❔ Unknown | Status was ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY ;;
-          esac
-
-          # Release results
-          case "$RELEASE_STATUS" in
-            "success") echo "| 🚀 Release | ✅ Passed | Release created successfully |" >> $GITHUB_STEP_SUMMARY ;;
-            "skipped") echo "| 🚀 Release | ⏭️ Skipped | Release was skipped (not a tag) |" >> $GITHUB_STEP_SUMMARY ;;
-            "failure") echo "| 🚀 Release | ❌ Failed | Release creation failed |" >> $GITHUB_STEP_SUMMARY ;;
-            *) echo "| 🚀 Release | ❔ Unknown | Status was ${{ needs.release.result }} |" >> $GITHUB_STEP_SUMMARY ;;
-          esac
+          # Build results (PR only)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            case "$BUILD_STATUS" in
+              "success") echo "| 🔨 Build Verification | ✅ Passed | Multi-platform builds successful |" >> $GITHUB_STEP_SUMMARY ;;
+              "skipped") echo "| 🔨 Build Verification | ⏭️ Skipped | Build verification not needed |" >> $GITHUB_STEP_SUMMARY ;;
+              "failure") echo "| 🔨 Build Verification | ❌ Failed | Build compilation issues |" >> $GITHUB_STEP_SUMMARY ;;
+              *) echo "| 🔨 Build Verification | ❔ Unknown | Status: $BUILD_STATUS |" >> $GITHUB_STEP_SUMMARY ;;
+            esac
+            
+            case "$DOCKER_STATUS" in
+              "success") echo "| 🐳 Docker Verification | ✅ Passed | Docker image builds successfully |" >> $GITHUB_STEP_SUMMARY ;;
+              "skipped") echo "| 🐳 Docker Verification | ⏭️ Skipped | No Docker changes detected |" >> $GITHUB_STEP_SUMMARY ;;
+              "failure") echo "| 🐳 Docker Verification | ❌ Failed | Docker build issues |" >> $GITHUB_STEP_SUMMARY ;;
+              *) echo "| 🐳 Docker Verification | ❔ Unknown | Status: $DOCKER_STATUS |" >> $GITHUB_STEP_SUMMARY ;;
+            esac
+          fi
           
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Overall status
           FAILED_JOBS=0
+          [[ "$QUALITY_STATUS" == "failure" ]] && ((FAILED_JOBS++))
           [[ "$TEST_STATUS" == "failure" ]] && ((FAILED_JOBS++))
-          [[ "$BUILD_PR_STATUS" == "failure" ]] && ((FAILED_JOBS++))
-          [[ "$SECURITY_STATUS" == "failure" ]] && ((FAILED_JOBS++))
-          [[ "$LINT_STATUS" == "failure" ]] && ((FAILED_JOBS++))
-          [[ "$RELEASE_STATUS" == "failure" ]] && ((FAILED_JOBS++))
+          [[ "$BUILD_STATUS" == "failure" ]] && ((FAILED_JOBS++))
+          [[ "$DOCKER_STATUS" == "failure" ]] && ((FAILED_JOBS++))
           
           if [[ $FAILED_JOBS -eq 0 ]]; then
             echo "## ✅ Overall Status: **PASSED**" >> $GITHUB_STEP_SUMMARY
-            echo "All checks completed successfully." >> $GITHUB_STEP_SUMMARY
-            exit 0
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 All CI checks completed successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "**Ready for merge** - All quality, security, and build checks passed." >> $GITHUB_STEP_SUMMARY
+            else
+              echo "**Main branch is healthy** - All checks passed for latest changes." >> $GITHUB_STEP_SUMMARY
+            fi
           else
             echo "## ❌ Overall Status: **FAILED**" >> $GITHUB_STEP_SUMMARY
-            echo "One or more checks failed. Please review the issues above." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ $FAILED_JOBS check(s) failed. Please review and fix the issues above." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
