@@ -89,7 +89,12 @@ jobs:
 
       - name: Install git-cliff
         run: |
-          curl -L https://github.com/orhun/git-cliff/releases/latest/download/git-cliff-0.1.0-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          # Get the latest release version
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/orhun/git-cliff/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          echo "Installing git-cliff version: $LATEST_VERSION"
+          
+          # Download and install
+          curl -L "https://github.com/orhun/git-cliff/releases/download/${LATEST_VERSION}/git-cliff-${LATEST_VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar xz
           sudo mv git-cliff-*/git-cliff /usr/local/bin/
 
       - name: Generate release changelog
