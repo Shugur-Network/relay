@@ -144,26 +144,59 @@ jobs:
         run: |
           echo "📋 Generating release notes for v${{ needs.validate.outputs.version }}..."
           
-          # Generate rich release notes similar to RC2 format
-          echo "## ${{ needs.validate.outputs.version }} https://github.com/${{ github.repository }}/compare/v${{ needs.validate.outputs.version }}...v${{ needs.validate.outputs.version }} ($(date +'%Y-%m-%d'))" > release_notes.md
-          echo "" >> release_notes.md
-          
-          # Try to generate detailed changelog
-          if git-cliff --tag "v${{ needs.validate.outputs.version }}" --unreleased --strip header >> release_notes.md 2>/dev/null; then
-            echo "✅ Generated detailed changelog"
+          # First, try to generate release notes from existing CHANGELOG.md unreleased section
+          if [ -f "CHANGELOG.md" ] && grep -q "## \[Unreleased\]" CHANGELOG.md; then
+            echo "Found existing CHANGELOG.md with unreleased entries"
+            
+            # Extract unreleased section for release notes
+            sed -n '/## \[Unreleased\]/,/## \[/p' CHANGELOG.md | head -n -1 | tail -n +2 > temp_unreleased.md
+            
+            if [ -s temp_unreleased.md ]; then
+              echo "## ${{ needs.validate.outputs.version }} https://github.com/${{ github.repository }}/releases/tag/v${{ needs.validate.outputs.version }} ($(date +'%Y-%m-%d'))" > release_notes.md
+              echo "" >> release_notes.md
+              cat temp_unreleased.md >> release_notes.md
+              echo "✅ Generated release notes from existing unreleased entries"
+              rm -f temp_unreleased.md
+            else
+              echo "⚠️ Unreleased section is empty, falling back to git-cliff"
+            fi
           else
-            echo "### Features" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "• Release v${{ needs.validate.outputs.version }}" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "### Improvements" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "• Enhanced CI/CD workflows and release automation" >> release_notes.md
-            echo "• Improved Docker image tagging and artifact handling" >> release_notes.md
-            echo "" >> release_notes.md
+            echo "⚠️ No CHANGELOG.md or unreleased section found, using git-cliff fallback"
           fi
           
-          echo "Release notes content:"
+          # Fallback to git-cliff if we don't have release notes yet
+          if [ ! -f "release_notes.md" ]; then
+            echo "## ${{ needs.validate.outputs.version }} https://github.com/${{ github.repository }}/releases/tag/v${{ needs.validate.outputs.version }} ($(date +'%Y-%m-%d'))" > release_notes.md
+            echo "" >> release_notes.md
+            
+            # Try to generate detailed changelog using git-cliff
+            if git-cliff --config cliff.toml --tag "v${{ needs.validate.outputs.version }}" --unreleased --strip header >> temp_changelog.md 2>/dev/null && [ -s temp_changelog.md ]; then
+              echo "✅ Generated detailed changelog with git-cliff"
+              cat temp_changelog.md >> release_notes.md
+            else
+              echo "⚠️ git-cliff failed or generated empty content, using commit-based fallback"
+              # Generate fallback changelog from recent commits
+              echo "### Changes" >> release_notes.md
+              echo "" >> release_notes.md
+              
+              # Get commits since last tag (or last 10 commits if no previous tag)
+              PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+              if [ -n "$PREVIOUS_TAG" ]; then
+                COMMIT_RANGE="${PREVIOUS_TAG}..HEAD"
+              else
+                COMMIT_RANGE="HEAD~10..HEAD"
+              fi
+              
+              # Format commits with proper grouping
+              git log ${COMMIT_RANGE} --pretty=format:"• %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" --reverse >> release_notes.md 2>/dev/null || true
+              echo "" >> release_notes.md
+            fi
+          fi
+          
+          # Clean up temp files
+          rm -f temp_changelog.md temp_unreleased.md
+          
+          echo "Generated release notes content:"
           cat release_notes.md
           
           echo "✅ Release notes generated successfully"
@@ -173,6 +206,31 @@ jobs:
         with:
           name: release-notes
           path: release_notes.md
+          retention-days: 1
+
+      - name: Update CHANGELOG.md for release
+        run: |
+          echo "📝 Updating CHANGELOG.md to convert Unreleased to v${{ needs.validate.outputs.version }}..."
+          
+          if [ -f "CHANGELOG.md" ] && grep -q "## \[Unreleased\]" CHANGELOG.md; then
+            # Generate the complete changelog with the new version
+            git-cliff --config cliff.toml --tag "v${{ needs.validate.outputs.version }}" -o CHANGELOG.md
+            
+            echo "✅ CHANGELOG.md updated with release v${{ needs.validate.outputs.version }}"
+            
+            # Stage the changelog for potential commit (but don't commit in release workflow)
+            git add CHANGELOG.md
+            
+            echo "📋 CHANGELOG.md has been updated and staged"
+          else
+            echo "ℹ️ No CHANGELOG.md unreleased section to update"
+          fi
+
+      - name: Upload updated changelog
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: updated-changelog
+          path: CHANGELOG.md
           retention-days: 1
 
   # Build multi-platform binaries
@@ -329,7 +387,8 @@ jobs:
           
           # Move binary archives to release assets (if they exist)
           if [ -d "artifacts" ]; then
-            find artifacts -name "*.tar.gz" -o -name "*.zip" | while read -r file; do
+            # Copy all binary files (both compressed and uncompressed)
+            find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" -o -name "relay-*" ! -name "*.tar.gz" ! -name "*.zip" \) | while read -r file; do
               if [ -f "$file" ]; then
                 cp "$file" release-assets/
                 echo "✅ Added: $(basename "$file")"
@@ -351,7 +410,7 @@ jobs:
           # Generate checksums (if we have files to checksum)
           cd release-assets
           if [ "$(ls -A . 2>/dev/null | grep -v README.txt)" ]; then
-            sha256sum *.tar.gz *.zip 2>/dev/null > checksums.txt || echo "⚠️ Could not generate checksums for some files"
+            sha256sum * 2>/dev/null > checksums.txt || echo "⚠️ Could not generate checksums for some files"
           else
             echo "No binary assets to checksum" > checksums.txt
           fi
@@ -367,7 +426,7 @@ jobs:
         uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
         with:
           tag_name: ${{ github.ref_name }}
-          name: "Release ${{ github.ref_name }}"
+          name: ${{ github.ref_name }}
           body_path: release_notes.md
           files: release-assets/*
           prerelease: ${{ needs.validate.outputs.is_prerelease }}
