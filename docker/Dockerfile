@@ -2,7 +2,7 @@
 # Security-hardened with minimal attack surface
 
 # Stage 1: Build the binary
-FROM golang:1.25rc3-alpine3.22 AS builder
+FROM golang:1.25-alpine3.22 AS builder
 
 # Install build dependencies
 RUN apk update && apk upgrade && apk add --no-cache \
@@ -79,7 +79,7 @@ CMD ["relay", "start"]
 
 # =============================================================================
 # Development stage for live reloading and debugging
-FROM golang:1.25rc3-alpine3.22 AS development
+FROM golang:1.25-alpine3.22 AS development
 
 # Install development dependencies
 RUN apk update && apk upgrade && apk add --no-cache \
