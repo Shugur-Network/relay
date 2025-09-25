@@ -139,51 +139,28 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate release changelog
-        run: |
-          echo "📝 Generating changelog for release ${{ needs.validate.outputs.version }}..."
-          
-          # Generate changelog for this specific version
-          git-cliff --tag "v${{ needs.validate.outputs.version }}" --output CHANGELOG.md
-          
-          # Verify changelog was updated
-          if ! grep -q "## \[v${{ needs.validate.outputs.version }}\]" CHANGELOG.md; then
-            echo "❌ Failed to generate changelog entry for v${{ needs.validate.outputs.version }}"
-            exit 1
-          fi
-          
-          echo "✅ Changelog updated successfully"
-
-      - name: Extract release notes
+      - name: Generate release notes
         id: release_notes
         run: |
-          echo "📋 Extracting release notes for v${{ needs.validate.outputs.version }}..."
+          echo "📋 Generating release notes for v${{ needs.validate.outputs.version }}..."
           
-          # Extract the release notes for this version
-          awk '/^## \[v${{ needs.validate.outputs.version }}\]/{flag=1; next} /^## \[/{flag=0} flag' CHANGELOG.md > release_notes.md
+          # Generate release notes directly without modifying CHANGELOG.md
+          git-cliff --tag "v${{ needs.validate.outputs.version }}" --unreleased --strip header > release_notes.md
           
           # Verify we have content
           if [ ! -s release_notes.md ]; then
-            echo "⚠️ No release notes found, generating from commits..."
-            git-cliff --tag "v${{ needs.validate.outputs.version }}" --unreleased --strip header > release_notes.md
+            echo "⚠️ No release notes generated, creating basic notes..."
+            echo "## What's Changed" > release_notes.md
+            echo "" >> release_notes.md
+            echo "Release v${{ needs.validate.outputs.version }}" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/v${{ needs.validate.outputs.version }}...HEAD" >> release_notes.md
           fi
           
           echo "Release notes content:"
           cat release_notes.md
-
-      - name: Commit changelog updates
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
           
-          if git diff --quiet CHANGELOG.md; then
-            echo "ℹ️ No changelog changes to commit"
-          else
-            git add CHANGELOG.md
-            git commit -m "docs: update changelog for v${{ needs.validate.outputs.version }}"
-            git push origin HEAD:main
-            echo "✅ Changelog committed and pushed"
-          fi
+          echo "✅ Release notes generated successfully"
 
       - name: Upload release notes
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
