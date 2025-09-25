@@ -38,9 +38,13 @@ jobs:
           --health-cmd="cockroach sql --insecure --execute='SELECT 1'"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=5
+          --health-retries=10
           --memory=512m
           --cpus=0.5
+          start-single-node
+          --insecure
+          --listen-addr=0.0.0.0:26257
+          --http-addr=0.0.0.0:8080
         ports:
           - 26257:26257
     
