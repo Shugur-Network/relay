@@ -123,10 +123,16 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           go install honnef.co/go/tools/cmd/staticcheck@latest
           
-          # Install gosec with fallback
-          if ! go install github.com/securecodewarrior/gosec/v2/cmd/gosec@v2.21.4; then
-            echo "Failed to install gosec v2.21.4, trying latest..."
-            go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest || echo "gosec installation failed, skipping..."
+          # Install gosec with multiple fallback options
+          echo "Installing gosec security scanner..."
+          if go install github.com/securecodewarrior/gosec/v2/cmd/gosec@v2.21.4; then
+            echo "✅ gosec v2.21.4 installed successfully"
+          elif go install github.com/securecodewarrior/gosec/v2/cmd/gosec@v2.20.0; then
+            echo "✅ gosec v2.20.0 installed successfully"
+          elif curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.21.4; then
+            echo "✅ gosec installed via install script"
+          else
+            echo "⚠️ gosec installation failed, security scan will be skipped"
           fi
           
           # Run vulnerability check
@@ -158,25 +164,11 @@ jobs:
             echo "✅ No obvious hardcoded secrets detected"
           fi
 
-      - name: Run gosec Security Scanner (Alternative)
-        if: always()
-        uses: securecodewarrior/github-action-gosec@master
-        with:
-          args: '-fmt sarif -out gosec-action-results.sarif ./...'
-        continue-on-error: true
-
       - name: Upload security results
         if: always()
         uses: github/codeql-action/upload-sarif@192325c86100d080feab897ff886c34abd4c83a3 # v3.30.3
         with:
           sarif_file: gosec-results.sarif
-        continue-on-error: true
-
-      - name: Upload gosec action results
-        if: always()
-        uses: github/codeql-action/upload-sarif@192325c86100d080feab897ff886c34abd4c83a3 # v3.30.3
-        with:
-          sarif_file: gosec-action-results.sarif
         continue-on-error: true
 
       - name: Security scan with Trivy
