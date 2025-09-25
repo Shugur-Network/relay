@@ -1,11 +1,15 @@
-name: CI/CD Pipeline
+name: CI & Release
 
 permissions:
-  contents: read
+  contents: write
+  packages: write
+  pull-requests: write
 
 on:
   push:
     branches: [main, develop]
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*' # Matches v1.2.3, v1.2.3-rc1, etc.
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
@@ -16,8 +20,6 @@ on:
       - '**/*.svg'
   pull_request:
     branches: [main, develop]
-  release:
-    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -35,6 +37,7 @@ jobs:
     outputs:
       code: ${{ steps.filter.outputs.code }}
       docs: ${{ steps.filter.outputs.docs }}
+      is_tag: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -59,6 +62,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
@@ -88,6 +92,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: [changes]
+    if: needs.changes.outputs.code == 'true'
 
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -99,7 +104,6 @@ jobs:
           cache: true
 
       - name: Cache test dependencies and build cache
-        if: ${{ needs.changes.outputs.code == 'true' }}
         uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: |
@@ -111,11 +115,9 @@ jobs:
             ${{ runner.os }}-go-test-
 
       - name: Download dependencies
-        if: ${{ needs.changes.outputs.code == 'true' }}
         run: go mod download
 
       - name: Start CockroachDB (CI-optimized)
-        if: ${{ needs.changes.outputs.code == 'true' }}
         run: |
           docker run -d \
             --name cockroach \
@@ -133,7 +135,6 @@ jobs:
           # Database will be created automatically by the relay application
 
       - name: Run tests with retry mechanism
-        if: ${{ needs.changes.outputs.code == 'true' }}
         run: |
           # Run tests with retry for flakiness resilience
           for attempt in 1 2 3; do
@@ -156,7 +157,6 @@ jobs:
           SHUGUR_DB_SSL_MODE: disable
 
       - name: Run benchmarks for performance monitoring
-        if: ${{ needs.changes.outputs.code == 'true' }}
         run: |
           echo "Running performance benchmarks..."
           go test -bench=. -benchmem -count=3 -run=^$ ./... > benchmarks.txt 2>&1 || true
@@ -170,7 +170,6 @@ jobs:
           fi
 
       - name: Upload coverage to Codecov
-        if: ${{ needs.changes.outputs.code == 'true' }}
         uses: codecov/codecov-action@e28ff129e5465c2c0dcc6f003fc735cb6ae0c673 # v5.0.4
         with:
           file: ./coverage.out
@@ -178,16 +177,11 @@ jobs:
           name: codecov-umbrella
 
       - name: Upload benchmark results
-        if: ${{ needs.changes.outputs.code == 'true' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: benchmark-results
           path: benchmarks.txt
           retention-days: 30
-
-      - name: Docs-only change; skip tests
-        if: ${{ needs.changes.outputs.code != 'true' }}
-        run: echo "Docs-only change detected; skipping tests."
 
       - name: Cleanup
         if: always()
@@ -199,6 +193,7 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
@@ -230,267 +225,8 @@ jobs:
             git log --all --full-history -- "*.go" "*.yaml" "*.yml" "*.json" | grep -i -E "(password|secret|key|token|api)" | head -10 || true
           fi
 
-  build:
-    name: Build (release artifacts)
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    # Only build cross-platform artifacts on releases
-    if: github.event_name == 'release'
-    strategy:
-      matrix:
-        goos: [linux, darwin, windows]
-        goarch: [amd64, arm64]
-        exclude:
-          - goos: windows
-            goarch: arm64
-
-    steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-
-      - name: Validate SemVer and VERSION for releases
-        if: github.event_name == 'release'
-        run: |
-          VFILE=$(cat VERSION 2>/dev/null || echo '')
-          TAG="${GITHUB_REF_NAME#v}"
-          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
-          if ! echo "$TAG" | grep -Eq "$SEMVER_RE"; then
-            echo "Tag must be SemVer (optionally v-prefixed); got '${GITHUB_REF_NAME}'" >&2; exit 1; fi
-          # For stable releases (no hyphen), enforce VERSION equality; pre-releases skip equality
-          if echo "$TAG" | grep -q '-'; then
-            echo "Pre-release tag '$TAG' detected; skipping VERSION equality check."
-          else
-            if ! echo "$VFILE" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-              echo "VERSION must be X.Y.Z for stable releases; got '$VFILE'" >&2; exit 1; fi
-            if [ "$VFILE" != "$TAG" ]; then
-              echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
-          fi
-
-      - name: Set up Go
-        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: Build binary
-        run: |
-          mkdir -p dist
-          # On release events, use the tag as version (pre-release or stable)
-          VERSION="${GITHUB_REF_NAME#v}"
-          BINARY_NAME=relay
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            BINARY_NAME="${BINARY_NAME}.exe"
-          fi
-
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
-            -ldflags "-w -s -X main.version=${VERSION} -X main.commit=${{ github.sha }} -X main.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -o dist/${BINARY_NAME}-${{ matrix.goos }}-${{ matrix.goarch }} \
-            ./cmd
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: relay-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/
-          retention-days: 7  # Reduced from 30 days for releases
-
-  docker:
-    name: Docker Build & Push (release)
-    runs-on: ubuntu-latest
-    needs: [lint, test, security]
-    # Only publish Docker images on releases
-    if: github.event_name == 'release'
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Validate SemVer and VERSION for releases
-        run: |
-          VFILE=$(cat VERSION 2>/dev/null || echo '')
-          TAG="${GITHUB_REF_NAME#v}"
-          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
-          if ! echo "$TAG" | grep -Eq "$SEMVER_RE"; then
-            echo "Tag must be SemVer (optionally v-prefixed); got '${GITHUB_REF_NAME}'" >&2; exit 1; fi
-          if echo "$TAG" | grep -q '-'; then
-            echo "Pre-release tag '$TAG' detected; skipping VERSION equality check."
-          else
-            if ! echo "$VFILE" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-              echo "VERSION must be X.Y.Z for stable releases; got '$VFILE'" >&2; exit 1; fi
-            if [ "$VFILE" != "$TAG" ]; then
-              echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
-          fi
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@c1e51972afc2121e065aed6d45c65596fe445f3f # v5.8.0
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ !github.event.release.prerelease }}
-            type=semver,pattern={{major}},enable=${{ !github.event.release.prerelease }}
-            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
-      
-      - name: Compute version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        with:
-          context: .
-          file: ./docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            VERSION=${{ steps.version.outputs.VERSION }}
-            COMMIT=${{ github.sha }}
-            DATE=${{ github.event.head_commit.timestamp }}
-          target: production
-
-  release:
-    name: Release Assets
-    runs-on: ubuntu-latest
-    needs: [build, docker]
-    if: github.event_name == 'release'
-    permissions:
-      contents: write
-      packages: write
-
-    steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-
-      - name: Validate SemVer and VERSION for releases
-        run: |
-          VFILE=$(cat VERSION 2>/dev/null || echo '')
-          TAG="${GITHUB_REF_NAME#v}"
-          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
-          if ! echo "$TAG" | grep -Eq "$SEMVER_RE"; then
-            echo "Tag must be SemVer (optionally v-prefixed); got '${GITHUB_REF_NAME}'" >&2; exit 1; fi
-          if echo "$TAG" | grep -q '-'; then
-            echo "Pre-release tag '$TAG' detected; skipping VERSION equality check."
-          else
-            if ! echo "$VFILE" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-              echo "VERSION must be X.Y.Z for stable releases; got '$VFILE'" >&2; exit 1; fi
-            if [ "$VFILE" != "$TAG" ]; then
-              echo "VERSION ($VFILE) does not match tag ($TAG)" >&2; exit 1; fi
-          fi
-
-      - name: Download build artifacts (relay-*)
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
-        with:
-          # Only fetch our binary artifacts, skip docker/buildx artifacts
-          pattern: relay-*
-          path: ./artifacts
-          merge-multiple: true
-
-      - name: Prepare and package release assets
-        run: |
-          set -euo pipefail
-          mkdir -p release
-          # Gather raw binaries from all artifacts
-          if compgen -G "artifacts/relay-*" > /dev/null; then
-            cp artifacts/relay-* release/
-          else
-            for dir in artifacts/*/; do
-              if [ -d "$dir" ]; then
-                cp -r "$dir"* release/
-              fi
-            done
-          fi
-
-          cd release
-          mkdir -p archives
-
-          # Ensure zip is available for Windows archives
-          if ! command -v zip >/dev/null 2>&1; then
-            sudo apt-get update -y && sudo apt-get install -y zip
-          fi
-
-          # Package per target: .zip for Windows, .tar.gz for others
-          for f in *; do
-            # skip directories and previously generated files
-            if [ -d "$f" ] || [[ "$f" == "archives" ]] || [[ "$f" == *.zip ]] || [[ "$f" == *.tar.gz ]] || [[ "$f" == "checksums.txt" ]]; then
-              continue
-            fi
-
-            case "$f" in
-              *windows-*)
-                arch="${f##*-}"              # last hyphen token
-                out="archives/relay-windows-${arch}.zip"
-                # Normalize name inside archive to relay.exe
-                cp "$f" relay.exe
-                if command -v zip >/dev/null 2>&1; then
-                  zip -q -9 "$out" relay.exe
-                else
-                  echo "zip not found" >&2; exit 1
-                fi
-                rm -f relay.exe
-                ;;
-              *)
-                arch="${f##*-}"
-                os="${f%-*}"; os="${os##*-}"
-                out="archives/relay-${os}-${arch}.tar.gz"
-                # Normalize name inside archive to relay
-                cp "$f" relay
-                tar -czf "$out" relay
-                rm -f relay
-                ;;
-            esac
-          done
-
-          # Create checksums for archives
-          (cd archives && sha256sum * > ../checksums.txt)
-
-      # Docker images are built and pushed in the docker job (release)
-
-      - name: Log in to Container Registry (read)
-        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Attach Docker images to release (uncompressed)
-        env:
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        run: |
-          set -euo pipefail
-          mkdir -p release/containers
-          TAG="${GITHUB_REF_NAME#v}"
-          # pull and save platform-specific images as raw docker tar (no compression)
-          docker pull --platform=linux/amd64 "${IMAGE}:${TAG}"
-          docker save "${IMAGE}:${TAG}" -o "release/containers/relay-${TAG}-linux-amd64.tar"
-          docker pull --platform=linux/arm64 "${IMAGE}:${TAG}"
-          docker save "${IMAGE}:${TAG}" -o "release/containers/relay-${TAG}-linux-arm64.tar"
-
-      - name: Upload release assets
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
-        with:
-          files: |
-            release/*
-            release/archives/*
-            release/containers/*
-          generate_release_notes: true
-
   build-pr:
-    name: Build (PR linux/amd64)
+    name: Build (PR)
     runs-on: ubuntu-latest
     needs: [lint, test]
     if: github.event_name == 'pull_request'
@@ -512,11 +248,129 @@ jobs:
             -o dist/relay-linux-amd64 \
             ./cmd
 
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [lint, test, security]
+    if: needs.changes.outputs.is_tag == 'true'
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # Need full history for release notes
+
+      - name: Validate Git Tag vs. VERSION file
+        run: |
+          TAG_VERSION=${GITHUB_REF_NAME#v}
+          FILE_VERSION=$(cat VERSION)
+          echo "Git Tag Version: $TAG_VERSION"
+          echo "VERSION File: $FILE_VERSION"
+          if [[ "$TAG_VERSION" != "$FILE_VERSION" ]]; then
+            echo "Error: Git tag version ($TAG_VERSION) does not match VERSION file ($FILE_VERSION)."
+            exit 1
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build multi-platform binaries
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          COMMIT=${{ github.sha }}
+          BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          
+          mkdir -p dist
+          
+          declare -a platforms=(
+            "linux/amd64"
+            "linux/arm64"
+            "darwin/amd64"
+            "darwin/arm64"
+            "windows/amd64"
+          )
+          
+          for platform in "${platforms[@]}"; do
+            IFS='/' read -r GOOS GOARCH <<< "$platform"
+            BINARY_NAME="relay"
+            if [ "$GOOS" = "windows" ]; then
+              BINARY_NAME="${BINARY_NAME}.exe"
+            fi
+            
+            echo "🔨 Building $GOOS/$GOARCH..."
+            GOOS=$GOOS GOARCH=$GOARCH go build \
+              -ldflags "-w -s -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${BUILD_DATE}" \
+              -o dist/relay-${GOOS}-${GOARCH}${BINARY_NAME#relay} \
+              ./cmd
+          done
+
+      - name: Build and push Docker image
+        id: docker_build
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.GITHUB_REF_NAME }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          labels: |
+            org.opencontainers.image.title=Shugur Relay
+            org.opencontainers.image.description=High-performance Nostr relay
+            org.opencontainers.image.version=${{ env.GITHUB_REF_NAME }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ env.GITHUB_REF_NAME }}
+            COMMIT=${{ github.sha }}
+          target: production
+
+      - name: Create compressed archives and checksums
+        run: |
+          cd dist
+          for file in relay-*; do
+            if [[ $file == *"windows"* ]]; then
+              zip "${file}.zip" "$file"
+            else
+              tar -czf "${file}.tar.gz" "$file"
+            fi
+          done
+          sha256sum ./* > checksums.txt
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836 # v2.3.3
+        with:
+          files: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/checksums.txt
+          generate_release_notes: true
+          
   # Build Result Aggregation (inspired by AutoMQ)
   build-summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [test, build, security, lint]
+    needs: [test, build-pr, security, lint, release]
     if: always()
     steps:
       - name: Check build results
@@ -526,9 +380,10 @@ jobs:
           
           # Check each job status
           TEST_STATUS="${{ needs.test.result }}"
-          BUILD_STATUS="${{ needs.build.result }}"
+          BUILD_PR_STATUS="${{ needs.build-pr.result }}"
           SECURITY_STATUS="${{ needs.security.result }}"
           LINT_STATUS="${{ needs.lint.result }}"
+          RELEASE_STATUS="${{ needs.release.result }}"
           
           echo "| Job | Status | Details |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|---------|" >> $GITHUB_STEP_SUMMARY
@@ -537,42 +392,55 @@ jobs:
           case "$TEST_STATUS" in
             "success") echo "| 🧪 Tests | ✅ Passed | All tests completed successfully |" >> $GITHUB_STEP_SUMMARY ;;
             "skipped") echo "| 🧪 Tests | ⏭️ Skipped | Tests were skipped |" >> $GITHUB_STEP_SUMMARY ;;
-            *) echo "| 🧪 Tests | ❌ Failed | Tests failed or had issues |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 🧪 Tests | ❌ Failed | Tests failed or had issues |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🧪 Tests | ❔ Unknown | Status was ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY ;;
           esac
           
-          # Build results
-          case "$BUILD_STATUS" in
-            "success") echo "| 🏗️ Build | ✅ Passed | Binary compiled successfully |" >> $GITHUB_STEP_SUMMARY ;;
-            "skipped") echo "| 🏗️ Build | ⏭️ Skipped | Build was skipped |" >> $GITHUB_STEP_SUMMARY ;;
-            *) echo "| 🏗️ Build | ❌ Failed | Build compilation failed |" >> $GITHUB_STEP_SUMMARY ;;
+          # Build PR results
+          case "$BUILD_PR_STATUS" in
+            "success") echo "| 🏗️ Build (PR) | ✅ Passed | Binary compiled successfully |" >> $GITHUB_STEP_SUMMARY ;;
+            "skipped") echo "| 🏗️ Build (PR) | ⏭️ Skipped | Build was skipped (not a PR) |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 🏗️ Build (PR) | ❌ Failed | Build compilation failed |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🏗️ Build (PR) | ❔ Unknown | Status was ${{ needs.build-pr.result }} |" >> $GITHUB_STEP_SUMMARY ;;
           esac
           
           # Security results
           case "$SECURITY_STATUS" in
             "success") echo "| 🔒 Security | ✅ Passed | No security issues found |" >> $GITHUB_STEP_SUMMARY ;;
             "skipped") echo "| 🔒 Security | ⏭️ Skipped | Security scan was skipped |" >> $GITHUB_STEP_SUMMARY ;;
-            *) echo "| 🔒 Security | ❌ Failed | Security scan found issues |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 🔒 Security | ❌ Failed | Security scan found issues |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🔒 Security | ❔ Unknown | Status was ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY ;;
           esac
           
           # Lint results
           case "$LINT_STATUS" in
             "success") echo "| 📝 Lint | ✅ Passed | Code meets quality standards |" >> $GITHUB_STEP_SUMMARY ;;
             "skipped") echo "| 📝 Lint | ⏭️ Skipped | Linting was skipped |" >> $GITHUB_STEP_SUMMARY ;;
-            *) echo "| 📝 Lint | ❌ Failed | Code quality issues found |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 📝 Lint | ❌ Failed | Code quality issues found |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 📝 Lint | ❔ Unknown | Status was ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY ;;
+          esac
+
+          # Release results
+          case "$RELEASE_STATUS" in
+            "success") echo "| 🚀 Release | ✅ Passed | Release created successfully |" >> $GITHUB_STEP_SUMMARY ;;
+            "skipped") echo "| 🚀 Release | ⏭️ Skipped | Release was skipped (not a tag) |" >> $GITHUB_STEP_SUMMARY ;;
+            "failure") echo "| 🚀 Release | ❌ Failed | Release creation failed |" >> $GITHUB_STEP_SUMMARY ;;
+            *) echo "| 🚀 Release | ❔ Unknown | Status was ${{ needs.release.result }} |" >> $GITHUB_STEP_SUMMARY ;;
           esac
           
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Overall status - consider success and skipped as passing
+          # Overall status
           FAILED_JOBS=0
-          [[ "$TEST_STATUS" != "success" && "$TEST_STATUS" != "skipped" ]] && ((FAILED_JOBS++))
-          [[ "$BUILD_STATUS" != "success" && "$BUILD_STATUS" != "skipped" ]] && ((FAILED_JOBS++))
-          [[ "$SECURITY_STATUS" != "success" && "$SECURITY_STATUS" != "skipped" ]] && ((FAILED_JOBS++))
-          [[ "$LINT_STATUS" != "success" && "$LINT_STATUS" != "skipped" ]] && ((FAILED_JOBS++))
+          [[ "$TEST_STATUS" == "failure" ]] && ((FAILED_JOBS++))
+          [[ "$BUILD_PR_STATUS" == "failure" ]] && ((FAILED_JOBS++))
+          [[ "$SECURITY_STATUS" == "failure" ]] && ((FAILED_JOBS++))
+          [[ "$LINT_STATUS" == "failure" ]] && ((FAILED_JOBS++))
+          [[ "$RELEASE_STATUS" == "failure" ]] && ((FAILED_JOBS++))
           
           if [[ $FAILED_JOBS -eq 0 ]]; then
             echo "## ✅ Overall Status: **PASSED**" >> $GITHUB_STEP_SUMMARY
-            echo "All checks completed successfully. Ready to merge!" >> $GITHUB_STEP_SUMMARY
+            echo "All checks completed successfully." >> $GITHUB_STEP_SUMMARY
             exit 0
           else
             echo "## ❌ Overall Status: **FAILED**" >> $GITHUB_STEP_SUMMARY
