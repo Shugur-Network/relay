@@ -551,6 +551,7 @@ RELAY:
       MAX_REQUESTS_PER_SECOND: 400
       BURST_SIZE: 100
       PROGRESSIVE_BAN: true
+      BAN_DURATION: 5m
       MAX_BAN_DURATION: 24h
 
 RELAY_POLICY:
@@ -559,12 +560,16 @@ RELAY_POLICY:
   WHITELIST:
     PUBKEYS: []
 
+CAPSULES:
+  ENABLED: true
+  MAX_WITNESSES: 9
+
 DATABASE:
   SERVER: "localhost"
   PORT: 26257
 EOF
 
-  # Caddyfile
+  # Caddyfile with comprehensive security headers
   cat > "$CLUSTER_DIR/$node_id/config/Caddyfile" << EOF
 $node_url {
     handle /api/* {
@@ -594,6 +599,7 @@ $node_url {
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"
         Referrer-Policy "strict-origin-when-cross-origin"
+        X-XSS-Protection "1; mode=block"
         X-Cluster-Node "$node_id"
         -Server
         -X-Powered-By

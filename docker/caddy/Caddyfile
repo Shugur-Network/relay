@@ -13,6 +13,31 @@ shu02.shugur.net {
         header_up X-Forwarded-Proto {scheme}
     }
     
+    # Security headers - applied at proxy level for all responses
+    header {
+        # HTTP Strict Transport Security - enforce HTTPS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        
+        # Prevent MIME sniffing
+        X-Content-Type-Options "nosniff"
+        
+        # Clickjacking protection - allow same origin for dashboard
+        X-Frame-Options "SAMEORIGIN"
+        
+        # Referrer policy for privacy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # XSS Protection (legacy but useful)
+        X-XSS-Protection "1; mode=block"
+        
+        # Remove server information headers
+        -Server
+        -X-Powered-By
+    }
+    
+    # Enable compression for better performance
+    encode gzip zstd
+    
     # Automatic HTTPS with Let's Encrypt (disabled for localhost)
     # Production domains get automatic SSL certificates
     

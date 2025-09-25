@@ -3,17 +3,6 @@
 -- Database: Defined in constants.DatabaseName
 
 -- =============================================================================
--- CockroachDB Performance Optimization Settings
--- =============================================================================
--- These settings optimize storage compression and performance for the cluster
--- Apply these settings after database creation and before table creation
-
--- Enable ZSTD compression for all SSTable data blocks (best compression ratio)
-SET CLUSTER SETTING storage.sstable.compression_algorithm = 'zstd';
-SET CLUSTER SETTING storage.sstable.compression_algorithm_backup_storage = 'zstd';
-SET CLUSTER SETTING storage.sstable.compression_algorithm_backup_transport = 'zstd';
-
--- =============================================================================
 -- Events table - stores all Nostr events with optimized indexes
 -- =============================================================================
 -- This table supports CockroachDB changefeeds for real-time distributed synchronization

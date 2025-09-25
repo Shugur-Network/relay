@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/Shugur-Network/relay/internal/application"
 	"github.com/Shugur-Network/relay/internal/config"
@@ -73,7 +71,7 @@ var rootCmd = &cobra.Command{
 
 // Execute runs the root command with the provided context
 func Execute(ctx context.Context) {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
+	// crypto/rand is cryptographically secure and doesn't require seeding
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -88,7 +86,7 @@ func printWelcomeBanner() {
 	fmt.Println(" |____/|_| |_|\\__,_|\\__, |\\__,_|_|    |_| \\_\\___|_|\\__,_|\\__, |")
 	fmt.Println("                    |___/                                |___/ ")
 	fmt.Println()
-	fmt.Println("Welcome to Shugur Relay - A high-performance Nostr relay server!")
+	fmt.Println("Welcome to Shugur Relay - A high-performance, reliable, scalable Nostr relay!")
 }
 
 // init is automatically called before main(), sets up flags and loads config
@@ -136,12 +134,12 @@ func init() {
 			if cfgFile != "" {
 				absPath, err := filepath.Abs(cfgFile)
 				if err != nil {
-					fmt.Printf("❌ Failed to resolve absolute path for config: %v\n", err)
+					logger.Error("Failed to resolve absolute path for config", zap.Error(err))
 					os.Exit(1)
 				}
 				cfgFile = absPath
 			}
-			fmt.Printf("🔍 Using config file: %s\n", cfgFile)
+			logger.Info("Using config file", zap.String("config_file", cfgFile))
 
 			// Use the context passed down from main.go
 			ctx := cmd.Context()
@@ -154,14 +152,19 @@ func init() {
 			app, err := application.New(ctx, cfg, nil)
 			if err != nil {
 				logger.Error("Failed to initialize the relay", zap.Error(err))
-				fmt.Printf("❌ Failed to initialize relay: %v\n", err)
 				os.Exit(1)
 			}
+
+			// Set up graceful shutdown handling
+			go func() {
+				<-ctx.Done() // Wait for cancellation signal
+				logger.Info("Shutdown signal received, initiating graceful shutdown...")
+				app.Shutdown() // Call the enhanced shutdown method
+			}()
 
 			// Start the relay
 			if err := app.Start(ctx); err != nil {
 				logger.Error("Failed to start the relay", zap.Error(err))
-				fmt.Printf("❌ Failed to start relay: %v\n", err)
 				os.Exit(1)
 			}
 

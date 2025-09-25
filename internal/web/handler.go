@@ -13,6 +13,7 @@ import (
 
 	"github.com/Shugur-Network/relay/internal/config"
 	"github.com/Shugur-Network/relay/internal/constants"
+	"github.com/Shugur-Network/relay/internal/errors"
 	"github.com/Shugur-Network/relay/internal/identity"
 	"github.com/Shugur-Network/relay/internal/metrics"
 	"github.com/Shugur-Network/relay/internal/storage"
@@ -95,6 +96,10 @@ func NewHandler(cfg *config.Config, logger *zap.Logger, node interface{}) *Handl
 
 // HandleDashboard serves the main dashboard page
 func (h *Handler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
+	// Apply security headers for dashboard
+	dashboardHeaders := DefaultSecurityHeaders()
+	dashboardHeaders.Apply(w)
+	
 	// Load template
 	tmplPath := filepath.Join("web", "templates", "index.html")
 	tmpl, err := template.ParseFiles(tmplPath)
@@ -117,17 +122,36 @@ func (h *Handler) HandleDashboard(w http.ResponseWriter, r *http.Request) {
 
 // HandleStatic serves static files
 func (h *Handler) HandleStatic(w http.ResponseWriter, r *http.Request) {
+	// Apply security headers for static files
+	staticHeaders := DefaultSecurityHeaders()
+	staticHeaders.Apply(w)
+	
 	// Serve static files safely, preventing path traversal
 	root := filepath.Join("web", "static")
 
-	// Clean and trim the incoming path
-	p := strings.TrimPrefix(r.URL.Path, "/static/")
-	p = filepath.Clean(p)
+	// Extract and validate the requested path
+	requestedPath := strings.TrimPrefix(r.URL.Path, "/static/")
+	
+	// Use our new sanitization function
+	sanitizedPath, err := SanitizePath(requestedPath)
+	if err != nil {
+		h.logger.Warn("Static file path validation failed",
+			zap.Error(err),
+			zap.String("requested_path", requestedPath),
+			zap.String("client_ip", r.RemoteAddr))
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
 
 	// Join and ensure the resolved path remains within the static root
-	fullPath := filepath.Join(root, p)
+	fullPath := filepath.Join(root, sanitizedPath)
 	if rel, err := filepath.Rel(root, fullPath); err != nil || strings.HasPrefix(rel, "..") {
-		http.Error(w, "invalid path", http.StatusBadRequest)
+		h.logger.Warn("Path traversal attempt detected",
+			zap.String("requested_path", requestedPath),
+			zap.String("sanitized_path", sanitizedPath),
+			zap.String("full_path", fullPath),
+			zap.String("client_ip", r.RemoteAddr))
+		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
 
@@ -140,6 +164,10 @@ func (h *Handler) HandleStatic(w http.ResponseWriter, r *http.Request) {
 
 // HandleStatsAPI serves the stats API endpoint
 func (h *Handler) HandleStatsAPI(w http.ResponseWriter, r *http.Request) {
+	// Apply security headers for API endpoints
+	apiHeaders := APISecurityHeaders()
+	apiHeaders.Apply(w)
+	
 	// Set headers
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -181,6 +209,10 @@ func (h *Handler) HandleStatsAPI(w http.ResponseWriter, r *http.Request) {
 
 // HandleMetricsAPI serves real-time metrics for dashboard
 func (h *Handler) HandleMetricsAPI(w http.ResponseWriter, r *http.Request) {
+	// Apply security headers for API endpoints
+	apiHeaders := APISecurityHeaders()
+	apiHeaders.Apply(w)
+	
 	// Set headers
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -300,7 +332,7 @@ func (h *Handler) getStatsData() *StatsData {
 
 	// Get events stored from database if available
 	if h.db != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), constants.HealthCheckTimeout*time.Second)
 		defer cancel()
 
 		count, err := h.db.GetTotalEventCount(ctx)
@@ -319,7 +351,7 @@ func (h *Handler) getStatsData() *StatsData {
 	memUsage := getMemoryUsage()
 
 	// Calculate load percentage (based on active connections vs max)
-	maxConnections := int64(1000) // Default max, should come from config
+	maxConnections := int64(1000) // Fallback default if not configured
 	if h.config != nil && h.config.Relay.ThrottlingConfig.MaxConnections > 0 {
 		maxConnections = int64(h.config.Relay.ThrottlingConfig.MaxConnections)
 	}
@@ -356,7 +388,7 @@ func (h *Handler) getClusterData() *storage.CockroachClusterInfo {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.HealthCheckTimeout*time.Second)
 	defer cancel()
 
 	clusterInfo, err := h.db.GetCockroachClusterInfo(ctx)
@@ -372,6 +404,10 @@ func (h *Handler) getClusterData() *storage.CockroachClusterInfo {
 
 // HandleClusterAPI serves the cluster API endpoint
 func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
+	// Apply security headers for API endpoints
+	apiHeaders := APISecurityHeaders()
+	apiHeaders.Apply(w)
+	
 	// Set headers
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -385,40 +421,63 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 
 	// Only allow GET requests
 	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		// Use new error handling system
+		methodErr := errors.ValidationError("METHOD_NOT_ALLOWED", 
+			"Only GET requests are allowed for this endpoint").
+			WithUserMessage("Method not allowed.")
+		errors.HandleHTTPError(w, r, methodErr)
 		return
 	}
 
 	if h.db == nil {
-		http.Error(w, "Database not available", http.StatusInternalServerError)
+		// Use new error handling system
+		dbErr := errors.InternalError("Database not available", nil).
+			WithSeverity(errors.SeverityCritical).
+			WithUserMessage("Database service is temporarily unavailable.")
+		errors.HandleHTTPError(w, r, dbErr)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.HealthCheckTimeout*time.Second)
 	defer cancel()
 
-	// Check if requesting health or full cluster info
+	// Check if requesting health or full cluster info - validate query parameter
 	requestType := r.URL.Query().Get("type")
+	if requestType != "" {
+		requestType = SanitizeQueryParam(requestType)
+		// Only allow specific values
+		if requestType != "health" && requestType != "info" {
+			// Use new error handling system
+			validationErr := errors.ValidationError("INVALID_TYPE_PARAMETER", 
+				"Type parameter must be 'health' or 'info'").
+				WithUserMessage("Invalid type parameter. Use 'health' or 'info'.")
+			errors.HandleHTTPError(w, r, validationErr)
+			return
+		}
+	}
 
 	if requestType == "health" {
 		health, err := h.db.GetClusterHealth(ctx)
 		if err != nil {
-			h.logger.Error("Failed to get cluster health", zap.Error(err))
-			http.Error(w, "Failed to get cluster health", http.StatusInternalServerError)
+			// Use new error handling system
+			dbErr := errors.HandleDatabaseError("cluster health check", err)
+			errors.HandleHTTPError(w, r, dbErr)
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(health); err != nil {
-			h.logger.Error("Failed to encode cluster health response", zap.Error(err))
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			// Use new error handling system
+			encodeErr := errors.InternalError("Failed to encode cluster health response", err)
+			errors.HandleHTTPError(w, r, encodeErr)
 			return
 		}
 	} else {
 		clusterInfo, err := h.db.GetCockroachClusterInfo(ctx)
 		if err != nil {
-			h.logger.Error("Failed to get cluster information", zap.Error(err))
-			http.Error(w, "Failed to get cluster information", http.StatusInternalServerError)
+			// Use new error handling system
+			dbErr := errors.HandleDatabaseError("cluster info retrieval", err)
+			errors.HandleHTTPError(w, r, dbErr)
 			return
 		}
 
@@ -428,53 +487,6 @@ func (h *Handler) HandleClusterAPI(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-	}
-}
-
-// HandleCapsuleStatus serves the time capsule status endpoint
-func (h *Handler) HandleCapsuleStatus(w http.ResponseWriter, r *http.Request) {
-	// Set headers
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	// Handle preflight requests
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	// Only allow GET requests
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Extract capsule ID from URL path
-	// Path format: /.well-known/capsule/{id}
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 4 {
-		http.Error(w, "Invalid capsule ID", http.StatusBadRequest)
-		return
-	}
-	capsuleID := pathParts[3]
-
-	// For now, return a basic status response
-	// TODO: Implement actual database lookup when Phase 1 is complete
-	response := map[string]interface{}{
-		"capsule_id": capsuleID,
-		"status":     "pending",
-		"message":    "Time capsule status endpoint - database integration pending",
-		"timestamp":  time.Now().Unix(),
-		"relay":      "Shugur Relay",
-		"version":    "1.0.0",
-	}
-
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.logger.Error("Failed to encode capsule status response", zap.Error(err))
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
 	}
 }
 
@@ -498,18 +510,26 @@ func getMemoryUsage() map[string]int64 {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
+	// Safe conversion function to prevent integer overflow
+	safeUint64ToInt64 := func(val uint64) int64 {
+		if val > 9223372036854775807 { // math.MaxInt64
+			return 9223372036854775807
+		}
+		return int64(val)
+	}
+
 	return map[string]int64{
-		"alloc":           int64(m.Alloc),                   // Currently allocated bytes
-		"total_alloc":     int64(m.TotalAlloc),              // Total allocated bytes (cumulative)
-		"sys":             int64(m.Sys),                     // System memory obtained from OS
-		"heap_alloc":      int64(m.HeapAlloc),               // Heap allocated bytes
-		"heap_sys":        int64(m.HeapSys),                 // Heap system bytes
-		"heap_idle":       int64(m.HeapIdle),                // Heap idle bytes
-		"heap_inuse":      int64(m.HeapInuse),               // Heap in-use bytes
-		"heap_objects":    int64(m.HeapObjects),             // Number of allocated heap objects
-		"stack_inuse":     int64(m.StackInuse),              // Stack in-use bytes
-		"stack_sys":       int64(m.StackSys),                // Stack system bytes
-		"num_gc":          int64(m.NumGC),                   // Number of GC cycles
+		"alloc":           safeUint64ToInt64(m.Alloc),       // Currently allocated bytes
+		"total_alloc":     safeUint64ToInt64(m.TotalAlloc),  // Total allocated bytes (cumulative)
+		"sys":             safeUint64ToInt64(m.Sys),         // System memory obtained from OS
+		"heap_alloc":      safeUint64ToInt64(m.HeapAlloc),   // Heap allocated bytes
+		"heap_sys":        safeUint64ToInt64(m.HeapSys),     // Heap system bytes
+		"heap_idle":       safeUint64ToInt64(m.HeapIdle),    // Heap idle bytes
+		"heap_inuse":      safeUint64ToInt64(m.HeapInuse),   // Heap in-use bytes
+		"heap_objects":    safeUint64ToInt64(m.HeapObjects), // Number of allocated heap objects
+		"stack_inuse":     safeUint64ToInt64(m.StackInuse),  // Stack in-use bytes
+		"stack_sys":       safeUint64ToInt64(m.StackSys),    // Stack system bytes
+		"num_gc":          int64(m.NumGC),                   // Number of GC cycles (uint32 -> int64 is safe)
 		"gc_cpu_fraction": int64(m.GCCPUFraction * 1000000), // GC CPU fraction (scaled)
 	}
 }

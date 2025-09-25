@@ -9,9 +9,11 @@ import (
 	"github.com/Shugur-Network/relay/internal/config"
 	"github.com/Shugur-Network/relay/internal/constants"
 	"github.com/Shugur-Network/relay/internal/domain"
+	"github.com/Shugur-Network/relay/internal/health"
 	"github.com/Shugur-Network/relay/internal/logger"
 	"github.com/Shugur-Network/relay/internal/metrics"
 	"github.com/Shugur-Network/relay/internal/relay/nips"
+	"github.com/Shugur-Network/relay/internal/storage"
 	"github.com/Shugur-Network/relay/internal/web"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -19,21 +21,36 @@ import (
 
 // Server holds references to the relay configuration and node logic.
 type Server struct {
-	cfg        config.RelayConfig
-	fullCfg    *config.Config
-	node       domain.NodeInterface
-	webHandler *web.Handler
+	cfg           config.RelayConfig
+	fullCfg       *config.Config
+	node          domain.NodeInterface
+	webHandler    *web.Handler
+	healthChecker *health.HealthChecker
 }
 
 // NewServer constructs a new Server with the given RelayConfig and NodeInterface.
 func NewServer(relayCfg config.RelayConfig, node domain.NodeInterface, fullCfg *config.Config) *Server {
 	webHandler := web.NewHandler(fullCfg, logger.New("web"), node)
+	
+	// Create adapters for health checker
+	dbAdapter := &dbHealthAdapter{db: node.DB()}
+	nodeAdapter := &nodeHealthAdapter{node: node}
+	
+	// Create health checker
+	healthChecker := health.NewHealthChecker(
+		dbAdapter,
+		nodeAdapter,
+		fullCfg,
+		logger.New("health"),
+		config.Version,
+	)
 
 	return &Server{
-		cfg:        relayCfg,
-		fullCfg:    fullCfg,
-		node:       node,
-		webHandler: webHandler,
+		cfg:           relayCfg,
+		fullCfg:       fullCfg,
+		node:          node,
+		webHandler:    webHandler,
+		healthChecker: healthChecker,
 	}
 }
 
@@ -63,35 +80,51 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 			// Handle as relay WebSocket connection
 			handleWebSocketConnection(ctx, w, r, upgrader, s.node, s.cfg)
 		} else {
-			// Handle HTTP requests
+			// Handle HTTP requests with input validation
 			switch {
 			case r.URL.Path == "/" && r.Header.Get("Accept") != "application/nostr+json":
-				// Serve dashboard for browser requests
-				s.webHandler.HandleDashboard(w, r)
+				// Serve dashboard for browser requests with validation
+				web.SecureValidatedHandlerFunc(s.webHandler.HandleDashboard)(w, r)
 			case r.Header.Get("Accept") == "application/nostr+json":
+				// Apply security headers for API endpoints
+				apiHeaders := web.APISecurityHeaders()
+				apiHeaders.Apply(w)
 				// Serve NIP-11 metadata for Nostr clients
 				metadata := constants.DefaultRelayMetadata(s.fullCfg)
 				nips.ServeRelayMetadata(w, metadata)
 			case strings.HasPrefix(r.URL.Path, "/static/"):
-				// Serve static files
-				s.webHandler.HandleStatic(w, r)
+				// Serve static files with validation
+				web.SecureValidatedHandlerFunc(s.webHandler.HandleStatic)(w, r)
 			case r.URL.Path == "/api/info":
-				// Serve relay info API
-				metadata := constants.DefaultRelayMetadata(s.fullCfg)
-				w.Header().Set("Content-Type", "application/json")
-				w.Header().Set("Access-Control-Allow-Origin", "*")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-				nips.ServeRelayMetadata(w, metadata)
+				// Apply security headers for API endpoints
+				apiHeaders := web.APISecurityHeaders()
+				apiHeaders.Apply(w)
+				// Serve relay info API with validation
+				web.ValidatedHandlerFunc(web.APIInputValidation(), func(w http.ResponseWriter, r *http.Request) {
+					metadata := constants.DefaultRelayMetadata(s.fullCfg)
+					w.Header().Set("Content-Type", "application/json")
+					w.Header().Set("Access-Control-Allow-Origin", "*")
+					w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+					nips.ServeRelayMetadata(w, metadata)
+				})(w, r)
 			case r.URL.Path == "/api/stats":
-				// Serve relay statistics API
-				s.webHandler.HandleStatsAPI(w, r)
+				// Serve relay statistics API with validation
+				web.SecureValidatedAPIHandlerFunc(s.webHandler.HandleStatsAPI)(w, r)
 			case r.URL.Path == "/api/metrics":
-				// Serve real-time metrics API
-				s.webHandler.HandleMetricsAPI(w, r)
+				// Serve real-time metrics API with validation
+				web.SecureValidatedAPIHandlerFunc(s.webHandler.HandleMetricsAPI)(w, r)
 			case r.URL.Path == "/api/cluster":
-				// Serve cluster information API
-				s.webHandler.HandleClusterAPI(w, r)
+				// Serve cluster information API with validation
+				web.SecureValidatedAPIHandlerFunc(s.webHandler.HandleClusterAPI)(w, r)
+			case r.URL.Path == "/health":
+				// Serve health check endpoint - no validation needed for basic health checks
+				s.healthChecker.HandleHealth(w, r)
 			default:
+				// Log invalid requests for security monitoring
+				logger.Warn("Invalid request path",
+					zap.String("path", r.URL.Path),
+					zap.String("client_ip", r.RemoteAddr),
+					zap.String("user_agent", r.Header.Get("User-Agent")))
 				http.NotFound(w, r)
 			}
 		}
@@ -108,7 +141,7 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 	go func() {
 		<-ctx.Done()
 		logger.Info("Shutting down WebSocket server...")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		_ = httpSrv.Shutdown(shutdownCtx)
 	}()
@@ -121,4 +154,41 @@ func (s *Server) ListenAndServe(ctx context.Context, addr string) error {
 func isWebSocketRequest(r *http.Request) bool {
 	return strings.Contains(strings.ToLower(r.Header.Get("Connection")), "upgrade") &&
 		strings.ToLower(r.Header.Get("Upgrade")) == "websocket"
+}
+
+// dbHealthAdapter adapts storage.DB to health.DatabaseInterface
+type dbHealthAdapter struct {
+	db *storage.DB
+}
+
+func (d *dbHealthAdapter) Ping() error {
+	return d.db.Ping()
+}
+
+func (d *dbHealthAdapter) Stats() health.DatabaseStats {
+	stats := d.db.Stats()
+	return health.DatabaseStats{
+		OpenConnections:    stats.OpenConnections,
+		InUse:              stats.InUse,
+		Idle:               stats.Idle,
+		MaxOpenConnections: stats.MaxOpenConnections,
+		MaxIdleConnections: stats.MaxIdleConnections,
+	}
+}
+
+func (d *dbHealthAdapter) GetClusterHealth(ctx context.Context) (map[string]interface{}, error) {
+	return d.db.GetClusterHealth(ctx)
+}
+
+// nodeHealthAdapter adapts domain.NodeInterface to health.NodeInterface  
+type nodeHealthAdapter struct {
+	node domain.NodeInterface
+}
+
+func (n *nodeHealthAdapter) GetConnectionCount() int {
+	return n.node.GetConnectionCount()
+}
+
+func (n *nodeHealthAdapter) GetStartTime() time.Time {
+	return n.node.GetStartTime()
 }

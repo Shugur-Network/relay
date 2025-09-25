@@ -12,12 +12,14 @@ import (
 	"github.com/Shugur-Network/relay/internal/config"
 	"github.com/Shugur-Network/relay/internal/constants"
 	"github.com/Shugur-Network/relay/internal/domain"
+	"github.com/Shugur-Network/relay/internal/errors"
 	"github.com/Shugur-Network/relay/internal/limiter"
 	"github.com/Shugur-Network/relay/internal/logger"
 	"github.com/Shugur-Network/relay/internal/metrics"
 	"github.com/Shugur-Network/relay/internal/relay"
 	"github.com/Shugur-Network/relay/internal/storage"
 	"github.com/Shugur-Network/relay/internal/workers"
+
 	"go.uber.org/zap"
 )
 
@@ -254,7 +256,7 @@ func (b *NodeBuilder) BuildDB() error {
 	// Optionally connect to default DB to create the target DB (only when defaultDbURI is set).
 	if defaultDbURI != "" {
 		logger.Info("Connecting to default database to check/create target database...", zap.String("as_user", "root"))
-		defaultConn, err := storage.InitDB(b.ctx, defaultDbURI)
+		defaultConn, err := storage.InitDB(b.ctx, defaultDbURI, b.config.Relay.ThrottlingConfig.MaxConnections)
 		if err != nil {
 			// Don’t hard fail; installer may have already provisioned the DB
 			logger.Warn("Root connection to default database failed; skipping create step (assuming provisioned).", zap.Error(err))
@@ -272,7 +274,7 @@ func (b *NodeBuilder) BuildDB() error {
 	logger.Info("Connecting to target database...",
 		zap.String("db", dbName),
 		zap.String("as_user", targetUser))
-	dbConn, err := storage.InitDB(b.ctx, targetDbURI)
+	dbConn, err := storage.InitDB(b.ctx, targetDbURI, b.config.Relay.ThrottlingConfig.MaxConnections)
 	if err != nil {
 		b.cancel()
 		return fmt.Errorf("failed to initialize database connection to %s: %w", dbName, err)
@@ -354,28 +356,32 @@ func (b *NodeBuilder) BuildLists() {
 }
 
 // Build finalizes the node construction.
-func (b *NodeBuilder) Build() *Node {
+func (b *NodeBuilder) Build() (*Node, error) {
+	// Initialize error handling system early
+	errors.InitErrorHandling()
+	logger.Info("Error handling system initialized", zap.String("component", "node_builder"))
+
 	// Validate required components
 	if b.database == nil {
-		panic("database must be built before calling Build()")
+		return nil, fmt.Errorf("database must be built before calling Build()")
 	}
 	if b.eventDispatcher == nil {
-		panic("event dispatcher must be built before calling Build()")
+		return nil, fmt.Errorf("event dispatcher must be built before calling Build()")
 	}
 	if b.workerPool == nil {
-		panic("worker pool must be built before calling Build()")
+		return nil, fmt.Errorf("worker pool must be built before calling Build()")
 	}
 	if b.validator == nil {
-		panic("validator must be built before calling Build()")
+		return nil, fmt.Errorf("validator must be built before calling Build()")
 	}
 	if b.eventVal == nil {
-		panic("event validator must be built before calling Build()")
+		return nil, fmt.Errorf("event validator must be built before calling Build()")
 	}
 	if b.eventProc == nil {
-		panic("event processor must be built before calling Build()")
+		return nil, fmt.Errorf("event processor must be built before calling Build()")
 	}
 	if b.rateLimiter == nil {
-		panic("rate limiter must be built before calling Build()")
+		return nil, fmt.Errorf("rate limiter must be built before calling Build()")
 	}
 
 	node := &Node{
@@ -393,9 +399,10 @@ func (b *NodeBuilder) Build() *Node {
 
 		blacklistPubKeys: b.blacklist,
 		whitelistPubKeys: b.whitelist,
+		startTime:        time.Now(),
 	}
 
 	logger.Debug("Node initialized successfully via builder")
 	b.database.StartExpiredEventsCleaner(b.ctx, time.Hour)
-	return node
+	return node, nil
 }

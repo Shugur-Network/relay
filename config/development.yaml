@@ -39,6 +39,7 @@ RELAY:
       MAX_REQUESTS_PER_SECOND: 1000 # Maximum requests per second
       BURST_SIZE: 100            # Rate limit burst size
       PROGRESSIVE_BAN: false     # Enable progressive ban duration
+      BAN_DURATION: 1m           # Ban duration  
       MAX_BAN_DURATION: 5m       # Maximum ban duration
 
 RELAY_POLICY:

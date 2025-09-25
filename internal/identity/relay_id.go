@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -96,7 +97,18 @@ func saveRelayIdentity(identity *RelayIdentity, path string) error {
 
 // loadRelayIdentity loads the relay identity from disk
 func loadRelayIdentity(path string) (*RelayIdentity, error) {
-	content, err := os.ReadFile(path)
+	// Validate and clean the path to prevent directory traversal attacks
+	cleanedPath := filepath.Clean(path)
+	if strings.Contains(cleanedPath, "..") {
+		return nil, fmt.Errorf("invalid path: directory traversal detected")
+	}
+	
+	// Ensure the path has a reasonable length
+	if len(cleanedPath) > 256 {
+		return nil, fmt.Errorf("invalid path: path too long")
+	}
+	
+	content, err := os.ReadFile(cleanedPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read relay ID file: %w", err)
 	}
