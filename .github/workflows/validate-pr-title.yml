@@ -21,10 +21,10 @@ jobs:
         with:
           script: |
             const title = context.payload.pull_request.title;
-            const validTypes = ['fix', 'feat', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert'];
+            const validTypes = ['fix', 'feat', 'docs', 'style', 'refactor', 'perf', 'test', 'build', 'ci', 'chore', 'revert', 'deps', 'docker', 'security', 'config'];
             
             // Check if title follows conventional commit format
-            const conventionalCommitRegex = /^(fix|feat|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+/;
+            const conventionalCommitRegex = /^(fix|feat|docs|style|refactor|perf|test|build|ci|chore|revert|deps|docker|security|config)(\(.+\))?: .+/;
             
             if (!conventionalCommitRegex.test(title)) {
               core.setFailed(`PR title "${title}" does not follow conventional commit format. Expected format: "type(scope): description" where type is one of: ${validTypes.join(', ')}`);
