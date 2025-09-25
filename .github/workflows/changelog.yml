@@ -190,7 +190,10 @@ jobs:
           git push origin "$BRANCH_NAME"
           
           # Create a pull request using GitHub CLI
-          gh pr create \
+          echo "Creating pull request for changelog update..."
+          
+          # Create PR without labels first (more reliable)
+          PR_URL=$(gh pr create \
             --title "chore(changelog): update unreleased entries" \
             --body "Automated changelog update with new unreleased entries.
 
@@ -203,10 +206,14 @@ jobs:
           
           **Note:** This PR can be safely merged as it only updates the changelog." \
             --base main \
-            --head "$BRANCH_NAME" \
-            --label "documentation" \
-            --label "changelog" \
-            --label "automated"
+            --head "$BRANCH_NAME")
+          
+          echo "✅ Pull request created: $PR_URL"
+          
+          # Try to add labels after PR creation (optional)
+          echo "Attempting to add labels..."
+          gh pr edit "$BRANCH_NAME" --add-label "documentation" 2>/dev/null || echo "⚠️ Could not add 'documentation' label"
+          gh pr edit "$BRANCH_NAME" --add-label "ci-cd" 2>/dev/null || echo "⚠️ Could not add 'ci-cd' label"
           
           # Try to enable auto-merge if possible
           gh pr merge "$BRANCH_NAME" --squash --auto || echo "⚠️ Could not enable auto-merge, manual review required"
