@@ -127,8 +127,8 @@ jobs:
           # Create backup of current changelog
           cp ${{ env.CHANGELOG_FILE }} ${{ env.CHANGELOG_FILE }}.backup
           
-          # Generate new changelog with unreleased entries
-          git-cliff --unreleased --prepend ${{ env.CHANGELOG_FILE }}
+          # Generate new changelog with unreleased entries using updated cliff.toml
+          git-cliff --config cliff.toml --unreleased --prepend ${{ env.CHANGELOG_FILE }}
           
           # Verify the changelog was updated
           if ! diff -q ${{ env.CHANGELOG_FILE }} ${{ env.CHANGELOG_FILE }}.backup > /dev/null; then

@@ -23,9 +23,9 @@ jobs:
     
     strategy:
       matrix:
-        image:
-          - "relay:latest"
-          - "relay:dev"
+        target:
+          - "production"
+          - "development"
     
     steps:
       - name: Checkout code
@@ -36,35 +36,35 @@ jobs:
         
       - name: Build Docker image
         run: |
-          docker build -t ${{ matrix.image }} -f docker/Dockerfile .
+          docker build -t relay:${{ matrix.target }} -f docker/Dockerfile --target ${{ matrix.target }} .
           
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.33.1
         with:
-          image-ref: ${{ matrix.image }}
+          image-ref: relay:${{ matrix.target }}
           format: 'sarif'
-          output: 'trivy-results-${{ matrix.image }}.sarif'
+          output: 'trivy-results-${{ matrix.target }}.sarif'
           severity: 'CRITICAL,HIGH,MEDIUM'
           
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@303c0aef88fc2fe5ff6d63d3b1596bfd83dfa1f9 # v3.30.4
         if: always()
         with:
-          sarif_file: 'trivy-results-${{ matrix.image }}.sarif'
+          sarif_file: 'trivy-results-${{ matrix.target }}.sarif'
           
       - name: Generate summary report
         if: always()
         run: |
           echo "## 🔍 Docker Security Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`${{ matrix.image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Target:** \`${{ matrix.target }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Scan Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           # Count vulnerabilities by severity
-          if [[ -f "trivy-results-${{ matrix.image }}.sarif" ]]; then
-            CRITICAL=$(jq '.runs[0].results[] | select(.level == "error") | .ruleId' trivy-results-${{ matrix.image }}.sarif 2>/dev/null | wc -l || echo "0")
-            HIGH=$(jq '.runs[0].results[] | select(.level == "warning") | .ruleId' trivy-results-${{ matrix.image }}.sarif 2>/dev/null | wc -l || echo "0")
-            MEDIUM=$(jq '.runs[0].results[] | select(.level == "note") | .ruleId' trivy-results-${{ matrix.image }}.sarif 2>/dev/null | wc -l || echo "0")
+          if [[ -f "trivy-results-${{ matrix.target }}.sarif" ]]; then
+            CRITICAL=$(jq '.runs[0].results[] | select(.level == "error") | .ruleId' trivy-results-${{ matrix.target }}.sarif 2>/dev/null | wc -l || echo "0")
+            HIGH=$(jq '.runs[0].results[] | select(.level == "warning") | .ruleId' trivy-results-${{ matrix.target }}.sarif 2>/dev/null | wc -l || echo "0")
+            MEDIUM=$(jq '.runs[0].results[] | select(.level == "note") | .ruleId' trivy-results-${{ matrix.target }}.sarif 2>/dev/null | wc -l || echo "0")
             
             echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
             echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
