@@ -150,25 +150,31 @@ jobs:
           VERSION="${{ github.event.inputs.version }}"
           cd dist
           
-          # Create tar.gz for Unix systems and zip for Windows
+          # Create compressed versions alongside originals (don't remove originals)
           for file in relay-*; do
             if [[ $file == *"windows"* ]]; then
+              # Create zip for Windows
               zip "${file}.zip" "$file"
-              rm "$file"
             else
+              # Create tar.gz for Unix systems
               tar -czf "${file}.tar.gz" "$file"
-              rm "$file"
             fi
           done
           
-          # Generate checksums
+          # Generate checksums for all files (both compressed and uncompressed)
           sha256sum * > checksums.txt
           
-          echo "📦 Release artifacts:"
+          echo "📦 Release artifacts (total files: $(ls -1 | wc -l)):"
           ls -la
           echo ""
           echo "🔐 Checksums:"
           cat checksums.txt
+          
+          echo "Files to be uploaded:"
+          echo "- Uncompressed binaries: $(ls -1 relay-* | grep -v -E '\.(zip|tar\.gz)$' | wc -l)"
+          echo "- Compressed archives: $(ls -1 *.zip *.tar.gz 2>/dev/null | wc -l)"
+          echo "- Checksums file: 1"
+          echo "- Total files: $(ls -1 | wc -l)"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
@@ -185,6 +191,7 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile
+          target: production
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
@@ -193,7 +200,33 @@ jobs:
           build-args: |
             VERSION=${{ github.event.inputs.version }}
             COMMIT=${{ github.sha }}
-            DATE=${{ steps.date.outputs.date }}
+            DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          labels: |
+            org.opencontainers.image.title=Shugur Relay
+            org.opencontainers.image.description=High-performance Nostr relay implementation
+            org.opencontainers.image.version=${{ github.event.inputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.url=https://github.com/${{ github.repository }}
+            org.opencontainers.image.vendor=Shugur Network
+            org.opencontainers.image.licenses=MIT
+      
+      - name: Verify production Docker image
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          echo "🔍 Verifying production Docker image..."
+          
+          # Pull the image and check it's production configured
+          docker pull ghcr.io/shugur-network/relay:${VERSION}
+          
+          # Check environment variables are set for production
+          docker run --rm ghcr.io/shugur-network/relay:${VERSION} env | grep SHUGUR_ENV=production
+          
+          # Verify binary version
+          docker run --rm ghcr.io/shugur-network/relay:${VERSION} relay version
+          
+          echo "✅ Production Docker image verified successfully"
 
       - name: Create Git tag
         run: |
