@@ -510,18 +510,26 @@ func getMemoryUsage() map[string]int64 {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
+	// Safe conversion function to prevent integer overflow
+	safeUint64ToInt64 := func(val uint64) int64 {
+		if val > 9223372036854775807 { // math.MaxInt64
+			return 9223372036854775807
+		}
+		return int64(val)
+	}
+
 	return map[string]int64{
-		"alloc":           int64(m.Alloc),                   // Currently allocated bytes
-		"total_alloc":     int64(m.TotalAlloc),              // Total allocated bytes (cumulative)
-		"sys":             int64(m.Sys),                     // System memory obtained from OS
-		"heap_alloc":      int64(m.HeapAlloc),               // Heap allocated bytes
-		"heap_sys":        int64(m.HeapSys),                 // Heap system bytes
-		"heap_idle":       int64(m.HeapIdle),                // Heap idle bytes
-		"heap_inuse":      int64(m.HeapInuse),               // Heap in-use bytes
-		"heap_objects":    int64(m.HeapObjects),             // Number of allocated heap objects
-		"stack_inuse":     int64(m.StackInuse),              // Stack in-use bytes
-		"stack_sys":       int64(m.StackSys),                // Stack system bytes
-		"num_gc":          int64(m.NumGC),                   // Number of GC cycles
+		"alloc":           safeUint64ToInt64(m.Alloc),       // Currently allocated bytes
+		"total_alloc":     safeUint64ToInt64(m.TotalAlloc),  // Total allocated bytes (cumulative)
+		"sys":             safeUint64ToInt64(m.Sys),         // System memory obtained from OS
+		"heap_alloc":      safeUint64ToInt64(m.HeapAlloc),   // Heap allocated bytes
+		"heap_sys":        safeUint64ToInt64(m.HeapSys),     // Heap system bytes
+		"heap_idle":       safeUint64ToInt64(m.HeapIdle),    // Heap idle bytes
+		"heap_inuse":      safeUint64ToInt64(m.HeapInuse),   // Heap in-use bytes
+		"heap_objects":    safeUint64ToInt64(m.HeapObjects), // Number of allocated heap objects
+		"stack_inuse":     safeUint64ToInt64(m.StackInuse),  // Stack in-use bytes
+		"stack_sys":       safeUint64ToInt64(m.StackSys),    // Stack system bytes
+		"num_gc":          int64(m.NumGC),                   // Number of GC cycles (uint32 -> int64 is safe)
 		"gc_cpu_fraction": int64(m.GCCPUFraction * 1000000), // GC CPU fraction (scaled)
 	}
 }

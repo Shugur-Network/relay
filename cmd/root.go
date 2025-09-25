@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/Shugur-Network/relay/internal/application"
 	"github.com/Shugur-Network/relay/internal/config"
@@ -73,7 +71,7 @@ var rootCmd = &cobra.Command{
 
 // Execute runs the root command with the provided context
 func Execute(ctx context.Context) {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
+	// crypto/rand is cryptographically secure and doesn't require seeding
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
@@ -88,7 +86,7 @@ func printWelcomeBanner() {
 	fmt.Println(" |____/|_| |_|\\__,_|\\__, |\\__,_|_|    |_| \\_\\___|_|\\__,_|\\__, |")
 	fmt.Println("                    |___/                                |___/ ")
 	fmt.Println()
-	fmt.Println("Welcome to Shugur Relay - A high-performance Nostr relay server!")
+	fmt.Println("Welcome to Shugur Relay - A high-performance, reliable, scalable Nostr relay!")
 }
 
 // init is automatically called before main(), sets up flags and loads config

@@ -39,7 +39,6 @@ func extractRealClientIP(r *http.Request) string {
 	// Try X-Real-IP first (set by Caddy)
 	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
 		extractedIP = strings.TrimSpace(realIP)
-		source = "X-Real-IP"
 		return extractedIP
 	}
 

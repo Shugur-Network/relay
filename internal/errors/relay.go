@@ -15,7 +15,7 @@ import (
 func WebSocketError(operation string, cause error) *AppError {
 	// Determine specific WebSocket error type
 	var code string
-	var severity ErrorSeverity = SeverityMedium
+	var severity ErrorSeverity
 	var userMessage string
 	
 	if websocket.IsCloseError(cause, websocket.CloseNormalClosure) {
@@ -126,8 +126,8 @@ func StorageError(operation, path string, cause error) *AppError {
 // NetworkError creates an error for network-related issues
 func NetworkError(operation string, cause error) *AppError {
 	var code string
-	var severity ErrorSeverity = SeverityMedium
-	var userMessage = "Network error occurred. Please check your connection."
+	severity := SeverityMedium
+	userMessage := "Network error occurred. Please check your connection."
 	
 	// Classify network errors
 	if netErr, ok := cause.(net.Error); ok {
@@ -146,17 +146,18 @@ func NetworkError(operation string, cause error) *AppError {
 			}
 		}
 	} else if opErr, ok := cause.(*net.OpError); ok {
-		if opErr.Op == "dial" {
+		switch opErr.Op {
+		case "dial":
 			code = "NETWORK_DIAL_FAILED"
 			severity = SeverityHigh
 			userMessage = "Failed to establish network connection."
-		} else if opErr.Op == "read" {
+		case "read":
 			code = "NETWORK_READ_FAILED"
 			userMessage = "Failed to read from network connection."
-		} else if opErr.Op == "write" {
+		case "write":
 			code = "NETWORK_WRITE_FAILED"
 			userMessage = "Failed to write to network connection."
-		} else {
+		default:
 			code = "NETWORK_OP_FAILED"
 		}
 	} else if sysErr, ok := cause.(*syscall.Errno); ok {

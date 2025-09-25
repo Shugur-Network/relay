@@ -74,7 +74,7 @@ func init() {
 // registerCustomValidators registers custom validation functions
 func registerCustomValidators() {
 	// Validate WebSocket address format
-	validate.RegisterValidation("wsaddr", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("wsaddr", func(fl validator.FieldLevel) bool {
 		addr := fl.Field().String()
 		if addr == "" {
 			return false
@@ -116,10 +116,12 @@ func registerCustomValidators() {
 		}
 		
 		return true
-	})
+	}); err != nil {
+		logger.Error("Failed to register wsaddr validator", zap.Error(err))
+	}
 	
 	// Validate public key is 64-character hex string
-	validate.RegisterValidation("pubkey", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("pubkey", func(fl validator.FieldLevel) bool {
 		key := fl.Field().String()
 		if key == "" {
 			return true // Optional field
@@ -129,24 +131,30 @@ func registerCustomValidators() {
 		}
 		matched, _ := regexp.MatchString(`^[a-fA-F0-9]{64}$`, key)
 		return matched
-	})
+	}); err != nil {
+		logger.Error("Failed to register pubkey validator", zap.Error(err))
+	}
 	
 	// Validate duration is reasonable (not too short or too long)
-	validate.RegisterValidation("reasonable_duration", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("reasonable_duration", func(fl validator.FieldLevel) bool {
 		duration := fl.Field().Interface().(time.Duration)
 		// Should be between 1 second and 24 hours
 		return duration >= time.Second && duration <= 24*time.Hour
-	})
+	}); err != nil {
+		logger.Error("Failed to register reasonable_duration validator", zap.Error(err))
+	}
 	
 	// Validate timeout duration (shorter range)
-	validate.RegisterValidation("timeout_duration", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("timeout_duration", func(fl validator.FieldLevel) bool {
 		duration := fl.Field().Interface().(time.Duration)
 		// Should be between 1 second and 1 hour
 		return duration >= time.Second && duration <= time.Hour
-	})
+	}); err != nil {
+		logger.Error("Failed to register timeout_duration validator", zap.Error(err))
+	}
 	
 	// Validate log level
-	validate.RegisterValidation("log_level", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("log_level", func(fl validator.FieldLevel) bool {
 		level := fl.Field().String()
 		validLevels := []string{"debug", "info", "warn", "error", "fatal"}
 		for _, valid := range validLevels {
@@ -155,26 +163,32 @@ func registerCustomValidators() {
 			}
 		}
 		return false
-	})
+	}); err != nil {
+		logger.Error("Failed to register log_level validator", zap.Error(err))
+	}
 	
 	// Validate log format
-	validate.RegisterValidation("log_format", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("log_format", func(fl validator.FieldLevel) bool {
 		format := fl.Field().String()
 		return format == "console" || format == "json"
-	})
+	}); err != nil {
+		logger.Error("Failed to register log_format validator", zap.Error(err))
+	}
 	
 	// Validate buffer size is power of 2 and reasonable
-	validate.RegisterValidation("buffer_size", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("buffer_size", func(fl validator.FieldLevel) bool {
 		size := int(fl.Field().Int())
 		if size < 1024 || size > 1048576 { // 1KB to 1MB
 			return false
 		}
 		// Check if it's a power of 2
 		return size&(size-1) == 0
-	})
+	}); err != nil {
+		logger.Error("Failed to register buffer_size validator", zap.Error(err))
+	}
 	
 	// Validate hostname or IP
-	validate.RegisterValidation("host", func(fl validator.FieldLevel) bool {
+	if err := validate.RegisterValidation("host", func(fl validator.FieldLevel) bool {
 		host := fl.Field().String()
 		if host == "" {
 			return false
@@ -188,7 +202,9 @@ func registerCustomValidators() {
 		// Check if it's a valid hostname
 		matched, _ := regexp.MatchString(`^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$`, host)
 		return matched
-	})
+	}); err != nil {
+		logger.Error("Failed to register host validator", zap.Error(err))
+	}
 }
 
 // performCrossFieldValidation performs validation across multiple fields
