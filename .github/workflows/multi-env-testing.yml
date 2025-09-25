@@ -54,10 +54,6 @@ jobs:
           --health-retries=10
           --memory=512m
           --cpus=0.5
-          start-single-node
-          --insecure
-          --listen-addr=0.0.0.0:26257
-          --http-addr=0.0.0.0:8080
         ports:
           - 26257:26257
       
@@ -108,8 +104,20 @@ jobs:
             echo "DB_NAME=relay_test" >> $GITHUB_ENV
             echo "DB_USER=root" >> $GITHUB_ENV
             echo "DB_SSLMODE=disable" >> $GITHUB_ENV
+            
+            # Start CockroachDB manually (services approach has issues)
+            docker run -d \
+              --name cockroach-manual \
+              -p 26257:26257 \
+              -p 8080:8080 \
+              --memory=512m \
+              --cpus=0.5 \
+              cockroachdb/cockroach:v24.1.5 \
+              start-single-node --insecure --max-sql-memory=50% --cache=128MB
+            
             # Wait for CockroachDB
-            timeout 60s bash -c 'until nc -z localhost 26257; do sleep 1; done'
+            timeout 60s bash -c 'until nc -z localhost 26257; do sleep 2; done'
+            sleep 5
             cockroach sql --insecure --host=localhost:26257 --execute="CREATE DATABASE IF NOT EXISTS relay_test;"
           else
             echo "DB_HOST=localhost:5432" >> $GITHUB_ENV
