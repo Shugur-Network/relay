@@ -155,7 +155,7 @@ jobs:
         continue-on-error: true
 
       - name: Security scan with Trivy
-        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b9ceecfd3 # v0.20.0
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b971f1cc99cc71 # v0.28.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -401,7 +401,7 @@ jobs:
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
       - name: Scan Docker image with Trivy
-        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b9ceecfd3 # v0.20.0
+        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b971f1cc99cc71 # v0.28.0
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}
           format: 'sarif'
