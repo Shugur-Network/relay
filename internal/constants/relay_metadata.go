@@ -43,8 +43,10 @@ var DefaultSupportedNIPs = []interface{}{
 	40, // NIP-40: Expiration Timestamp
 	44, // NIP-44: Encrypted Payloads (Versioned)
 	45, // NIP-45: Counting Events
+	47, // NIP-47: Nostr Wallet Connect (NWC)
 	50, // NIP-50: Search Capability
 	51, // NIP-51: Lists
+	56, // NIP-56: Reporting
 	59, // NIP-59: Gift Wrap
 	65, // NIP-65: Relay List Metadata
 	78, // NIP-78: Application-specific data
