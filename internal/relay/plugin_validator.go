@@ -67,7 +67,7 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			0: true, 1: true, 2: true, 3: true, 4: true, 5: true,
 			6: true, 7: true, 40: true, 41: true, 42: true, 43: true, 44: true,
 			14: true, 15: true, 1059: true, 10050: true,
-			1984: true, 9734: true, 10002: true, 30023: true, 31989: true,
+			1984: true, 9734: true, 9735: true, 10002: true, 30023: true, 31989: true,
 			1111: true, // NIP-22: Comment
 			// NIP-20 Command Results
 			24133: true,
@@ -312,6 +312,10 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateComment(event)
 	case 1984:
 		return nips.ValidateReport(event)
+	case 9734:
+		return nips.ValidateZapRequest(event)
+	case 9735:
+		return nips.ValidateZapReceipt(event)
 	case 24133:
 		return nips.ValidateCommandResult(event)
 	case 30017, 30018, 30019, 30020, 1021, 1022:
