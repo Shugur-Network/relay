@@ -98,7 +98,6 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30030: true, // Emoji sets
 			30063: true, // Release artifact sets
 			30267: true, // App curation sets
-			31924: true, // Calendar
 			39089: true, // Starter packs
 			39092: true, // Media starter packs
 			// NIP-15 Marketplace
@@ -116,6 +115,11 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30008: true, // NIP-58: Profile Badges
 			30009: true, // NIP-58: Badge Definition
 			30078: true, // NIP-78 Application-specific Data
+			// NIP-52 Calendar Events
+			31922: true, // Date-based Calendar Event
+			31923: true, // Time-based Calendar Event  
+			31924: true, // Calendar
+			31925: true, // Calendar Event RSVP
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -139,7 +143,6 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30030: {"d"},      // NIP-51: Emoji sets require "d" tag
 			30063: {"d"},      // NIP-51: Release artifact sets require "d" tag
 			30267: {"d"},      // NIP-51: App curation sets require "d" tag
-			31924: {"d"},      // NIP-51: Calendar require "d" tag
 			39089: {"d"},      // NIP-51: Starter packs require "d" tag
 			39092: {"d"},      // NIP-51: Media starter packs require "d" tag
 			30017: {"d"},      // Stall events require "d" tag
@@ -149,6 +152,11 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			1040:  {"e"},      // OpenTimestamps attestation requires "e" tag
 			1041:  {"tlock"},  // NIP-XX Time capsule requires "tlock" tag
 			30078: {"p"},      // NIP-78: Application-specific Data requires "p" tag
+			// NIP-52 Calendar Events
+			31922: {"d", "title", "start"}, // Date-based Calendar Event requires "d", "title", and "start" tags
+			31923: {"d", "title", "start"}, // Time-based Calendar Event requires "d", "title", and "start" tags
+			31924: {"d", "title"},          // Calendar requires "d" and "title" tags
+			31925: {"d", "a", "status"},    // Calendar Event RSVP requires "d", "a", and "status" tags
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -347,8 +355,17 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 	// NIP-51 Lists validation
 	case 10000, 10001, 10003, 10004, 10005, 10006, 10007, 10009, 10012, 10015, 10020, 10030, 10101, 10102:
 		return nips.ValidateList(event) // Standard lists
-	case 30000, 30001, 30004, 30005, 30007, 30015, 30030, 30063, 30267, 31924, 39089, 39092:
+	case 30000, 30001, 30004, 30005, 30007, 30015, 30030, 30063, 30267, 39089, 39092:
 		return nips.ValidateList(event) // Sets
+	// NIP-52 Calendar Events validation
+	case 31922:
+		return nips.ValidateDateBasedCalendarEvent(event)
+	case 31923:
+		return nips.ValidateTimeBasedCalendarEvent(event)
+	case 31924:
+		return nips.ValidateCalendar(event)
+	case 31925:
+		return nips.ValidateCalendarEventRSVP(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
