@@ -46,6 +46,7 @@ var DefaultSupportedNIPs = []interface{}{
 	47, // NIP-47: Nostr Wallet Connect (NWC)
 	50, // NIP-50: Search Capability
 	51, // NIP-51: Lists
+	52, // NIP-52: Calendar Events
 	56, // NIP-56: Reporting
 	57, // NIP-57: Lightning Zaps
 	58, // NIP-58: Badges
