@@ -75,6 +75,32 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			20000: true, 20001: true, // Test ephemeral kinds
 			// NIP-33 Addressable Events
 			30000: true, 30001: true, 30002: true, 30003: true,
+			// NIP-51 Lists - Standard Lists
+			10000: true, // Mute list
+			10001: true, // Pinned notes
+			10003: true, // Bookmarks
+			10004: true, // Communities
+			10005: true, // Public chats
+			10006: true, // Blocked relays
+			10007: true, // Search relays
+			10009: true, // Simple groups
+			10012: true, // Relay feeds
+			10015: true, // Interests
+			10020: true, // Media follows
+			10030: true, // Emojis
+			10101: true, // Good wiki authors
+			10102: true, // Good wiki relays
+			// NIP-51 Lists - Sets
+			30004: true, // Curation sets (articles/notes)
+			30005: true, // Curation sets (videos)
+			30007: true, // Kind mute sets
+			30015: true, // Interest sets
+			30030: true, // Emoji sets
+			30063: true, // Release artifact sets
+			30267: true, // App curation sets
+			31924: true, // Calendar
+			39089: true, // Starter packs
+			39092: true, // Media starter packs
 			// NIP-15 Marketplace
 			30017: true, // Stall
 			30018: true, // Product
@@ -100,6 +126,16 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30001: {"d"},      // NIP-33: Addressable Events require "d" tag
 			30002: {"d"},      // NIP-33: Addressable Events require "d" tag
 			30003: {"d"},      // NIP-33: Addressable Events require "d" tag
+			30004: {"d"},      // NIP-51: Curation sets require "d" tag
+			30005: {"d"},      // NIP-51: Video curation sets require "d" tag
+			30007: {"d"},      // NIP-51: Kind mute sets require "d" tag
+			30015: {"d"},      // NIP-51: Interest sets require "d" tag
+			30030: {"d"},      // NIP-51: Emoji sets require "d" tag
+			30063: {"d"},      // NIP-51: Release artifact sets require "d" tag
+			30267: {"d"},      // NIP-51: App curation sets require "d" tag
+			31924: {"d"},      // NIP-51: Calendar require "d" tag
+			39089: {"d"},      // NIP-51: Starter packs require "d" tag
+			39092: {"d"},      // NIP-51: Media starter packs require "d" tag
 			30017: {"d"},      // Stall events require "d" tag
 			30018: {"d", "t"}, // Product events require "d" and at least one "t" tag
 			1021:  {"e"},      // Bid events require "e" tag
@@ -290,6 +326,11 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateTimeCapsuleEvent(event)
 	case 1059:
 		return nips.ValidateGiftWrapEvent(event)
+	// NIP-51 Lists validation
+	case 10000, 10001, 10003, 10004, 10005, 10006, 10007, 10009, 10012, 10015, 10020, 10030, 10101, 10102:
+		return nips.ValidateList(event) // Standard lists
+	case 30000, 30001, 30004, 30005, 30007, 30015, 30030, 30063, 30267, 31924, 39089, 39092:
+		return nips.ValidateList(event) // Sets
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
