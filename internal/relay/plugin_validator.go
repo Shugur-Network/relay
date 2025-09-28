@@ -109,14 +109,18 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			1021:  true, // Bid
 			1022:  true, // Bid Confirmation
 			// Other NIPs
+			8:     true, // NIP-58: Badge Award
 			1040:  true, // NIP-03 OpenTimestamps attestation
 			1041:  true, // NIP-XX Time-Lock Encrypted Messages
 			13194: true, // NIP-59 Wallet Connect events
+			30008: true, // NIP-58: Profile Badges
+			30009: true, // NIP-58: Badge Definition
 			30078: true, // NIP-78 Application-specific Data
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
 			7:     {"e", "p"}, // Reaction events require "e" and "p" tags
+			8:     {"a", "p"}, // NIP-58: Badge Award requires "a" and "p" tags
 			41:    {"e"},      // NIP-28: Channel Metadata requires "e" tag
 			42:    {"e"},      // NIP-28: Channel Message requires "e" tag
 			43:    {"e"},      // NIP-28: Hide Message requires "e" tag
@@ -129,6 +133,8 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30004: {"d"},      // NIP-51: Curation sets require "d" tag
 			30005: {"d"},      // NIP-51: Video curation sets require "d" tag
 			30007: {"d"},      // NIP-51: Kind mute sets require "d" tag
+			30008: {"d"},      // NIP-58: Profile Badges require "d" tag
+			30009: {"d"},      // NIP-58: Badge Definition require "d" tag
 			30015: {"d"},      // NIP-51: Interest sets require "d" tag
 			30030: {"d"},      // NIP-51: Emoji sets require "d" tag
 			30063: {"d"},      // NIP-51: Release artifact sets require "d" tag
@@ -302,6 +308,8 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateEventDeletion(event)
 	case 7:
 		return nips.ValidateReaction(event)
+	case 8:
+		return nips.ValidateBadgeAward(event)
 	case 14, 15, 10050:
 		return nips.ValidatePrivateDirectMessage(event)
 	case 40, 41, 42, 43, 44:
@@ -318,6 +326,10 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateZapReceipt(event)
 	case 24133:
 		return nips.ValidateCommandResult(event)
+	case 30008:
+		return nips.ValidateProfileBadges(event)
+	case 30009:
+		return nips.ValidateBadgeDefinition(event)
 	case 30017, 30018, 30019, 30020, 1021, 1022:
 		return nips.ValidateMarketplaceEvent(event)
 	case 30023:
