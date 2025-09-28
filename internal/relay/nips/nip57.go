@@ -11,16 +11,21 @@ import (
 	"go.uber.org/zap"
 )
 
+// isHexChar checks if a character is a valid hexadecimal character
+func isHexChar(char rune) bool {
+	return (char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')
+}
+
 // ValidateZapRequest validates NIP-57 zap request events (kind 9734)
 func ValidateZapRequest(event *nostr.Event) error {
-	logger.Debug("NIP-57: Validating zap request event",
-		zap.String("event_id", event.ID),
-		zap.String("pubkey", event.PubKey))
-
 	// Basic validation
 	if event == nil {
 		return fmt.Errorf("event is nil")
 	}
+
+	logger.Debug("NIP-57: Validating zap request event",
+		zap.String("event_id", event.ID),
+		zap.String("pubkey", event.PubKey))
 
 	if event.Kind != 9734 {
 		return fmt.Errorf("invalid kind for zap request: expected 9734, got %d", event.Kind)
@@ -38,14 +43,14 @@ func ValidateZapRequest(event *nostr.Event) error {
 
 // ValidateZapReceipt validates NIP-57 zap receipt events (kind 9735)
 func ValidateZapReceipt(event *nostr.Event) error {
-	logger.Debug("NIP-57: Validating zap receipt event",
-		zap.String("event_id", event.ID),
-		zap.String("pubkey", event.PubKey))
-
 	// Basic validation
 	if event == nil {
 		return fmt.Errorf("event is nil")
 	}
+
+	logger.Debug("NIP-57: Validating zap receipt event",
+		zap.String("event_id", event.ID),
+		zap.String("pubkey", event.PubKey))
 
 	if event.Kind != 9735 {
 		return fmt.Errorf("invalid kind for zap receipt: expected 9735, got %d", event.Kind)
@@ -321,7 +326,7 @@ func validateZapPTag(tag nostr.Tag) error {
 
 	// Validate hex format
 	for _, char := range pubkey {
-		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+		if !isHexChar(char) {
 			return fmt.Errorf("pubkey must be valid hex")
 		}
 	}
@@ -332,7 +337,7 @@ func validateZapPTag(tag nostr.Tag) error {
 // validateZapCapitalPTag validates a P tag (zap sender pubkey) for zap receipts
 func validateZapCapitalPTag(tag nostr.Tag) error {
 	if len(tag) != 2 {
-		return fmt.Errorf("P tag must have exactly 2 elements")
+		return fmt.Errorf("p tag must have exactly 2 elements")
 	}
 
 	pubkey := tag[1]
@@ -342,7 +347,7 @@ func validateZapCapitalPTag(tag nostr.Tag) error {
 
 	// Validate hex format
 	for _, char := range pubkey {
-		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+		if !isHexChar(char) {
 			return fmt.Errorf("sender pubkey must be valid hex")
 		}
 	}
@@ -363,7 +368,7 @@ func validateZapETag(tag nostr.Tag) error {
 
 	// Validate hex format
 	for _, char := range eventId {
-		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+		if !isHexChar(char) {
 			return fmt.Errorf("event id must be valid hex")
 		}
 	}
@@ -498,7 +503,7 @@ func validatePreimageTag(tag nostr.Tag) error {
 
 	// Validate hex format
 	for _, char := range preimage {
-		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+		if !isHexChar(char) {
 			return fmt.Errorf("preimage must be valid hex")
 		}
 	}
