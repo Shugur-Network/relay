@@ -310,6 +310,8 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateOpenTimestampsAttestation(event)
 	case 1111:
 		return nips.ValidateComment(event)
+	case 1984:
+		return nips.ValidateReport(event)
 	case 24133:
 		return nips.ValidateCommandResult(event)
 	case 30017, 30018, 30019, 30020, 1021, 1022:
