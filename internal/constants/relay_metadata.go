@@ -44,6 +44,7 @@ var DefaultSupportedNIPs = []interface{}{
 	44, // NIP-44: Encrypted Payloads (Versioned)
 	45, // NIP-45: Counting Events
 	50, // NIP-50: Search Capability
+	51, // NIP-51: Lists
 	59, // NIP-59: Gift Wrap
 	65, // NIP-65: Relay List Metadata
 	78, // NIP-78: Application-specific data
