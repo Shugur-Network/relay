@@ -48,6 +48,7 @@ var DefaultSupportedNIPs = []interface{}{
 	51, // NIP-51: Lists
 	56, // NIP-56: Reporting
 	57, // NIP-57: Lightning Zaps
+	58, // NIP-58: Badges
 	59, // NIP-59: Gift Wrap
 	65, // NIP-65: Relay List Metadata
 	78, // NIP-78: Application-specific data
