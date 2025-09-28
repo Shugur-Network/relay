@@ -120,6 +120,12 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			31923: true, // Time-based Calendar Event  
 			31924: true, // Calendar
 			31925: true, // Calendar Event RSVP
+			// NIP-53 Live Activities
+			30311: true, // Live Streaming Event
+			1311:  true, // Live Chat Message
+			30312: true, // Meeting Space
+			30313: true, // Meeting Room Event
+			10312: true, // Room Presence
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -157,6 +163,12 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			31923: {"d", "title", "start"}, // Time-based Calendar Event requires "d", "title", and "start" tags
 			31924: {"d", "title"},          // Calendar requires "d" and "title" tags
 			31925: {"d", "a", "status"},    // Calendar Event RSVP requires "d", "a", and "status" tags
+			// NIP-53 Live Activities
+			30311: {"d"},                    // Live Streaming Event requires "d" tag
+			1311:  {"a"},                    // Live Chat Message requires "a" tag
+			30312: {"d", "room", "status", "service"}, // Meeting Space requires "d", "room", "status", and "service" tags
+			30313: {"d", "a", "title", "starts", "status"}, // Meeting Room Event requires "d", "a", "title", "starts", and "status" tags
+			10312: {"a"},                    // Room Presence requires "a" tag
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -366,6 +378,17 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateCalendar(event)
 	case 31925:
 		return nips.ValidateCalendarEventRSVP(event)
+	// NIP-53 Live Activities validation
+	case 30311:
+		return nips.ValidateLiveStreamingEvent(event)
+	case 1311:
+		return nips.ValidateLiveChatMessage(event)
+	case 30312:
+		return nips.ValidateMeetingSpace(event)
+	case 30313:
+		return nips.ValidateMeetingRoomEvent(event)
+	case 10312:
+		return nips.ValidateRoomPresence(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
