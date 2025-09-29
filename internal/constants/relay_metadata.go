@@ -54,8 +54,8 @@ var DefaultSupportedNIPs = []interface{}{
 	58, // NIP-58: Badges
 	59, // NIP-59: Gift Wrap
 	60, // NIP-60: Cashu Wallets
-	61, // NIP-61: Nutzaps
 	65, // NIP-65: Relay List Metadata
+	72, // NIP-72: Moderated Communities
 	78, // NIP-78: Application-specific data
 
 }
