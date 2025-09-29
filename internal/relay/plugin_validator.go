@@ -126,6 +126,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30312: true, // Meeting Space
 			30313: true, // Meeting Room Event
 			10312: true, // Room Presence
+			// NIP-54 Wiki
+			30818: true, // Wiki Article
+			818:   true, // Merge Request
+			30819: true, // Wiki Redirect
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -169,6 +173,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30312: {"d", "room", "status", "service"}, // Meeting Space requires "d", "room", "status", and "service" tags
 			30313: {"d", "a", "title", "starts", "status"}, // Meeting Room Event requires "d", "a", "title", "starts", and "status" tags
 			10312: {"a"},                    // Room Presence requires "a" tag
+			// NIP-54 Wiki
+			30818: {"d"},                    // Wiki Article requires "d" tag
+			818:   {"a", "p"},               // Merge Request requires "a" and "p" tags
+			30819: {"d", "redirect"},        // Wiki Redirect requires "d" and "redirect" tags
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -389,6 +397,13 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateMeetingRoomEvent(event)
 	case 10312:
 		return nips.ValidateRoomPresence(event)
+	// NIP-54 Wiki validation
+	case 30818:
+		return nips.ValidateWikiArticle(event)
+	case 818:
+		return nips.ValidateMergeRequest(event)
+	case 30819:
+		return nips.ValidateWikiRedirect(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
