@@ -130,6 +130,11 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30818: true, // Wiki Article
 			818:   true, // Merge Request
 			30819: true, // Wiki Redirect
+			// NIP-60 Cashu Wallets
+			17375: true, // Wallet Event
+			7375:  true, // Token Event
+			7376:  true, // Spending History Event
+			7374:  true, // Quote Event
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -177,6 +182,8 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30818: {"d"},                    // Wiki Article requires "d" tag
 			818:   {"a", "p"},               // Merge Request requires "a" and "p" tags
 			30819: {"d", "redirect"},        // Wiki Redirect requires "d" and "redirect" tags
+			// NIP-60 Cashu Wallets - Note: Most tags are encrypted in content, minimal required public tags
+			7374:  {"expiration", "mint"},   // Quote Event requires "expiration" and "mint" tags
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -404,6 +411,15 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateMergeRequest(event)
 	case 30819:
 		return nips.ValidateWikiRedirect(event)
+	// NIP-60 Cashu Wallets validation
+	case 17375:
+		return nips.ValidateWalletEvent(event)
+	case 7375:
+		return nips.ValidateTokenEvent(event)
+	case 7376:
+		return nips.ValidateSpendingHistoryEvent(event)
+	case 7374:
+		return nips.ValidateQuoteEvent(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
