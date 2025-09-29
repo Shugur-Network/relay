@@ -48,6 +48,7 @@ var DefaultSupportedNIPs = []interface{}{
 	51, // NIP-51: Lists
 	52, // NIP-52: Calendar Events
 	53, // NIP-53: Live Activities
+	54, // NIP-54: Wiki
 	56, // NIP-56: Reporting
 	57, // NIP-57: Lightning Zaps
 	58, // NIP-58: Badges
