@@ -135,6 +135,9 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			7375:  true, // Token Event
 			7376:  true, // Spending History Event
 			7374:  true, // Quote Event
+			// NIP-61 Nutzaps
+			10019: true, // Nutzap Info Event
+			9321:  true, // Nutzap Event
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -184,6 +187,9 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			30819: {"d", "redirect"},        // Wiki Redirect requires "d" and "redirect" tags
 			// NIP-60 Cashu Wallets - Note: Most tags are encrypted in content, minimal required public tags
 			7374:  {"expiration", "mint"},   // Quote Event requires "expiration" and "mint" tags
+			// NIP-61 Nutzaps
+			10019: {"relay", "mint", "pubkey"}, // Nutzap Info requires "relay", "mint", and "pubkey" tags
+			9321:  {"proof", "u", "p"},      // Nutzap Event requires "proof", "u" (mint), and "p" (recipient) tags
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -420,6 +426,11 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateSpendingHistoryEvent(event)
 	case 7374:
 		return nips.ValidateQuoteEvent(event)
+	// NIP-61 Nutzaps validation
+	case 10019:
+		return nips.ValidateNutzapInfoEvent(event)
+	case 9321:
+		return nips.ValidateNutzapEvent(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
