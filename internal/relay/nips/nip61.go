@@ -3,7 +3,6 @@ package nips
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/nbd-wtf/go-nostr"
 )
@@ -91,9 +90,8 @@ func ValidateNutzapEvent(event *nostr.Event) error {
 		return fmt.Errorf("invalid nutzap event structure: %w", err)
 	}
 
-	// Track required and optional tags
+	// Track required tags
 	var hasProof, hasMintURL, hasRecipient bool
-	var hasNutzappedEvent, hasNutzappedKind bool
 	var proofCount int
 
 	// Validate tags
@@ -124,7 +122,6 @@ func ValidateNutzapEvent(event *nostr.Event) error {
 			}
 
 		case "e":
-			hasNutzappedEvent = true
 			if len(tag[1]) != 64 || !isHexString(tag[1]) {
 				return fmt.Errorf("invalid event ID in nutzap e-tag: %s", tag[1])
 			}
@@ -136,7 +133,6 @@ func ValidateNutzapEvent(event *nostr.Event) error {
 			}
 
 		case "k":
-			hasNutzappedKind = true
 			if len(tag) >= 2 {
 				if !isNumericString(tag[1]) {
 					return fmt.Errorf("invalid kind value in nutzap k-tag: %s", tag[1])
@@ -156,12 +152,6 @@ func ValidateNutzapEvent(event *nostr.Event) error {
 		return fmt.Errorf("nutzap event must have a recipient pubkey (p tag)")
 	}
 
-	// e and k tags are optional but often used together
-	if hasNutzappedEvent && !hasNutzappedKind {
-		// This is just a warning, not an error - k tag is optional
-		// Could log a debug message here in a real implementation
-	}
-
 	// Sanity check for proof count
 	if proofCount > 100 {
 		return fmt.Errorf("too many proof tags (%d), maximum 100 recommended", proofCount)
@@ -176,23 +166,8 @@ func validateBaseUnit(unit string) error {
 		return fmt.Errorf("base unit cannot be empty")
 	}
 
-	// Common base units - this could be expanded
-	validUnits := map[string]bool{
-		"sat": true,
-		"msat": true,
-		"usd": true,
-		"eur": true,
-		"btc": true,
-		"mbtc": true,
-		"bits": true,
-	}
-
-	// Allow any string for now, but log unknown units
-	// In a real implementation, you might want to warn about unknown units
-	if !validUnits[strings.ToLower(unit)] {
-		// This is not an error, just a note for operators
-		// Unknown base units are allowed but may cause UX issues
-	}
+	// Allow any string - unknown base units are allowed by NIP-61
+	// but may cause UX issues in client implementations
 
 	return nil
 }
