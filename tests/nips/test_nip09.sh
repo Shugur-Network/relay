@@ -13,7 +13,7 @@ success_count=0
 fail_count=0
 
 # Relay URL - using a known working relay
-# RELAY="ws://localhost:8081"
+RELAY="ws://localhost:8081"
 # RELAY="wss://shu02.shugur.net"
 
 # Helper function to print test results
