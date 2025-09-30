@@ -18,7 +18,7 @@ func ValidateNutzapInfoEvent(event *nostr.Event) error {
 	}
 
 	// Validate basic event structure
-	if err := validateBasicEventStructure(event); err != nil {
+	if err := validateBasicEventStructure60(event); err != nil {
 		return fmt.Errorf("invalid nutzap info event structure: %w", err)
 	}
 
@@ -58,7 +58,7 @@ func ValidateNutzapInfoEvent(event *nostr.Event) error {
 
 		case "pubkey":
 			hasPubkey = true
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid pubkey format in nutzap info: %s", tag[1])
 			}
 		}
@@ -86,7 +86,7 @@ func ValidateNutzapEvent(event *nostr.Event) error {
 	}
 
 	// Validate basic event structure
-	if err := validateBasicEventStructure(event); err != nil {
+	if err := validateBasicEventStructure60(event); err != nil {
 		return fmt.Errorf("invalid nutzap event structure: %w", err)
 	}
 
@@ -117,12 +117,12 @@ func ValidateNutzapEvent(event *nostr.Event) error {
 
 		case "p":
 			hasRecipient = true
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid recipient pubkey in nutzap: %s", tag[1])
 			}
 
 		case "e":
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid event ID in nutzap e-tag: %s", tag[1])
 			}
 			// Optional relay URL in e-tag
@@ -274,7 +274,7 @@ func ValidateNutzapRedemption(event *nostr.Event) error {
 		if len(tag) >= 4 && tag[0] == "e" && tag[3] == "redeemed" {
 			hasRedeemedNutzap = true
 			// Validate event ID format
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid nutzap event ID in redemption e-tag: %s", tag[1])
 			}
 		}

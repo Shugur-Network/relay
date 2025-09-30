@@ -1,11 +1,8 @@
 package nips
 
 import (
-	"fmt"
-
-	"github.com/Shugur-Network/relay/internal/logger"
+	"github.com/Shugur-Network/relay/internal/relay/nips/common"
 	nostr "github.com/nbd-wtf/go-nostr"
-	"go.uber.org/zap"
 )
 
 // NIP-25: Reactions
@@ -13,52 +10,41 @@ import (
 
 // ValidateReaction validates NIP-25 reaction events (kind 7)
 func ValidateReaction(evt *nostr.Event) error {
-	logger.Debug("NIP-25: Validating reaction event",
-		zap.String("event_id", evt.ID),
-		zap.String("pubkey", evt.PubKey))
+	return common.ValidateEventWithCallback(
+		evt,
+		"25",       // NIP number
+		7,          // Expected event kind
+		"reaction", // Event name for logging
+		func(helper *common.ValidationHelper, event *nostr.Event) error {
+			// Validate required tags
+			if err := helper.ValidateRequiredTags(event, "e", "p"); err != nil {
+				return helper.ErrorFormatter.FormatError("%v", err)
+			}
 
-	if evt.Kind != 7 {
-		logger.Warn("NIP-25: Invalid event kind for reaction",
-			zap.String("event_id", evt.ID),
-			zap.Int("kind", evt.Kind))
-		return fmt.Errorf("invalid event kind for reaction: %d", evt.Kind)
-	}
-
-	// Must have at least one "e" tag referencing the reacted event
-	hasEventTag := false
-	hasPubkeyTag := false
-
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 {
-			switch tag[0] {
-			case "e":
-				hasEventTag = true
-				// Validate event ID format
-				if len(tag[1]) != 64 {
-					return fmt.Errorf("invalid event ID in 'e' tag: %s", tag[1])
-				}
-			case "p":
-				hasPubkeyTag = true
-				// Validate pubkey format
-				if len(tag[1]) != 64 {
-					return fmt.Errorf("invalid pubkey in 'p' tag: %s", tag[1])
+			// Validate event ID format in "e" tags
+			for _, tag := range event.Tags {
+				if len(tag) >= 2 && tag[0] == "e" {
+					if err := helper.ValidateEventID(tag[1]); err != nil {
+						return helper.FormatTagError("e", "invalid event ID: %v", err)
+					}
 				}
 			}
-		}
-	}
 
-	if !hasEventTag {
-		return fmt.Errorf("reaction must reference at least one event with 'e' tag")
-	}
+			// Validate pubkey format in "p" tags
+			for _, tag := range event.Tags {
+				if len(tag) >= 2 && tag[0] == "p" {
+					if err := helper.ValidatePubkey(tag[1]); err != nil {
+						return helper.FormatTagError("p", "invalid pubkey: %v", err)
+					}
+				}
+			}
 
-	if !hasPubkeyTag {
-		return fmt.Errorf("reaction must reference the author with 'p' tag")
-	}
+			// Content should contain the reaction (usually emoji or "+"/"-")
+			// Empty content is allowed (interpreted as "like")
 
-	// Content should contain the reaction (usually emoji or "+"/"-")
-	// Empty content is allowed (interpreted as "like")
-
-	return nil
+			return nil
+		},
+	)
 }
 
 // IsReaction checks if an event is a reaction

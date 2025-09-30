@@ -13,7 +13,7 @@ import (
 // https://github.com/nostr-protocol/nips/blob/master/51.md
 //
 // Standard lists (single list per kind):
-// - 3: Follow list (NIP-02) 
+// - 3: Follow list (NIP-02)
 // - 10000: Mute list
 // - 10001: Pinned notes
 // - 10002: Read/write relays (NIP-65)
@@ -34,7 +34,7 @@ import (
 // Sets (multiple lists per kind with 'd' identifier):
 // - 30000: Follow sets
 // - 30001: Generic lists (deprecated)
-// - 30002: Relay sets  
+// - 30002: Relay sets
 // - 30003: Bookmark sets
 // - 30004: Curation sets (articles/notes)
 // - 30005: Curation sets (videos)
@@ -171,7 +171,7 @@ func validateMuteList(evt *nostr.Event) error {
 		if len(tag) >= 2 {
 			switch tag[0] {
 			case "p":
-				if len(tag[1]) != 64 || !isHexString(tag[1]) {
+				if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 					return fmt.Errorf("invalid pubkey in mute list: %s", tag[1])
 				}
 			case "t":
@@ -187,7 +187,7 @@ func validateMuteList(evt *nostr.Event) error {
 					return fmt.Errorf("word must be lowercase: %s", tag[1])
 				}
 			case "e":
-				if len(tag[1]) != 64 || !isHexString(tag[1]) {
+				if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 					return fmt.Errorf("invalid event ID in mute list: %s", tag[1])
 				}
 			}
@@ -210,7 +210,7 @@ func validatePinnedNotes(evt *nostr.Event) error {
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "e" {
 			hasEventTag = true
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid event ID in pinned notes: %s", tag[1])
 			}
 		}
@@ -229,7 +229,7 @@ func validateBookmarks(evt *nostr.Event) error {
 		if len(tag) >= 2 {
 			switch tag[0] {
 			case "e":
-				if len(tag[1]) != 64 || !isHexString(tag[1]) {
+				if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 					return fmt.Errorf("invalid event ID in bookmarks: %s", tag[1])
 				}
 			case "a":
@@ -271,7 +271,7 @@ func validatePublicChats(evt *nostr.Event) error {
 	// Must contain "e" tags referencing kind:40 channel definitions
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "e" {
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid channel reference: %s", tag[1])
 			}
 		}
@@ -403,7 +403,7 @@ func validateGoodWikiAuthors(evt *nostr.Event) error {
 	// Must contain "p" tags referencing pubkeys
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "p" {
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid pubkey in wiki authors: %s", tag[1])
 			}
 		}
@@ -431,7 +431,7 @@ func validateFollowSet(evt *nostr.Event) error {
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "p" {
 			hasPTag = true
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid pubkey in follow set: %s", tag[1])
 			}
 		}
@@ -481,7 +481,7 @@ func validateCurationSet(evt *nostr.Event) error {
 					return fmt.Errorf("invalid article reference: %v", err)
 				}
 			case "e":
-				if len(tag[1]) != 64 || !isHexString(tag[1]) {
+				if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 					return fmt.Errorf("invalid note reference: %s", tag[1])
 				}
 			}
@@ -491,10 +491,10 @@ func validateCurationSet(evt *nostr.Event) error {
 }
 
 func validateVideoCurationSet(evt *nostr.Event) error {
-	// Must contain "e" tags referencing kind:21 videos  
+	// Must contain "e" tags referencing kind:21 videos
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "e" {
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid video reference: %s", tag[1])
 			}
 		}
@@ -519,7 +519,7 @@ func validateKindMuteSet(evt *nostr.Event) error {
 	// Must contain "p" tags for pubkeys
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "p" {
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid pubkey in kind mute set: %s", tag[1])
 			}
 		}
@@ -558,7 +558,7 @@ func validateReleaseArtifactSet(evt *nostr.Event) error {
 		if len(tag) >= 2 {
 			switch tag[0] {
 			case "e":
-				if len(tag[1]) != 64 || !isHexString(tag[1]) {
+				if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 					return fmt.Errorf("invalid file metadata reference: %s", tag[1])
 				}
 			case "a":
@@ -599,7 +599,7 @@ func validateStarterPack(evt *nostr.Event) error {
 	// Must contain "p" tags with pubkeys
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "p" {
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid pubkey in starter pack: %s", tag[1])
 			}
 		}
@@ -657,7 +657,7 @@ func validateFollowListFormat(evt *nostr.Event) error {
 	// Validate "p" tags format for follow lists
 	for _, tag := range evt.Tags {
 		if len(tag) >= 2 && tag[0] == "p" {
-			if len(tag[1]) != 64 || !isHexString(tag[1]) {
+			if len(tag[1]) != 64 || !isHexString51(tag[1]) {
 				return fmt.Errorf("invalid pubkey format: %s", tag[1])
 			}
 			// Optional relay hint and petname in positions 2 and 3
@@ -682,15 +682,13 @@ func validateAddressableReference(ref string) error {
 	}
 
 	// Validate pubkey format
-	if len(parts[1]) != 64 || !isHexString(parts[1]) {
+	if len(parts[1]) != 64 || !isHexString51(parts[1]) {
 		return fmt.Errorf("invalid pubkey in addressable reference")
 	}
 
 	// dvalue can be empty or any string
 	return nil
 }
-
-
 
 // Helper function for validating WebSocket URLs
 func isWebSocketURL(url string) bool {
@@ -818,7 +816,7 @@ func IsListEvent(evt *nostr.Event) bool {
 	return IsListKind(evt.Kind)
 }
 
-func isHexString(s string) bool {
+func isHexString51(s string) bool {
 	if len(s) == 0 {
 		return false
 	}

@@ -6,9 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Shugur-Network/relay/internal/relay/nips/common"
 	"github.com/nbd-wtf/go-nostr"
-	"github.com/Shugur-Network/relay/internal/logger"
-	"go.uber.org/zap"
 )
 
 // isHexChar checks if a character is a valid hexadecimal character
@@ -18,69 +17,44 @@ func isHexChar(char rune) bool {
 
 // ValidateZapRequest validates NIP-57 zap request events (kind 9734)
 func ValidateZapRequest(event *nostr.Event) error {
-	// Basic validation
-	if event == nil {
-		return fmt.Errorf("event is nil")
-	}
-
-	logger.Debug("NIP-57: Validating zap request event",
-		zap.String("event_id", event.ID),
-		zap.String("pubkey", event.PubKey))
-
-	if event.Kind != 9734 {
-		return fmt.Errorf("invalid kind for zap request: expected 9734, got %d", event.Kind)
-	}
-
-	// Validate required and optional tags
-	if err := validateZapRequestTags(event); err != nil {
-		return fmt.Errorf("invalid zap request tags: %w", err)
-	}
-
-	logger.Debug("NIP-57: Zap request validation successful",
-		zap.String("event_id", event.ID))
-	return nil
+	return common.ValidateEventWithCallback(
+		event,
+		"57",          // NIP number
+		9734,          // Expected event kind
+		"zap request", // Event name for logging
+		func(helper *common.ValidationHelper, evt *nostr.Event) error {
+			// Validate required and optional tags using the framework
+			return validateZapRequestTags(helper, evt)
+		},
+	)
 }
 
 // ValidateZapReceipt validates NIP-57 zap receipt events (kind 9735)
 func ValidateZapReceipt(event *nostr.Event) error {
-	// Basic validation
-	if event == nil {
-		return fmt.Errorf("event is nil")
-	}
+	return common.ValidateEventWithCallback(
+		event,
+		"57",          // NIP number
+		9735,          // Expected event kind
+		"zap receipt", // Event name for logging
+		func(helper *common.ValidationHelper, evt *nostr.Event) error {
+			// Zap receipts should have empty content
+			if evt.Content != "" {
+				helper.LogWarning(evt, "Zap receipt content should be empty")
+			}
 
-	logger.Debug("NIP-57: Validating zap receipt event",
-		zap.String("event_id", event.ID),
-		zap.String("pubkey", event.PubKey))
-
-	if event.Kind != 9735 {
-		return fmt.Errorf("invalid kind for zap receipt: expected 9735, got %d", event.Kind)
-	}
-
-	// Content SHOULD be empty for zap receipts
-	if event.Content != "" {
-		logger.Warn("NIP-57: Zap receipt content should be empty",
-			zap.String("event_id", event.ID),
-			zap.String("content", event.Content))
-	}
-
-	// Validate required tags for zap receipts
-	if err := validateZapReceiptTags(event); err != nil {
-		return fmt.Errorf("invalid zap receipt tags: %w", err)
-	}
-
-	logger.Debug("NIP-57: Zap receipt validation successful",
-		zap.String("event_id", event.ID))
-	return nil
+			// Validate required tags using the framework
+			return validateZapReceiptTags(helper, evt)
+		},
+	)
 }
 
 // validateZapRequestTags validates the tag structure for zap request events
-func validateZapRequestTags(event *nostr.Event) error {
+func validateZapRequestTags(helper *common.ValidationHelper, event *nostr.Event) error {
 	var hasRelaysTag bool
 	var hasPTag bool
 	var pTagCount int
 	var eTagCount int
 	var aTagCount int
-	var pTagValue string
 
 	for _, tag := range event.Tags {
 		if len(tag) < 2 {
@@ -110,7 +84,6 @@ func validateZapRequestTags(event *nostr.Event) error {
 			}
 			hasPTag = true
 			pTagCount++
-			pTagValue = tag[1]
 
 		case "e":
 			if err := validateZapETag(tag); err != nil {
@@ -138,33 +111,31 @@ func validateZapRequestTags(event *nostr.Event) error {
 
 	// Required validations
 	if !hasPTag {
-		return fmt.Errorf("zap request must include exactly one 'p' tag with recipient pubkey")
+		return helper.FormatTagError("p", "zap request must include exactly one 'p' tag with recipient pubkey")
 	}
 
 	if pTagCount != 1 {
-		return fmt.Errorf("zap request must have exactly one 'p' tag, found %d", pTagCount)
+		return helper.FormatTagError("p", "zap request must have exactly one 'p' tag, found %d", pTagCount)
 	}
 
 	if eTagCount > 1 {
-		return fmt.Errorf("zap request must have 0 or 1 'e' tags, found %d", eTagCount)
+		return helper.FormatTagError("e", "zap request must have 0 or 1 'e' tags, found %d", eTagCount)
 	}
 
 	if aTagCount > 1 {
-		return fmt.Errorf("zap request must have 0 or 1 'a' tags, found %d", aTagCount)
+		return helper.FormatTagError("a", "zap request must have 0 or 1 'a' tags, found %d", aTagCount)
 	}
 
 	// Relays tag is recommended but not required
 	if !hasRelaysTag {
-		logger.Warn("NIP-57: Zap request missing recommended 'relays' tag",
-			zap.String("event_id", event.ID),
-			zap.String("recipient", pTagValue))
+		helper.LogWarning(event, "Zap request missing recommended 'relays' tag")
 	}
 
 	return nil
 }
 
 // validateZapReceiptTags validates the tag structure for zap receipt events
-func validateZapReceiptTags(event *nostr.Event) error {
+func validateZapReceiptTags(helper *common.ValidationHelper, event *nostr.Event) error {
 	var hasBolt11Tag bool
 	var hasDescriptionTag bool
 	var hasPTag bool
