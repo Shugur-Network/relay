@@ -307,7 +307,7 @@ func validateCommunityIdentifier72(id string) error {
 	}
 	// Allow alphanumeric, hyphens, and underscores
 	for _, r := range id {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_') {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' && r != '_' {
 			return fmt.Errorf("community identifier contains invalid character: %c", r)
 		}
 	}
@@ -422,7 +422,7 @@ func validateCommunityReference72(ref string, expectedKind string) error {
 func isHexString72(s string) bool {
 	// Simple hex string validation
 	for _, c := range s {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
 			return false
 		}
 	}
