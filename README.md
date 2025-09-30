@@ -128,18 +128,29 @@ Shugur Relay implements the following NIPs for maximum compatibility with Nostr 
 - **[NIP-23](https://github.com/nostr-protocol/nips/blob/master/23.md)**: Long-form Content
 - **[NIP-24](https://github.com/nostr-protocol/nips/blob/master/24.md)**: Extra metadata fields and tags
 - **[NIP-25](https://github.com/nostr-protocol/nips/blob/master/25.md)**: Reactions
+- **[NIP-26](https://github.com/nostr-protocol/nips/blob/master/26.md)**: Delegated Event Signing
+- **[NIP-47](https://github.com/nostr-protocol/nips/blob/master/47.md)**: Nostr Wallet Connect (NWC)
 
 #### Advanced Features
 
-- **[NIP-26](https://github.com/nostr-protocol/nips/blob/master/26.md)**: Delegated Event Signing
 - **[NIP-28](https://github.com/nostr-protocol/nips/blob/master/28.md)**: Public Chat
 - **[NIP-33](https://github.com/nostr-protocol/nips/blob/master/33.md)**: Addressable Events
 - **[NIP-40](https://github.com/nostr-protocol/nips/blob/master/40.md)**: Expiration Timestamp
 - **[NIP-44](https://github.com/nostr-protocol/nips/blob/master/44.md)**: Encrypted Payloads (Versioned)
 - **[NIP-45](https://github.com/nostr-protocol/nips/blob/master/45.md)**: Counting Events
 - **[NIP-50](https://github.com/nostr-protocol/nips/blob/master/50.md)**: Search Capability
+- **[NIP-51](https://github.com/nostr-protocol/nips/blob/master/51.md)**: Lists
+- **[NIP-52](https://github.com/nostr-protocol/nips/blob/master/52.md)**: Calendar Events
+- **[NIP-53](https://github.com/nostr-protocol/nips/blob/master/53.md)**: Live Activities
+- **[NIP-54](https://github.com/nostr-protocol/nips/blob/master/54.md)**: Wiki
+- **[NIP-56](https://github.com/nostr-protocol/nips/blob/master/56.md)**: Reporting
+- **[NIP-57](https://github.com/nostr-protocol/nips/blob/master/57.md)**: Lightning Zaps
+- **[NIP-58](https://github.com/nostr-protocol/nips/blob/master/58.md)**: Badges
 - **[NIP-59](https://github.com/nostr-protocol/nips/blob/master/59.md)**: Gift Wrap
+- **[NIP-60](https://github.com/nostr-protocol/nips/blob/master/60.md)**: Cashu Wallets
+- **[NIP-61](https://github.com/nostr-protocol/nips/blob/master/61.md)**: Nutzaps (P2PK Cashu tokens)
 - **[NIP-65](https://github.com/nostr-protocol/nips/blob/master/65.md)**: Relay List Metadata
+- **[NIP-72](https://github.com/nostr-protocol/nips/blob/master/72.md)**: Moderated Communities
 - **[NIP-78](https://github.com/nostr-protocol/nips/blob/master/78.md)**: Application-specific data
 
 ### Protocol Features
@@ -366,7 +377,7 @@ A: Migration tools are planned for future releases. Currently, you can export ev
 A: Yes! Shugur Relay is stateless and designed for horizontal scaling. Use our distributed installation or configure multiple instances manually.
 
 **Q: What NIPs are supported?**
-A: We support 25+ NIPs including all core protocol features. See the [Nostr Protocol Support](#-nostr-protocol-support) section above for the complete list.
+A: We support 35+ NIPs including all core protocol features and advanced functionality like Cashu Wallets, Nutzaps, Moderated Communities, Lightning Zaps, and more. See the [Nostr Protocol Support](#-nostr-protocol-support) section above for the complete list.
 
 **Q: How do I backup my relay data?**
 A: For CockroachDB: `cockroach sql --execute="BACKUP TO 's3://bucket/backup?AUTH=implicit';"`. For other databases, use standard backup procedures.
