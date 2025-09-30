@@ -101,7 +101,7 @@ Key benefits of Nostr:
 - **Interoperability**: Works across different clients and applications
 - **Simplicity**: Lightweight protocol that's easy to implement and understand
 
-Learn more in our [Nostr Concepts](https://github.com/Shugur-Network/docs/blob/main/CONCEPTS.md) documentation.
+Learn more in our [Nostr Concepts](https://docs.shugur.com/concepts/) documentation.
 
 ## 📋 Nostr Protocol Support
 
