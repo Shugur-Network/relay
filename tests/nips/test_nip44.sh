@@ -13,8 +13,8 @@ success_count=0
 fail_count=0
 
 # Relay URL
-# RELAY="ws://localhost:8080"
-RELAY="wss://shu02.shugur.net"
+RELAY="ws://localhost:8081"
+# RELAY="wss://shu02.shugur.net"
 
 # RELAY="wss://nos.lol"
 

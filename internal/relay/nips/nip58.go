@@ -7,102 +7,64 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Shugur-Network/relay/internal/relay/nips/common"
 	nostr "github.com/nbd-wtf/go-nostr"
-	"github.com/Shugur-Network/relay/internal/logger"
-	"go.uber.org/zap"
 )
 
 // ValidateBadgeDefinition validates NIP-58 badge definition events (kind 30009)
 func ValidateBadgeDefinition(event *nostr.Event) error {
-	// Basic validation
-	if event == nil {
-		return fmt.Errorf("event is nil")
-	}
-
-	logger.Debug("NIP-58: Validating badge definition event",
-		zap.String("event_id", event.ID),
-		zap.String("pubkey", event.PubKey))
-
-	if event.Kind != 30009 {
-		return fmt.Errorf("invalid kind for badge definition: expected 30009, got %d", event.Kind)
-	}
-
-	// Validate required and optional tags
-	if err := validateBadgeDefinitionTags(event); err != nil {
-		return fmt.Errorf("invalid badge definition tags: %w", err)
-	}
-
-	logger.Debug("NIP-58: Badge definition validation successful",
-		zap.String("event_id", event.ID))
-	return nil
+	return common.ValidateEventWithCallback(
+		event,
+		"58",               // NIP number
+		30009,              // Expected event kind
+		"badge definition", // Event name for logging
+		func(helper *common.ValidationHelper, evt *nostr.Event) error {
+			// Validate required and optional tags using the framework
+			return validateBadgeDefinitionTags(helper, evt)
+		},
+	)
 }
 
 // ValidateBadgeAward validates NIP-58 badge award events (kind 8)
 func ValidateBadgeAward(event *nostr.Event) error {
-	// Basic validation
-	if event == nil {
-		return fmt.Errorf("event is nil")
-	}
+	return common.ValidateEventWithCallback(
+		event,
+		"58",          // NIP number
+		8,             // Expected event kind
+		"badge award", // Event name for logging
+		func(helper *common.ValidationHelper, evt *nostr.Event) error {
+			// Badge awards SHOULD have empty content
+			if evt.Content != "" {
+				helper.LogWarning(evt, "Badge award content should be empty")
+			}
 
-	logger.Debug("NIP-58: Validating badge award event",
-		zap.String("event_id", event.ID),
-		zap.String("pubkey", event.PubKey))
-
-	if event.Kind != 8 {
-		return fmt.Errorf("invalid kind for badge award: expected 8, got %d", event.Kind)
-	}
-
-	// Badge awards SHOULD have empty content
-	if event.Content != "" {
-		logger.Warn("NIP-58: Badge award content should be empty",
-			zap.String("event_id", event.ID),
-			zap.String("content", event.Content))
-	}
-
-	// Validate required tags
-	if err := validateBadgeAwardTags(event); err != nil {
-		return fmt.Errorf("invalid badge award tags: %w", err)
-	}
-
-	logger.Debug("NIP-58: Badge award validation successful",
-		zap.String("event_id", event.ID))
-	return nil
+			// Validate required tags using the framework
+			return validateBadgeAwardTags(helper, evt)
+		},
+	)
 }
 
 // ValidateProfileBadges validates NIP-58 profile badges events (kind 30008)
 func ValidateProfileBadges(event *nostr.Event) error {
-	// Basic validation
-	if event == nil {
-		return fmt.Errorf("event is nil")
-	}
+	return common.ValidateEventWithCallback(
+		event,
+		"58",             // NIP number
+		30008,            // Expected event kind
+		"profile badges", // Event name for logging
+		func(helper *common.ValidationHelper, evt *nostr.Event) error {
+			// Profile badges SHOULD have empty content
+			if evt.Content != "" {
+				helper.LogWarning(evt, "Profile badges content should be empty")
+			}
 
-	logger.Debug("NIP-58: Validating profile badges event",
-		zap.String("event_id", event.ID),
-		zap.String("pubkey", event.PubKey))
-
-	if event.Kind != 30008 {
-		return fmt.Errorf("invalid kind for profile badges: expected 30008, got %d", event.Kind)
-	}
-
-	// Profile badges SHOULD have empty content
-	if event.Content != "" {
-		logger.Warn("NIP-58: Profile badges content should be empty",
-			zap.String("event_id", event.ID),
-			zap.String("content", event.Content))
-	}
-
-	// Validate required tags
-	if err := validateProfileBadgesTags(event); err != nil {
-		return fmt.Errorf("invalid profile badges tags: %w", err)
-	}
-
-	logger.Debug("NIP-58: Profile badges validation successful",
-		zap.String("event_id", event.ID))
-	return nil
+			// Validate required tags using the framework
+			return validateProfileBadgesTags(helper, evt)
+		},
+	)
 }
 
 // validateBadgeDefinitionTags validates tags for badge definition events
-func validateBadgeDefinitionTags(event *nostr.Event) error {
+func validateBadgeDefinitionTags(helper *common.ValidationHelper, event *nostr.Event) error {
 	var hasDTag bool
 	var hasNameTag bool
 	var dTagValue string
@@ -167,7 +129,7 @@ func validateBadgeDefinitionTags(event *nostr.Event) error {
 }
 
 // validateBadgeAwardTags validates tags for badge award events
-func validateBadgeAwardTags(event *nostr.Event) error {
+func validateBadgeAwardTags(helper *common.ValidationHelper, event *nostr.Event) error {
 	var hasATag bool
 	var hasPTag bool
 
@@ -205,7 +167,7 @@ func validateBadgeAwardTags(event *nostr.Event) error {
 }
 
 // validateProfileBadgesTags validates tags for profile badges events
-func validateProfileBadgesTags(event *nostr.Event) error {
+func validateProfileBadgesTags(helper *common.ValidationHelper, event *nostr.Event) error {
 	var hasDTag bool
 	var aTags []nostr.Tag
 	var eTags []nostr.Tag

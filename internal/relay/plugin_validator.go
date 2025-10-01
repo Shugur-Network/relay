@@ -135,6 +135,9 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			7375:  true, // Token Event
 			7376:  true, // Spending History Event
 			7374:  true, // Quote Event
+			// NIP-61 Nutzaps
+			9321:  true, // Nutzap event  
+			10019: true, // Nutzap info event
 			// NIP-72 Moderated Communities
 			34550: true, // Community Definition
 			4550:  true, // Moderation Approval
@@ -424,6 +427,11 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateSpendingHistoryEvent(event)
 	case 7374:
 		return nips.ValidateQuoteEvent(event)
+	// NIP-61 Nutzaps validation
+	case 9321:
+		return nips.ValidateNutzapEvent(event)
+	case 10019:
+		return nips.ValidateNutzapInfoEvent(event)
 	// NIP-72 Moderated Communities validation
 	case 34550:
 		return nips.ValidateCommunityDefinition(event)

@@ -2,6 +2,8 @@
 
 This directory contains comprehensive test scripts for various Nostr Implementation Protocols (NIPs). Each test validates specific functionality and ensures compliance with the respective NIP specifications.
 
+**Currently testing 35+ implemented NIPs** including core protocol features, advanced functionality, encryption, privacy, and specialized features like Cashu Wallets, Nutzaps, Moderated Communities, and more.
+
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -74,6 +76,14 @@ done
 | `test_nip23.sh` | NIP-23 | Long-form content | ✅ |
 | `test_nip25.sh` | NIP-25 | Reactions | ✅ |
 | `test_nip28.sh` | NIP-28 | Public chat | ✅ |
+| `test_nip47.sh` | NIP-47 | Nostr Wallet Connect (NWC) | ✅ |
+| `test_nip51.sh` | NIP-51 | Lists | ✅ |
+| `test_nip52.sh` | NIP-52 | Calendar Events | ✅ |
+| `test_nip53.sh` | NIP-53 | Live Activities | ✅ |
+| `test_nip54.sh` | NIP-54 | Wiki | ✅ |
+| `test_nip56.sh` | NIP-56 | Reporting | ✅ |
+| `test_nip57.sh` | NIP-57 | Lightning Zaps | ✅ |
+| `test_nip58.sh` | NIP-58 | Badges | ✅ |
 
 ### Encryption & Privacy
 
@@ -85,7 +95,10 @@ done
 | `test_nip45.sh` | NIP-45 | Counting results | ✅ |
 | `test_nip50.sh` | NIP-50 | Keywords filter | ✅ |
 | `test_nip59.sh` | NIP-59 | Gift wrap events | ✅ |
+| `test_nip60.sh` | NIP-60 | Cashu Wallets | ✅ |
+| `test_nip61.sh` | NIP-61 | Nutzaps (P2PK Cashu tokens) | ✅ |
 | `test_nip65.sh` | NIP-65 | Relay list metadata | ✅ |
+| `test_nip72.sh` | NIP-72 | Moderated Communities | ✅ |
 
 ### Specialized Features
 

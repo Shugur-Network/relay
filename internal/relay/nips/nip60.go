@@ -21,7 +21,7 @@ import (
 // ValidateWalletEvent validates a NIP-60 Wallet Event (kind 17375)
 func ValidateWalletEvent(event *nostr.Event) error {
 	// Basic event validation
-	if err := validateBasicEventStructure(event); err != nil {
+	if err := validateBasicEventStructure60(event); err != nil {
 		return fmt.Errorf("wallet event validation failed: %w", err)
 	}
 
@@ -47,7 +47,7 @@ func ValidateWalletEvent(event *nostr.Event) error {
 		if len(tag) < 1 {
 			continue
 		}
-		
+
 		// Allow specific safe tags
 		switch tag[0] {
 		case "expiration", "alt", "client":
@@ -65,7 +65,7 @@ func ValidateWalletEvent(event *nostr.Event) error {
 // ValidateTokenEvent validates a NIP-60 Token Event (kind 7375)
 func ValidateTokenEvent(event *nostr.Event) error {
 	// Basic event validation
-	if err := validateBasicEventStructure(event); err != nil {
+	if err := validateBasicEventStructure60(event); err != nil {
 		return fmt.Errorf("token event validation failed: %w", err)
 	}
 
@@ -84,7 +84,7 @@ func ValidateTokenEvent(event *nostr.Event) error {
 		if len(tag) < 1 {
 			continue
 		}
-		
+
 		// Allow specific safe tags
 		switch tag[0] {
 		case "expiration", "alt", "client":
@@ -101,7 +101,7 @@ func ValidateTokenEvent(event *nostr.Event) error {
 // ValidateSpendingHistoryEvent validates a NIP-60 Spending History Event (kind 7376)
 func ValidateSpendingHistoryEvent(event *nostr.Event) error {
 	// Basic event validation
-	if err := validateBasicEventStructure(event); err != nil {
+	if err := validateBasicEventStructure60(event); err != nil {
 		return fmt.Errorf("spending history event validation failed: %w", err)
 	}
 
@@ -120,19 +120,19 @@ func ValidateSpendingHistoryEvent(event *nostr.Event) error {
 		if len(tag) < 2 {
 			continue
 		}
-		
+
 		if tag[0] == "e" {
 			// Validate e-tag structure
 			if len(tag) < 4 {
 				return fmt.Errorf("e-tag in spending history must have at least 4 elements: ['e', '<event-id>', '', '<marker>']")
 			}
-			
+
 			// Validate event ID format (should be 64-char hex)
 			eventID := tag[1]
-			if len(eventID) != 64 || !isHexString(eventID) {
+			if len(eventID) != 64 || !isHexString51(eventID) {
 				return fmt.Errorf("invalid event ID format in e-tag: %s", eventID)
 			}
-			
+
 			// Validate marker
 			marker := tag[3]
 			switch marker {
@@ -150,7 +150,7 @@ func ValidateSpendingHistoryEvent(event *nostr.Event) error {
 // ValidateQuoteEvent validates a NIP-60 Quote Event (kind 7374)
 func ValidateQuoteEvent(event *nostr.Event) error {
 	// Basic event validation
-	if err := validateBasicEventStructure(event); err != nil {
+	if err := validateBasicEventStructure60(event); err != nil {
 		return fmt.Errorf("quote event validation failed: %w", err)
 	}
 
@@ -166,12 +166,12 @@ func ValidateQuoteEvent(event *nostr.Event) error {
 
 	// Quote events SHOULD have expiration and mint tags
 	var hasExpiration, hasMint bool
-	
+
 	for _, tag := range event.Tags {
 		if len(tag) < 2 {
 			continue
 		}
-		
+
 		switch tag[0] {
 		case "expiration":
 			hasExpiration = true
@@ -191,7 +191,7 @@ func ValidateQuoteEvent(event *nostr.Event) error {
 	if !hasExpiration {
 		return fmt.Errorf("quote event must have an expiration tag")
 	}
-	
+
 	if !hasMint {
 		return fmt.Errorf("quote event must have a mint tag")
 	}
@@ -200,7 +200,7 @@ func ValidateQuoteEvent(event *nostr.Event) error {
 }
 
 // Helper function to validate basic event structure for NIP-60 events
-func validateBasicEventStructure(event *nostr.Event) error {
+func validateBasicEventStructure60(event *nostr.Event) error {
 	if event == nil {
 		return fmt.Errorf("event cannot be nil")
 	}
@@ -209,7 +209,7 @@ func validateBasicEventStructure(event *nostr.Event) error {
 		return fmt.Errorf("event must have an ID")
 	}
 
-	if len(event.ID) != 64 || !isHexString(event.ID) {
+	if len(event.ID) != 64 || !isHexString51(event.ID) {
 		return fmt.Errorf("invalid event ID format")
 	}
 
@@ -217,7 +217,7 @@ func validateBasicEventStructure(event *nostr.Event) error {
 		return fmt.Errorf("event must have a pubkey")
 	}
 
-	if len(event.PubKey) != 64 || !isHexString(event.PubKey) {
+	if len(event.PubKey) != 64 || !isHexString51(event.PubKey) {
 		return fmt.Errorf("invalid pubkey format")
 	}
 
@@ -235,7 +235,7 @@ func isValidNIP44EncryptedContent(content string) bool {
 	if len(content) < 20 {
 		return false
 	}
-	
+
 	// Should contain base64 characters
 	validBase64 := regexp.MustCompile(`^[A-Za-z0-9+/=]+$`)
 	return validBase64.MatchString(content)
@@ -276,9 +276,9 @@ type WalletContent struct {
 }
 
 type TokenContent struct {
-	Mint   string                 `json:"mint"`
-	Proofs []CashuProof          `json:"proofs"`
-	Del    []string              `json:"del,omitempty"`
+	Mint   string       `json:"mint"`
+	Proofs []CashuProof `json:"proofs"`
+	Del    []string     `json:"del,omitempty"`
 }
 
 type CashuProof struct {
@@ -299,17 +299,17 @@ func ValidateDecryptedWalletContent(decryptedJSON string) error {
 	}
 
 	var hasPrivKey, hasMint bool
-	
+
 	for _, item := range content {
 		if len(item) < 2 {
 			return fmt.Errorf("wallet content items must have at least 2 elements")
 		}
-		
+
 		switch item[0] {
 		case "privkey":
 			hasPrivKey = true
 			// Validate private key format (64-char hex)
-			if len(item[1]) != 64 || !isHexString(item[1]) {
+			if len(item[1]) != 64 || !isHexString51(item[1]) {
 				return fmt.Errorf("invalid private key format in wallet content")
 			}
 		case "mint":
@@ -324,7 +324,7 @@ func ValidateDecryptedWalletContent(decryptedJSON string) error {
 	if !hasPrivKey {
 		return fmt.Errorf("wallet content must include a private key")
 	}
-	
+
 	if !hasMint {
 		return fmt.Errorf("wallet content must include at least one mint")
 	}
@@ -371,7 +371,7 @@ func ValidateDecryptedTokenContent(decryptedJSON string) error {
 
 	// Validate del array if present
 	for i, eventID := range content.Del {
-		if len(eventID) != 64 || !isHexString(eventID) {
+		if len(eventID) != 64 || !isHexString51(eventID) {
 			return fmt.Errorf("del[%d] has invalid event ID format: %s", i, eventID)
 		}
 	}
@@ -387,12 +387,12 @@ func ValidateDecryptedSpendingContent(decryptedJSON string) error {
 	}
 
 	var hasDirection, hasAmount bool
-	
+
 	for _, item := range content {
 		if len(item) < 2 {
 			return fmt.Errorf("spending history items must have at least 2 elements")
 		}
-		
+
 		switch item[0] {
 		case "direction":
 			hasDirection = true
@@ -415,7 +415,7 @@ func ValidateDecryptedSpendingContent(decryptedJSON string) error {
 				return fmt.Errorf("e-tag in spending content must have at least 4 elements")
 			}
 			// Validate event ID
-			if len(item[1]) != 64 || !isHexString(item[1]) {
+			if len(item[1]) != 64 || !isHexString51(item[1]) {
 				return fmt.Errorf("invalid event ID in e-tag: %s", item[1])
 			}
 			// Validate marker
@@ -429,7 +429,7 @@ func ValidateDecryptedSpendingContent(decryptedJSON string) error {
 	if !hasDirection {
 		return fmt.Errorf("spending history content must include direction")
 	}
-	
+
 	if !hasAmount {
 		return fmt.Errorf("spending history content must include amount")
 	}

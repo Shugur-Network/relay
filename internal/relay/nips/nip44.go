@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Shugur-Network/relay/internal/relay/nips/common"
 	nostr "github.com/nbd-wtf/go-nostr"
 )
 
@@ -24,27 +25,26 @@ type NIP44PayloadV1 struct {
 
 // ValidateNIP44Payload validates a NIP-44 encrypted event for v1 and v2
 func ValidateNIP44Payload(event nostr.Event) error {
+	helper := common.NewValidationHelper("44", int(event.Kind), "encrypted message")
+
 	// NIP-44 events must have an "encrypted" tag.
 	if event.Tags.Find("encrypted") == nil {
-		return errors.New("missing 'encrypted' tag for NIP-44 event")
+		return helper.FormatTagError("encrypted", "missing 'encrypted' tag for NIP-44 event")
 	}
 
 	// Recipient tag check
-	if len(event.Tags) == 0 {
-		return fmt.Errorf("%s", FormatDMError("missing_recipient"))
+	if err := helper.ValidateRequiredTag(&event, "p"); err != nil {
+		return helper.ErrorFormatter.FormatError("%s", FormatDMError("missing_recipient"))
 	}
-	hasRecipient := false
+
+	// Validate recipient pubkey format
 	for _, tag := range event.Tags {
 		if len(tag) >= 2 && tag[0] == "p" {
-			if !nostr.IsValid32ByteHex(tag[1]) {
-				return fmt.Errorf("%s", FormatDMError("invalid_pubkey"))
+			if err := helper.ValidatePubkey(tag[1]); err != nil {
+				return helper.ErrorFormatter.FormatError("%s", FormatDMError("invalid_pubkey"))
 			}
-			hasRecipient = true
 			break
 		}
-	}
-	if !hasRecipient {
-		return fmt.Errorf("%s", FormatDMError("missing_recipient"))
 	}
 
 	// Empty content is allowed for NIP-44, representing a placeholder or signal.

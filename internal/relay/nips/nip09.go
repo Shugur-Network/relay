@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Shugur-Network/relay/internal/logger"
+	"github.com/Shugur-Network/relay/internal/relay/nips/common"
 	nostr "github.com/nbd-wtf/go-nostr"
 	"go.uber.org/zap"
 )
@@ -13,45 +14,39 @@ import (
 
 // ValidateEventDeletion validates NIP-09 event deletion events (kind 5)
 func ValidateEventDeletion(evt *nostr.Event) error {
-	logger.Debug("NIP-09: Validating event deletion",
-		zap.String("event_id", evt.ID),
-		zap.String("pubkey", evt.PubKey))
-
-	if evt.Kind != 5 {
-		logger.Warn("NIP-09: Invalid event kind for deletion",
-			zap.String("event_id", evt.ID),
-			zap.Int("kind", evt.Kind))
-		return fmt.Errorf("invalid event kind for event deletion: %d", evt.Kind)
-	}
-
-	// Must have at least one "e" tag referencing the event(s) to delete
-	hasEventTag := false
-	eventCount := 0
-	for _, tag := range evt.Tags {
-		if len(tag) >= 2 && tag[0] == "e" {
-			hasEventTag = true
-			eventCount++
-			// Validate event ID format (should be 64-char hex)
-			if len(tag[1]) != 64 {
-				logger.Warn("NIP-09: Invalid event ID in 'e' tag",
-					zap.String("deletion_event_id", evt.ID),
-					zap.String("invalid_event_id", tag[1]))
-				return fmt.Errorf("invalid event ID in 'e' tag: %s", tag[1])
+	return common.ValidateEventWithCallback(
+		evt,
+		"09",             // NIP number
+		5,                // Expected event kind
+		"event deletion", // Event name for logging
+		func(helper *common.ValidationHelper, event *nostr.Event) error {
+			// Must have at least one "e" tag referencing the event(s) to delete
+			if err := helper.ValidateRequiredTag(event, "e"); err != nil {
+				return helper.ErrorFormatter.FormatError("deletion event must reference at least one event with 'e' tag")
 			}
-		}
-	}
 
-	if !hasEventTag {
-		logger.Warn("NIP-09: Deletion event missing required 'e' tags",
-			zap.String("event_id", evt.ID))
-		return fmt.Errorf("deletion event must reference at least one event with 'e' tag")
-	}
+			// Validate event ID format in "e" tags and count them
+			eventCount := 0
+			for _, tag := range event.Tags {
+				if len(tag) >= 2 && tag[0] == "e" {
+					eventCount++
+					if err := helper.ValidateEventID(tag[1]); err != nil {
+						logger.Warn("NIP-09: Invalid event ID in 'e' tag",
+							zap.String("deletion_event_id", event.ID),
+							zap.String("invalid_event_id", tag[1]))
+						return helper.FormatTagError("e", "invalid event ID: %v", err)
+					}
+				}
+			}
 
-	logger.Debug("NIP-09: Valid deletion event",
-		zap.String("event_id", evt.ID),
-		zap.Int("target_events", eventCount))
+			// Log the count of target events for debugging
+			logger.Debug("NIP-09: Valid deletion event",
+				zap.String("event_id", event.ID),
+				zap.Int("target_events", eventCount))
 
-	return nil
+			return nil
+		},
+	)
 }
 
 // ValidateDeletionAuth returns an error if any "e"‑tagged event in `tags`
