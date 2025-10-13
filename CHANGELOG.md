@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.4] - 2025-10-13
+
+### Features
+
+- **nips**: Add support for NIP-YY (Nostr Web Pages) - enables hosting static websites on Nostr
+  - Add validation for HTML content events (kind 40000)
+  - Add validation for CSS stylesheet events (kind 40001)
+  - Add validation for JavaScript module events (kind 40002)
+  - Add validation for Component/Fragment events (kind 40003)
+  - Add validation for Page Manifest events (kind 34235)
+  - Add validation for Site Index events (kind 34236)
+  - Implement SHA-256 hash verification for Subresource Integrity
+  - Implement relay-focused validation (security-critical checks only)
+  - Add comprehensive test suite with 27 tests and improved UX
+
+### Documentation
+
+- Add NIP-YY test suite with clean, professional output formatting
+- Simplify validation approach to focus on relay concerns vs client concerns
+
 ## [1.3.3] - 2025-09-30
 
 ### Features

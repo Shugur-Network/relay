@@ -57,6 +57,7 @@ var DefaultSupportedNIPs = []interface{}{
 	65, // NIP-65: Relay List Metadata
 	72, // NIP-72: Moderated Communities
 	78, // NIP-78: Application-specific data
+	"YY", // NIP-YY: Nostr Web Pages (draft)
 
 }
 
