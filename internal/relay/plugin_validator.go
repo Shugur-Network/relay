@@ -141,6 +141,13 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			// NIP-72 Moderated Communities
 			34550: true, // Community Definition
 			4550:  true, // Moderation Approval
+			// NIP-YY Nostr Web Pages
+			40000: true, // HTML content
+			40001: true, // CSS stylesheet
+			40002: true, // JavaScript module
+			40003: true, // Component/Fragment
+			34235: true, // Page Manifest
+			34236: true, // Site Index
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -193,6 +200,13 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			// NIP-72 Moderated Communities
 			34550: {"d"},                    // Community Definition requires "d" tag
 			4550:  {"a", "p", "k"},          // Moderation Approval requires community, author, and kind tags (e tag only for non-replaceable events)
+			// NIP-YY Nostr Web Pages
+			40000: {"m", "sha256"},          // HTML content requires "m" (MIME type) and "sha256" tags
+			40001: {"m", "sha256"},          // CSS stylesheet requires "m" (MIME type) and "sha256" tags
+			40002: {"m", "sha256"},          // JavaScript module requires "m" (MIME type) and "sha256" tags
+			40003: {"m", "sha256"},          // Component/Fragment requires "m" (MIME type) and "sha256" tags
+			34235: {"d", "e"},               // Page Manifest requires "d" (route) and "e" (asset references) tags
+			34236: {"d", "default_route"},   // Site Index requires "d" and "default_route" tags
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -446,6 +460,19 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 		return nips.ValidateComment(event)
 	case 4550:
 		return nips.ValidateApprovalEvent(event)
+	// NIP-YY Nostr Web Pages validation
+	case 40000:
+		return nips.ValidateHTMLContent(event)
+	case 40001:
+		return nips.ValidateCSSStylesheet(event)
+	case 40002:
+		return nips.ValidateJavaScriptModule(event)
+	case 40003:
+		return nips.ValidateComponentFragment(event)
+	case 34235:
+		return nips.ValidatePageManifest(event)
+	case 34236:
+		return nips.ValidateSiteIndex(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {
