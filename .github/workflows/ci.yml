@@ -166,7 +166,7 @@ jobs:
 
       - name: Upload security results
         if: always()
-        uses: github/codeql-action/upload-sarif@64d10c13136e1c5bce3e5fbde8d4906eeaafc885 # v3.30.6
+        uses: github/codeql-action/upload-sarif@16140ae1a102900babc80a33c44059580f687047 # v4.30.9
         with:
           sarif_file: gosec-results.sarif
         continue-on-error: true
@@ -181,7 +181,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@64d10c13136e1c5bce3e5fbde8d4906eeaafc885 # v3.30.6
+        uses: github/codeql-action/upload-sarif@16140ae1a102900babc80a33c44059580f687047 # v4.30.9
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
@@ -192,7 +192,7 @@ jobs:
           govulncheck ./...
 
       - name: Generate SBOM
-        uses: anchore/sbom-action@f8bdd1d8ac5e901a77a92f111440fdb1b593736b # v0.20.6
+        uses: anchore/sbom-action@aa0e114b2e19480f157109b9922bda359bd98b90 # v0.20.8
         with:
           path: .
           format: spdx-json
@@ -415,7 +415,7 @@ jobs:
             DATE=${{ github.event.head_commit.timestamp }}
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
+        uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
       - name: Scan Dockerfile and dependencies with Trivy
         uses: aquasecurity/trivy-action@0.33.1
@@ -436,7 +436,7 @@ jobs:
           fi
 
       - name: Upload Docker scan results
-        uses: github/codeql-action/upload-sarif@64d10c13136e1c5bce3e5fbde8d4906eeaafc885 # v3.30.6
+        uses: github/codeql-action/upload-sarif@16140ae1a102900babc80a33c44059580f687047 # v4.30.9
         if: always()
         with:
           sarif_file: 'docker-trivy-results.sarif'
