@@ -142,12 +142,10 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			34550: true, // Community Definition
 			4550:  true, // Moderation Approval
 			// NIP-YY Nostr Web Pages
-			40000: true, // HTML content
-			40001: true, // CSS stylesheet
-			40002: true, // JavaScript module
-			40003: true, // Component/Fragment
-			34235: true, // Page Manifest
-			34236: true, // Site Index
+			1125:  true, // Asset (HTML, CSS, JavaScript, fonts, etc.)
+			1126:  true, // Page Manifest
+			31126: true, // Site Index
+			11126: true, // Entrypoint
 		},
 		RequiredTags: map[int][]string{
 			5:     {"e"},      // Deletion events must have an "e" tag
@@ -198,15 +196,13 @@ func NewPluginValidator(cfg *config.Config, database *storage.DB) *PluginValidat
 			// NIP-60 Cashu Wallets - Note: Most tags are encrypted in content, minimal required public tags
 			7374:  {"expiration", "mint"},   // Quote Event requires "expiration" and "mint" tags
 			// NIP-72 Moderated Communities
-			34550: {"d"},                    // Community Definition requires "d" tag
-			4550:  {"a", "p", "k"},          // Moderation Approval requires community, author, and kind tags (e tag only for non-replaceable events)
+			34550: {"d"},           // Community Definition requires "d" tag
+			4550:  {"a", "p", "k"}, // Moderation Approval requires community, author, and kind tags (e tag only for non-replaceable events)
 			// NIP-YY Nostr Web Pages
-			40000: {"m", "sha256"},          // HTML content requires "m" (MIME type) and "sha256" tags
-			40001: {"m", "sha256"},          // CSS stylesheet requires "m" (MIME type) and "sha256" tags
-			40002: {"m", "sha256"},          // JavaScript module requires "m" (MIME type) and "sha256" tags
-			40003: {"m", "sha256"},          // Component/Fragment requires "m" (MIME type) and "sha256" tags
-			34235: {"d", "e"},               // Page Manifest requires "d" (route) and "e" (asset references) tags
-			34236: {"d", "default_route"},   // Site Index requires "d" and "default_route" tags
+			1125:  {"m", "x"},  // Asset requires "m" (MIME type) and "x" (SHA-256 hash) tags
+			1126:  {"e"},       // Page Manifest requires "e" (asset references) tags
+			31126: {"d", "x"},  // Site Index requires "d" (truncated hash) and "x" (full SHA-256 hash) tags
+			11126: {"a"},       // Entrypoint requires "a" (address to site index) tag
 		},
 		MaxCreatedAt: time.Now().Unix() + 300,    // 5 minutes in future
 		MinCreatedAt: time.Now().Unix() - 172800, // 2 days in past
@@ -461,18 +457,14 @@ func (pv *PluginValidator) validateWithDedicatedNIPs(event *nostr.Event) error {
 	case 4550:
 		return nips.ValidateApprovalEvent(event)
 	// NIP-YY Nostr Web Pages validation
-	case 40000:
-		return nips.ValidateHTMLContent(event)
-	case 40001:
-		return nips.ValidateCSSStylesheet(event)
-	case 40002:
-		return nips.ValidateJavaScriptModule(event)
-	case 40003:
-		return nips.ValidateComponentFragment(event)
-	case 34235:
+	case 1125:
+		return nips.ValidateAsset(event)
+	case 1126:
 		return nips.ValidatePageManifest(event)
-	case 34236:
+	case 31126:
 		return nips.ValidateSiteIndex(event)
+	case 11126:
+		return nips.ValidateEntrypoint(event)
 	default:
 		// Check for NIP-16 ephemeral events
 		if event.Kind >= 20000 && event.Kind < 30000 {

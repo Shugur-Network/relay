@@ -46,7 +46,7 @@
                 </tr>
                 <tr>
                   <td class="info-label">Software</td>
-                  <td class="info-value">{{.Software}} v{{.Version}}</td>
+                  <td class="info-value">{{.Software}} {{.Version}}</td>
                   <td class="info-actions"></td>
                 </tr>
                 <tr>
@@ -180,6 +180,27 @@
             {{end}}
           </div>
         </section>
+
+        <!-- Custom NIPs Section -->
+        {{if .CustomNIPs}}
+        <section class="card nips-section">
+          <h2><i class="fas fa-star"></i> Custom NIPs</h2>
+          <div class="custom-nips-list">
+            {{range .CustomNIPs}}
+            <a href="{{.Link}}" target="_blank" class="custom-nip-card">
+              <div class="custom-nip-header">
+                <span class="custom-nip-id">NIP-{{.ID}}</span>
+                <i class="fas fa-external-link-alt nip-link-icon"></i>
+              </div>
+              <div class="custom-nip-content">
+                <h3 class="custom-nip-name">{{.Name}}</h3>
+                <p class="custom-nip-description">{{.Description}}</p>
+              </div>
+            </a>
+            {{end}}
+          </div>
+        </section>
+        {{end}}
 
         <!-- Limitations Section -->
         <section class="card limitations-section">

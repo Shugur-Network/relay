@@ -10,65 +10,26 @@ import (
 	nostr "github.com/nbd-wtf/go-nostr"
 )
 
-// ValidateHTMLContent validates NIP-YY HTML content events (kind 40000)
-func ValidateHTMLContent(event *nostr.Event) error {
+// ValidateAsset validates NIP-YY Asset events (kind 1125)
+// All web assets (HTML, CSS, JavaScript, fonts, etc.) use kind 1125
+func ValidateAsset(event *nostr.Event) error {
 	return common.ValidateEventWithCallback(
 		event,
-		"Nostr Web",           // NIP number
-		40000,          // Expected event kind
-		"HTML content", // Event name for logging
+		"Nostr Web",  // NIP number
+		1125,         // Expected event kind
+		"web asset",  // Event name for logging
 		func(helper *common.ValidationHelper, evt *nostr.Event) error {
-			return validateImmutableAsset(helper, evt, "text/html")
+			return validateAssetTags(helper, evt)
 		},
 	)
 }
 
-// ValidateCSSStylesheet validates NIP-YY CSS stylesheet events (kind 40001)
-func ValidateCSSStylesheet(event *nostr.Event) error {
-	return common.ValidateEventWithCallback(
-		event,
-		"Nostr Web",            // NIP number
-		40001,           // Expected event kind
-		"CSS stylesheet", // Event name for logging
-		func(helper *common.ValidationHelper, evt *nostr.Event) error {
-			return validateImmutableAsset(helper, evt, "text/css")
-		},
-	)
-}
-
-// ValidateJavaScriptModule validates NIP-YY JavaScript module events (kind 40002)
-func ValidateJavaScriptModule(event *nostr.Event) error {
-	return common.ValidateEventWithCallback(
-		event,
-		"Nostr Web",                 // NIP number
-		40002,                // Expected event kind
-		"JavaScript module", // Event name for logging
-		func(helper *common.ValidationHelper, evt *nostr.Event) error {
-			return validateImmutableAsset(helper, evt, "text/javascript")
-		},
-	)
-}
-
-// ValidateComponentFragment validates NIP-YY Component/Fragment events (kind 40003)
-func ValidateComponentFragment(event *nostr.Event) error {
-	return common.ValidateEventWithCallback(
-		event,
-		"Nostr Web",                  // NIP number
-		40003,                 // Expected event kind
-		"component/fragment", // Event name for logging
-		func(helper *common.ValidationHelper, evt *nostr.Event) error {
-			// Components can have various MIME types, so we validate tags but don't enforce specific MIME
-			return validateImmutableAssetTags(helper, evt, false)
-		},
-	)
-}
-
-// ValidatePageManifest validates NIP-YY Page Manifest events (kind 34235)
+// ValidatePageManifest validates NIP-YY Page Manifest events (kind 1126)
 func ValidatePageManifest(event *nostr.Event) error {
 	return common.ValidateEventWithCallback(
 		event,
-		"Nostr Web",            // NIP number
-		34235,           // Expected event kind
+		"Nostr Web",     // NIP number
+		1126,            // Expected event kind
 		"page manifest", // Event name for logging
 		func(helper *common.ValidationHelper, evt *nostr.Event) error {
 			// Page manifest should have empty content
@@ -81,12 +42,12 @@ func ValidatePageManifest(event *nostr.Event) error {
 	)
 }
 
-// ValidateSiteIndex validates NIP-YY Site Index events (kind 34236)
+// ValidateSiteIndex validates NIP-YY Site Index events (kind 31126)
 func ValidateSiteIndex(event *nostr.Event) error {
 	return common.ValidateEventWithCallback(
 		event,
-		"Nostr Web",          // NIP number
-		34236,         // Expected event kind
+		"Nostr Web",  // NIP number
+		31126,        // Expected event kind
 		"site index", // Event name for logging
 		func(helper *common.ValidationHelper, evt *nostr.Event) error {
 			return validateSiteIndexTags(helper, evt)
@@ -94,16 +55,29 @@ func ValidateSiteIndex(event *nostr.Event) error {
 	)
 }
 
-// validateImmutableAsset validates immutable asset events (kinds 40000-40003)
-func validateImmutableAsset(helper *common.ValidationHelper, event *nostr.Event, expectedMimeType string) error {
-	return validateImmutableAssetTags(helper, event, true)
+// ValidateEntrypoint validates NIP-YY Entrypoint events (kind 11126)
+func ValidateEntrypoint(event *nostr.Event) error {
+	return common.ValidateEventWithCallback(
+		event,
+		"Nostr Web", // NIP number
+		11126,       // Expected event kind
+		"entrypoint", // Event name for logging
+		func(helper *common.ValidationHelper, evt *nostr.Event) error {
+			// Entrypoint should have empty content
+			if evt.Content != "" {
+				helper.LogWarning(evt, "Entrypoint content should be empty")
+			}
+
+			return validateEntrypointTags(helper, evt)
+		},
+	)
 }
 
-// validateImmutableAssetTags validates tags for immutable asset events
-func validateImmutableAssetTags(helper *common.ValidationHelper, event *nostr.Event, requireSpecificMime bool) error {
+// validateAssetTags validates tags for asset events (kind 1125)
+func validateAssetTags(helper *common.ValidationHelper, event *nostr.Event) error {
 	var hasMTag bool
-	var hasSHA256Tag bool
-	var sha256Value string
+	var hasXTag bool
+	var xTagValue string
 
 	for _, tag := range event.Tags {
 		if len(tag) == 0 {
@@ -116,9 +90,9 @@ func validateImmutableAssetTags(helper *common.ValidationHelper, event *nostr.Ev
 				return fmt.Errorf("m tag must have a MIME type value")
 			}
 			hasMTag = true
-		case "sha256":
+		case "x":
 			if len(tag) != 2 {
-				return fmt.Errorf("sha256 tag must have exactly 2 elements")
+				return fmt.Errorf("x tag must have exactly 2 elements")
 			}
 			hash := tag[1]
 			if len(hash) != 64 {
@@ -127,34 +101,33 @@ func validateImmutableAssetTags(helper *common.ValidationHelper, event *nostr.Ev
 			if !isHexString(hash) {
 				return fmt.Errorf("SHA-256 hash must be valid hex")
 			}
-			hasSHA256Tag = true
-			sha256Value = hash
+			hasXTag = true
+			xTagValue = hash
 		}
 	}
 
 	// Required tags validation
 	if !hasMTag {
-		return fmt.Errorf("immutable asset must have an m (MIME type) tag")
+		return fmt.Errorf("asset must have an m (MIME type) tag")
 	}
 
-	if !hasSHA256Tag {
-		return fmt.Errorf("immutable asset must have a sha256 tag for Subresource Integrity")
+	if !hasXTag {
+		return fmt.Errorf("asset must have an x tag with SHA-256 hash for content deduplication")
 	}
 
 	// CRITICAL SECURITY CHECK: Verify SHA-256 hash matches content
-	if sha256Value != "" {
+	if xTagValue != "" {
 		computedHash := computeSHA256(event.Content)
-		if sha256Value != computedHash {
-			return fmt.Errorf("sha256 tag value does not match content hash: expected %s, got %s", computedHash, sha256Value)
+		if xTagValue != computedHash {
+			return fmt.Errorf("x tag value does not match content hash: expected %s, got %s", computedHash, xTagValue)
 		}
 	}
 
 	return nil
 }
 
-// validatePageManifestTags validates tags for page manifest events
+// validatePageManifestTags validates tags for page manifest events (kind 1126)
 func validatePageManifestTags(helper *common.ValidationHelper, event *nostr.Event) error {
-	var hasDTag bool
 	var hasETag bool
 
 	for _, tag := range event.Tags {
@@ -163,11 +136,6 @@ func validatePageManifestTags(helper *common.ValidationHelper, event *nostr.Even
 		}
 
 		switch tag[0] {
-		case "d":
-			if len(tag) < 2 || tag[1] == "" {
-				return fmt.Errorf("d tag must have a route value")
-			}
-			hasDTag = true
 		case "e":
 			if len(tag) < 2 {
 				return fmt.Errorf("e tag must have at least 2 elements (event ID)")
@@ -182,22 +150,19 @@ func validatePageManifestTags(helper *common.ValidationHelper, event *nostr.Even
 	}
 
 	// Required tags validation
-	if !hasDTag {
-		return fmt.Errorf("page manifest must have a d tag with route path")
-	}
-
 	if !hasETag {
-		return fmt.Errorf("page manifest must have at least one e tag referencing assets")
+		return fmt.Errorf("page manifest must have at least one e tag referencing assets (kind 1125)")
 	}
 
 	return nil
 }
 
-// validateSiteIndexTags validates tags for site index events
+// validateSiteIndexTags validates tags for site index events (kind 31126)
 func validateSiteIndexTags(helper *common.ValidationHelper, event *nostr.Event) error {
 	var hasDTag bool
-	var hasDefaultRoute bool
+	var hasXTag bool
 	var dTagValue string
+	var xTagValue string
 
 	for _, tag := range event.Tags {
 		if len(tag) == 0 {
@@ -210,47 +175,113 @@ func validateSiteIndexTags(helper *common.ValidationHelper, event *nostr.Event) 
 				return fmt.Errorf("d tag must have exactly 2 elements")
 			}
 			dTagValue = tag[1]
-			hasDTag = true
-		case "default_route":
-			if len(tag) < 2 || tag[1] == "" {
-				return fmt.Errorf("default_route tag must have a route value")
+			// Validate d tag is 7-12 characters (truncated hash)
+			if len(dTagValue) < 7 || len(dTagValue) > 12 {
+				return fmt.Errorf("d tag must be 7-12 characters (truncated SHA-256 hash), got %d", len(dTagValue))
 			}
-			hasDefaultRoute = true
+			if !isHexString(dTagValue) {
+				return fmt.Errorf("d tag must be valid hex")
+			}
+			hasDTag = true
+		case "x":
+			if len(tag) != 2 {
+				return fmt.Errorf("x tag must have exactly 2 elements")
+			}
+			hash := tag[1]
+			if len(hash) != 64 {
+				return fmt.Errorf("x tag SHA-256 hash must be 64 hex characters, got %d", len(hash))
+			}
+			if !isHexString(hash) {
+				return fmt.Errorf("x tag SHA-256 hash must be valid hex")
+			}
+			hasXTag = true
+			xTagValue = hash
 		}
 	}
 
 	// Required tags validation
 	if !hasDTag {
-		return fmt.Errorf("site index must have a d tag")
+		return fmt.Errorf("site index must have a d tag with truncated hash")
 	}
 
-	if dTagValue != "site-index" {
-		return fmt.Errorf("site index d tag must have value 'site-index', got '%s'", dTagValue)
+	if !hasXTag {
+		return fmt.Errorf("site index must have an x tag with full SHA-256 hash")
 	}
 
-	if !hasDefaultRoute {
-		return fmt.Errorf("site index must have a default_route tag")
+	// Verify d tag is derived from x tag
+	if xTagValue != "" && dTagValue != "" {
+		if xTagValue[:len(dTagValue)] != dTagValue {
+			return fmt.Errorf("d tag must be the first %d characters of x tag", len(dTagValue))
+		}
 	}
 
-	// Validate content is valid JSON with basic structure check
+	// Validate content is valid JSON with required structure
 	if event.Content == "" {
 		return fmt.Errorf("site index content cannot be empty")
 	}
 
-	var routeMap map[string]string
-	if err := json.Unmarshal([]byte(event.Content), &routeMap); err != nil {
+	// Verify x tag matches content hash
+	computedHash := computeSHA256(event.Content)
+	if xTagValue != computedHash {
+		return fmt.Errorf("x tag value does not match content hash: expected %s, got %s", computedHash, xTagValue)
+	}
+
+	// Parse and validate JSON structure
+	var siteIndex struct {
+		Routes         map[string]string `json:"routes"`
+		Version        string            `json:"version,omitempty"`
+		DefaultRoute   string            `json:"defaultRoute,omitempty"`
+		NotFoundRoute  *string           `json:"notFoundRoute,omitempty"`
+	}
+
+	if err := json.Unmarshal([]byte(event.Content), &siteIndex); err != nil {
 		return fmt.Errorf("site index content must be valid JSON: %w", err)
 	}
 
-	if len(routeMap) == 0 {
-		return fmt.Errorf("site index must contain at least one route mapping")
+	if len(siteIndex.Routes) == 0 {
+		return fmt.Errorf("site index must contain at least one route mapping in 'routes' field")
 	}
 
-	// Validate event IDs in the map are properly formatted
-	for _, manifestID := range routeMap {
+	// Validate manifest event IDs in the routes map
+	for _, manifestID := range siteIndex.Routes {
 		if len(manifestID) != 64 || !isHexString(manifestID) {
-			return fmt.Errorf("invalid manifest event ID in site index: must be 64 hex characters")
+			return fmt.Errorf("invalid manifest event ID in site index routes: must be 64 hex characters")
 		}
+	}
+
+	return nil
+}
+
+// validateEntrypointTags validates tags for entrypoint events (kind 11126)
+func validateEntrypointTags(helper *common.ValidationHelper, event *nostr.Event) error {
+	var hasATag bool
+
+	for _, tag := range event.Tags {
+		if len(tag) == 0 {
+			continue
+		}
+
+		switch tag[0] {
+		case "a":
+			if len(tag) < 2 {
+				return fmt.Errorf("a tag must have at least 2 elements")
+			}
+			// Validate address coordinate format: "31126:<pubkey>:<d-tag-hash>"
+			address := tag[1]
+			if address == "" {
+				return fmt.Errorf("a tag address cannot be empty")
+			}
+			// Basic validation - should start with "31126:"
+			if len(address) < 6 || address[:6] != "31126:" {
+				return fmt.Errorf("a tag must reference a site index (31126:<pubkey>:<d-tag>)")
+			}
+			hasATag = true
+		}
+	}
+
+	// Required tags validation
+	if !hasATag {
+		return fmt.Errorf("entrypoint must have an a tag pointing to the current site index")
 	}
 
 	return nil
