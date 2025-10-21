@@ -238,7 +238,7 @@ func validateSiteIndexTags(helper *common.ValidationHelper, event *nostr.Event) 
 		return fmt.Errorf("site index content must be valid JSON: %w", err)
 	}
 
-	if siteIndex.Routes == nil || len(siteIndex.Routes) == 0 {
+	if len(siteIndex.Routes) == 0 {
 		return fmt.Errorf("site index must contain at least one route mapping in 'routes' field")
 	}
 
