@@ -32,6 +32,7 @@ type DashboardData struct {
 	Pubkey        string                        `json:"pubkey"`
 	RelayID       string                        `json:"relay_id"`
 	SupportedNIPs []interface{}                 `json:"supported_nips"`
+	CustomNIPs    []constants.CustomNIP         `json:"custom_nips"`
 	Limitation    *LimitationData               `json:"limitation"`
 	Stats         *StatsData                    `json:"stats"`
 	Uptime        string                        `json:"uptime"`
@@ -312,6 +313,7 @@ func (h *Handler) getDashboardData(host string) *DashboardData {
 		Pubkey:        metadata.PubKey,
 		RelayID:       relayID,
 		SupportedNIPs: metadata.SupportedNIPs,
+		CustomNIPs:    constants.DefaultCustomNIPs,
 		Limitation: &LimitationData{
 			MaxMessageLength: metadata.Limitation.MaxMessageLength,
 			MaxSubscriptions: metadata.Limitation.MaxSubscriptions,

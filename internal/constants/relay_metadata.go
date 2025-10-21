@@ -57,8 +57,30 @@ var DefaultSupportedNIPs = []interface{}{
 	65, // NIP-65: Relay List Metadata
 	72, // NIP-72: Moderated Communities
 	78, // NIP-78: Application-specific data
-	"YY", // NIP-YY: Nostr Web Pages (draft)
+}
 
+// CustomNIP represents a custom NIP implementation
+type CustomNIP struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Link        string `json:"link"`
+}
+
+// DefaultCustomNIPs lists custom NIPs implemented by this relay
+var DefaultCustomNIPs = []CustomNIP{
+	{
+		ID:          "XX",
+		Name:        "Time Capsules",
+		Description: "Time-locked message delivery with threshold witness mode and VDF support",
+		Link:        "https://github.com/Shugur-Network/NIP-XX_Time-Capsules",
+	},
+	{
+		ID:          "YY",
+		Name:        "Nostr Web Pages",
+		Description: "Censorship-resistant static websites on Nostr",
+		Link:        "https://github.com/Shugur-Network/nw-nips",
+	},
 }
 
 // Relay limitations and settings

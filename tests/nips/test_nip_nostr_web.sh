@@ -19,12 +19,12 @@ RELAY=${RELAY:-"ws://localhost:8081"}
 TEST_SECRET_KEY="26f2ef538bef741566429408b799a7583f6d4a02a2e701fe1b710b3f41055c0c"
 SITE_AUTHOR_SECRET_KEY="1111111111111111111111111111111111111111111111111111111111111111"
 
-# Sample HTML content
+# Sample web assets content
 SAMPLE_HTML='<!DOCTYPE html><html><head><title>Test Page</title></head><body><h1>Hello Nostr Web</h1></body></html>'
 SAMPLE_CSS='body { margin: 0; padding: 20px; font-family: sans-serif; }'
 SAMPLE_JS='console.log("Hello from Nostr Web");'
 
-# Compute SHA-256 hashes
+# Compute SHA-256 hashes (x tag)
 HTML_HASH=$(echo -n "$SAMPLE_HTML" | sha256sum | awk '{print $1}')
 CSS_HASH=$(echo -n "$SAMPLE_CSS" | sha256sum | awk '{print $1}')
 JS_HASH=$(echo -n "$SAMPLE_JS" | sha256sum | awk '{print $1}')
@@ -51,257 +51,264 @@ echo -e "${BLUE}═════════════════════�
 echo -e "${YELLOW}Relay:${NC} $RELAY"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}\n"
 
-# Test NIP-YY: Nostr Web Pages - HTML Content (kind 40000)
-echo -e "\n${YELLOW}Testing NIP-YY: HTML Content (kind 40000)${NC}"
+# Test NIP-YY: Nostr Web Pages - Asset (kind 1125)
+echo -e "\n${YELLOW}Testing NIP-YY: Asset (kind 1125)${NC}"
 
-# Test 1: Create valid HTML content event
-HTML_EVENT=$(nak event -k 40000 -c "$SAMPLE_HTML" -t m=text/html -t sha256=$HTML_HASH -t title="Home Page" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+# Test 1: Create valid HTML asset event
+HTML_EVENT=$(nak event -k 1125 -c "$SAMPLE_HTML" -t m=text/html -t x=$HTML_HASH -t alt="Home Page" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
 if [ ! -z "$HTML_EVENT" ]; then
-    print_result "Valid HTML content event" true "YY"
+    print_result "Valid HTML asset event" true "YY"
 else
-    print_result "Valid HTML content event" false "YY"
+    print_result "Valid HTML asset event" false "YY"
 fi
 
-# Test 2: HTML content without MIME type tag (should fail)
-INVALID_HTML_NO_MIME=$(nak event -k 40000 -c "$SAMPLE_HTML" -t sha256=$HTML_HASH --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [[ "$INVALID_HTML_NO_MIME" == *"m"* ]] || [[ "$INVALID_HTML_NO_MIME" == *"MIME"* ]] || [[ "$INVALID_HTML_NO_MIME" == *"refused"* ]]; then
-    print_result "HTML content without MIME type tag (properly rejected)" true "YY"
+# Test 2: Asset without MIME type tag (should fail)
+INVALID_ASSET_NO_MIME=$(nak event -k 1125 -c "$SAMPLE_HTML" -t x=$HTML_HASH --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_ASSET_NO_MIME" == *"m"* ]] || [[ "$INVALID_ASSET_NO_MIME" == *"MIME"* ]] || [[ "$INVALID_ASSET_NO_MIME" == *"refused"* ]]; then
+    print_result "Asset without MIME type tag (properly rejected)" true "YY"
 else
-    print_result "HTML content without MIME type tag (improperly accepted)" false "YY"
+    print_result "Asset without MIME type tag (improperly accepted)" false "YY"
 fi
 
-# Test 3: HTML content without SHA-256 tag (should fail)
-INVALID_HTML_NO_HASH=$(nak event -k 40000 -c "$SAMPLE_HTML" -t m=text/html --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [[ "$INVALID_HTML_NO_HASH" == *"sha256"* ]] || [[ "$INVALID_HTML_NO_HASH" == *"refused"* ]]; then
-    print_result "HTML content without SHA-256 tag (properly rejected)" true "YY"
+# Test 3: Asset without x (SHA-256 hash) tag (should fail)
+INVALID_ASSET_NO_HASH=$(nak event -k 1125 -c "$SAMPLE_HTML" -t m=text/html --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_ASSET_NO_HASH" == *"x"* ]] || [[ "$INVALID_ASSET_NO_HASH" == *"hash"* ]] || [[ "$INVALID_ASSET_NO_HASH" == *"refused"* ]]; then
+    print_result "Asset without x tag (properly rejected)" true "YY"
 else
-    print_result "HTML content without SHA-256 tag (improperly accepted)" false "YY"
+    print_result "Asset without x tag (improperly accepted)" false "YY"
 fi
 
-# Test 4: HTML content with incorrect SHA-256 hash (should fail)
-INVALID_HTML_WRONG_HASH=$(nak event -k 40000 -c "$SAMPLE_HTML" -t m=text/html -t sha256=0000000000000000000000000000000000000000000000000000000000000000 --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [[ "$INVALID_HTML_WRONG_HASH" == *"sha256"* ]] || [[ "$INVALID_HTML_WRONG_HASH" == *"hash"* ]] || [[ "$INVALID_HTML_WRONG_HASH" == *"refused"* ]]; then
-    print_result "HTML content with incorrect SHA-256 hash (properly rejected)" true "YY"
+# Test 4: Asset with incorrect SHA-256 hash (should fail)
+INVALID_ASSET_WRONG_HASH=$(nak event -k 1125 -c "$SAMPLE_HTML" -t m=text/html -t x=0000000000000000000000000000000000000000000000000000000000000000 --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_ASSET_WRONG_HASH" == *"x"* ]] || [[ "$INVALID_ASSET_WRONG_HASH" == *"hash"* ]] || [[ "$INVALID_ASSET_WRONG_HASH" == *"refused"* ]]; then
+    print_result "Asset with incorrect x tag hash (properly rejected)" true "YY"
 else
-    print_result "HTML content with incorrect SHA-256 hash (improperly accepted)" false "YY"
+    print_result "Asset with incorrect x tag hash (improperly accepted)" false "YY"
 fi
 
-# Test NIP-YY: CSS Stylesheet (kind 40001)
-echo -e "\n${YELLOW}Testing NIP-YY: CSS Stylesheet (kind 40001)${NC}"
-
-# Test 5: Create valid CSS stylesheet event
-CSS_EVENT=$(nak event -k 40001 -c "$SAMPLE_CSS" -t m=text/css -t sha256=$CSS_HASH --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+# Test 5: Create valid CSS asset event
+CSS_EVENT=$(nak event -k 1125 -c "$SAMPLE_CSS" -t m=text/css -t x=$CSS_HASH --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
 if [ ! -z "$CSS_EVENT" ]; then
-    print_result "Valid CSS stylesheet event" true "YY"
+    print_result "Valid CSS asset event" true "YY"
 else
-    print_result "Valid CSS stylesheet event" false "YY"
+    print_result "Valid CSS asset event" false "YY"
 fi
 
-# Test 6: CSS content without MIME type tag (should fail)
-INVALID_CSS_NO_MIME=$(nak event -k 40001 -c "$SAMPLE_CSS" -t sha256=$CSS_HASH --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [[ "$INVALID_CSS_NO_MIME" == *"m"* ]] || [[ "$INVALID_CSS_NO_MIME" == *"MIME"* ]] || [[ "$INVALID_CSS_NO_MIME" == *"refused"* ]]; then
-    print_result "CSS content without MIME type tag (properly rejected)" true "YY"
-else
-    print_result "CSS content without MIME type tag (improperly accepted)" false "YY"
-fi
-
-# Test NIP-YY: JavaScript Module (kind 40002)
-echo -e "\n${YELLOW}Testing NIP-YY: JavaScript Module (kind 40002)${NC}"
-
-# Test 7: Create valid JavaScript module event
-JS_EVENT=$(nak event -k 40002 -c "$SAMPLE_JS" -t m=text/javascript -t sha256=$JS_HASH --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+# Test 6: Create valid JavaScript asset event
+JS_EVENT=$(nak event -k 1125 -c "$SAMPLE_JS" -t m=text/javascript -t x=$JS_HASH --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
 if [ ! -z "$JS_EVENT" ]; then
-    print_result "Valid JavaScript module event" true "YY"
+    print_result "Valid JavaScript asset event" true "YY"
 else
-    print_result "Valid JavaScript module event" false "YY"
+    print_result "Valid JavaScript asset event" false "YY"
 fi
 
-# Test 8: JavaScript content without SHA-256 tag (should fail)
-INVALID_JS_NO_HASH=$(nak event -k 40002 -c "$SAMPLE_JS" -t m=text/javascript --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [[ "$INVALID_JS_NO_HASH" == *"sha256"* ]] || [[ "$INVALID_JS_NO_HASH" == *"refused"* ]]; then
-    print_result "JavaScript content without SHA-256 tag (properly rejected)" true "YY"
+# Test 7: Create valid WASM asset event
+WASM_CONTENT='fake-wasm-binary-content'
+WASM_HASH=$(echo -n "$WASM_CONTENT" | sha256sum | awk '{print $1}')
+WASM_EVENT=$(nak event -k 1125 -c "$WASM_CONTENT" -t m=application/wasm -t x=$WASM_HASH --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+if [ ! -z "$WASM_EVENT" ]; then
+    print_result "Valid WASM asset event" true "YY"
 else
-    print_result "JavaScript content without SHA-256 tag (improperly accepted)" false "YY"
+    print_result "Valid WASM asset event" false "YY"
 fi
 
-# Test NIP-YY: Component/Fragment (kind 40003)
-echo -e "\n${YELLOW}Testing NIP-YY: Component/Fragment (kind 40003)${NC}"
-
-# Test 9: Create valid component/fragment event
-COMPONENT_CONTENT='<div class="component">Component content</div>'
-COMPONENT_HASH=$(echo -n "$COMPONENT_CONTENT" | sha256sum | awk '{print $1}')
-COMPONENT_EVENT=$(nak event -k 40003 -c "$COMPONENT_CONTENT" -t m=text/html -t sha256=$COMPONENT_HASH --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
-if [ ! -z "$COMPONENT_EVENT" ]; then
-    print_result "Valid component/fragment event" true "YY"
+# Test 8: Create valid font asset event
+FONT_CONTENT='fake-font-binary-content'
+FONT_HASH=$(echo -n "$FONT_CONTENT" | sha256sum | awk '{print $1}')
+FONT_EVENT=$(nak event -k 1125 -c "$FONT_CONTENT" -t m=font/woff2 -t x=$FONT_HASH --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+if [ ! -z "$FONT_EVENT" ]; then
+    print_result "Valid font asset event" true "YY"
 else
-    print_result "Valid component/fragment event" false "YY"
+    print_result "Valid font asset event" false "YY"
 fi
 
-# Test NIP-YY: Page Manifest (kind 34235)
-echo -e "\n${YELLOW}Testing NIP-YY: Page Manifest (kind 34235)${NC}"
+# Test NIP-YY: Page Manifest (kind 1126)
+echo -e "\n${YELLOW}Testing NIP-YY: Page Manifest (kind 1126)${NC}"
 
-# Sample event IDs for testing (64-character hex strings)
+# Sample asset event IDs for testing (64-character hex strings)
 SAMPLE_HTML_EVENT_ID="a1b2c3d4e5f6789012345678901234567890123456789012345678901234abcd"
 SAMPLE_CSS_EVENT_ID="b2c3d4e5f6789012345678901234567890123456789012345678901234abcde"
 SAMPLE_JS_EVENT_ID="c3d4e5f6789012345678901234567890123456789012345678901234abcdef"
 
-# Test 10: Create valid page manifest
-PAGE_MANIFEST=$(nak event -k 34235 -c "" -t d="/" -t e="$SAMPLE_HTML_EVENT_ID" -t e="$SAMPLE_CSS_EVENT_ID" -t title="Home Page" -t description="Welcome to my site" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+# Test 9: Create valid page manifest
+PAGE_MANIFEST=$(nak event -k 1126 -c "" -t e="$SAMPLE_HTML_EVENT_ID" -t e="$SAMPLE_CSS_EVENT_ID" -t title="Home Page" -t description="Welcome to my site" -t route="/" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
 if [ ! -z "$PAGE_MANIFEST" ]; then
     print_result "Valid page manifest" true "YY"
 else
     print_result "Valid page manifest" false "YY"
 fi
 
-# Test 11: Page manifest with multiple assets
-PAGE_MANIFEST_MULTI=$(nak event -k 34235 -c "" -t d="/about" -t e="$SAMPLE_HTML_EVENT_ID" -t e="$SAMPLE_CSS_EVENT_ID" -t e="$SAMPLE_JS_EVENT_ID" -t title="About Page" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+# Test 10: Page manifest with multiple assets
+PAGE_MANIFEST_MULTI=$(nak event -k 1126 -c "" -t e="$SAMPLE_HTML_EVENT_ID" -t e="$SAMPLE_CSS_EVENT_ID" -t e="$SAMPLE_JS_EVENT_ID" -t title="About Page" -t route="/about" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
 if [ ! -z "$PAGE_MANIFEST_MULTI" ]; then
     print_result "Page manifest with multiple assets" true "YY"
 else
     print_result "Page manifest with multiple assets" false "YY"
 fi
 
-# Test 12: Page manifest with CSP directive
-PAGE_MANIFEST_CSP=$(nak event -k 34235 -c "" -t d="/secure" -t e="$SAMPLE_HTML_EVENT_ID" -t csp="default-src 'self'; script-src 'sha256-$JS_HASH'" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+# Test 11: Page manifest with CSP directive
+PAGE_MANIFEST_CSP=$(nak event -k 1126 -c "" -t e="$SAMPLE_HTML_EVENT_ID" -t csp="default-src 'self'; script-src 'sha256-$JS_HASH'" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
 if [ ! -z "$PAGE_MANIFEST_CSP" ]; then
     print_result "Page manifest with CSP directive" true "YY"
 else
     print_result "Page manifest with CSP directive" false "YY"
 fi
 
-# Test 13: Page manifest without d tag (should fail)
-INVALID_MANIFEST_NO_D=$(nak event -k 34235 -c "" -t e="$SAMPLE_HTML_EVENT_ID" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [[ "$INVALID_MANIFEST_NO_D" == *"d"* ]] || [[ "$INVALID_MANIFEST_NO_D" == *"route"* ]] || [[ "$INVALID_MANIFEST_NO_D" == *"refused"* ]]; then
-    print_result "Page manifest without d tag (properly rejected)" true "YY"
-else
-    print_result "Page manifest without d tag (improperly accepted)" false "YY"
-fi
-
-# Test 14: Page manifest without e tag (should fail)
-INVALID_MANIFEST_NO_E=$(nak event -k 34235 -c "" -t d="/" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+# Test 12: Page manifest without e tag (should fail)
+INVALID_MANIFEST_NO_E=$(nak event -k 1126 -c "" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
 if [[ "$INVALID_MANIFEST_NO_E" == *"e"* ]] || [[ "$INVALID_MANIFEST_NO_E" == *"asset"* ]] || [[ "$INVALID_MANIFEST_NO_E" == *"refused"* ]]; then
     print_result "Page manifest without e tag (properly rejected)" true "YY"
 else
     print_result "Page manifest without e tag (improperly accepted)" false "YY"
 fi
 
-# Test 15: Page manifest without HTML marker (now accepted - relay doesn't enforce markers)
-# Relay validation simplified: only checks d tag, e tag existence, and event ID format
-# Client should validate asset markers, not relay
-VALID_MANIFEST_NO_HTML_MARKER=$(nak event -k 34235 -c "" -t d="/" -t e="$SAMPLE_CSS_EVENT_ID" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [ ! -z "$VALID_MANIFEST_NO_HTML_MARKER" ] && [[ "$VALID_MANIFEST_NO_HTML_MARKER" != *"refused"* ]]; then
-    print_result "Page manifest with any valid e tag (relay accepts, client validates markers)" true "YY"
-else
-    print_result "Page manifest with any valid e tag (relay accepts, client validates markers)" false "YY"
-fi
-
-# Test 16: Page manifest with invalid route (now accepted - relay doesn't validate route format)
-# Relay stores any route, client validates format
-VALID_MANIFEST_ANY_ROUTE=$(nak event -k 34235 -c "" -t d="no-leading-slash" -t e="$SAMPLE_HTML_EVENT_ID" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [ ! -z "$VALID_MANIFEST_ANY_ROUTE" ] && [[ "$VALID_MANIFEST_ANY_ROUTE" != *"refused"* ]]; then
-    print_result "Page manifest with any route value (relay accepts, client validates format)" true "YY"
-else
-    print_result "Page manifest with any route value (relay accepts, client validates format)" false "YY"
-fi
-
-# Test 17: Page manifest with invalid event ID (should fail - relay validates event ID format)
-INVALID_MANIFEST_EVENT_ID=$(nak event -k 34235 -c "" -t d="/" -t e="invalid-id" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+# Test 13: Page manifest with invalid event ID (should fail - relay validates event ID format)
+INVALID_MANIFEST_EVENT_ID=$(nak event -k 1126 -c "" -t e="invalid-id" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
 if [[ "$INVALID_MANIFEST_EVENT_ID" == *"event ID"* ]] || [[ "$INVALID_MANIFEST_EVENT_ID" == *"invalid"* ]] || [[ "$INVALID_MANIFEST_EVENT_ID" == *"refused"* ]]; then
     print_result "Page manifest with invalid event ID (properly rejected)" true "YY"
 else
     print_result "Page manifest with invalid event ID (improperly accepted)" false "YY"
 fi
 
-# Test 18: Page manifest with invalid asset marker (now accepted - relay doesn't validate markers)
-# Relay accepts any marker value, client validates semantics
-VALID_MANIFEST_ANY_MARKER=$(nak event -k 34235 -c "" -t d="/" -t e="$SAMPLE_HTML_EVENT_ID" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [ ! -z "$VALID_MANIFEST_ANY_MARKER" ] && [[ "$VALID_MANIFEST_ANY_MARKER" != *"refused"* ]]; then
-    print_result "Page manifest with any marker value (relay accepts, client validates)" true "YY"
-else
-    print_result "Page manifest with any marker value (relay accepts, client validates)" false "YY"
-fi
+# Test NIP-YY: Site Index (kind 31126)
+echo -e "\n${YELLOW}Testing NIP-YY: Site Index (kind 31126)${NC}"
 
-# Test NIP-YY: Site Index (kind 34236)
-echo -e "\n${YELLOW}Testing NIP-YY: Site Index (kind 34236)${NC}"
-
-# Sample manifest event ID
+# Sample manifest event IDs
 SAMPLE_MANIFEST_ID="d4e5f6789012345678901234567890123456789012345678901234abcdef01"
+SAMPLE_MANIFEST_ID_2="e5f6789012345678901234567890123456789012345678901234abcdef0123"
 
-# Test 19: Create valid site index
-SITE_INDEX_CONTENT="{\"\/\":\"$SAMPLE_MANIFEST_ID\",\"\/about\":\"$SAMPLE_MANIFEST_ID\"}"
-SITE_INDEX=$(nak event -k 34236 -c "$SITE_INDEX_CONTENT" -t d="site-index" -t default_route="/" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+# Test 14: Create valid site index
+SITE_INDEX_CONTENT="{\"routes\":{\"/\":\"$SAMPLE_MANIFEST_ID\",\"/about\":\"$SAMPLE_MANIFEST_ID_2\"},\"version\":\"1.0.0\",\"defaultRoute\":\"/\",\"notFoundRoute\":\"/404\"}"
+SITE_INDEX_HASH=$(echo -n "$SITE_INDEX_CONTENT" | sha256sum | awk '{print $1}')
+SITE_INDEX_D_TAG="${SITE_INDEX_HASH:0:7}"
+
+SITE_INDEX=$(nak event -k 31126 -c "$SITE_INDEX_CONTENT" -t d="$SITE_INDEX_D_TAG" -t x="$SITE_INDEX_HASH" -t alt="main" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
 if [ ! -z "$SITE_INDEX" ]; then
-    print_result "Valid site index" true "YY"
+    print_result "Valid site index with all fields" true "YY"
 else
-    print_result "Valid site index" false "YY"
+    print_result "Valid site index with all fields" false "YY"
 fi
 
-# Test 20: Site index without d tag (should fail)
-INVALID_INDEX_NO_D=$(nak event -k 34236 -c "$SITE_INDEX_CONTENT" -t default_route="/" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+# Test 15: Site index without d tag (should fail)
+INVALID_INDEX_NO_D=$(nak event -k 31126 -c "$SITE_INDEX_CONTENT" -t x="$SITE_INDEX_HASH" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
 if [[ "$INVALID_INDEX_NO_D" == *"d"* ]] || [[ "$INVALID_INDEX_NO_D" == *"refused"* ]]; then
     print_result "Site index without d tag (properly rejected)" true "YY"
 else
     print_result "Site index without d tag (improperly accepted)" false "YY"
 fi
 
-# Test 21: Site index with wrong d tag value (should fail)
-INVALID_INDEX_D_VALUE=$(nak event -k 34236 -c "$SITE_INDEX_CONTENT" -t d="wrong-value" -t default_route="/" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [[ "$INVALID_INDEX_D_VALUE" == *"site-index"* ]] || [[ "$INVALID_INDEX_D_VALUE" == *"refused"* ]]; then
-    print_result "Site index with wrong d tag value (properly rejected)" true "YY"
+# Test 16: Site index without x tag (should fail)
+INVALID_INDEX_NO_X=$(nak event -k 31126 -c "$SITE_INDEX_CONTENT" -t d="$SITE_INDEX_D_TAG" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_INDEX_NO_X" == *"x"* ]] || [[ "$INVALID_INDEX_NO_X" == *"hash"* ]] || [[ "$INVALID_INDEX_NO_X" == *"refused"* ]]; then
+    print_result "Site index without x tag (properly rejected)" true "YY"
 else
-    print_result "Site index with wrong d tag value (improperly accepted)" false "YY"
+    print_result "Site index without x tag (improperly accepted)" false "YY"
 fi
 
-# Test 22: Site index without default_route tag (should fail)
-INVALID_INDEX_NO_DEFAULT=$(nak event -k 34236 -c "$SITE_INDEX_CONTENT" -t d="site-index" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [[ "$INVALID_INDEX_NO_DEFAULT" == *"default_route"* ]] || [[ "$INVALID_INDEX_NO_DEFAULT" == *"refused"* ]]; then
-    print_result "Site index without default_route tag (properly rejected)" true "YY"
+# Test 17: Site index with d tag too short (should fail)
+INVALID_INDEX_D_SHORT=$(nak event -k 31126 -c "$SITE_INDEX_CONTENT" -t d="abc123" -t x="$SITE_INDEX_HASH" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_INDEX_D_SHORT" == *"d"* ]] || [[ "$INVALID_INDEX_D_SHORT" == *"7-12"* ]] || [[ "$INVALID_INDEX_D_SHORT" == *"refused"* ]]; then
+    print_result "Site index with d tag too short (properly rejected)" true "YY"
 else
-    print_result "Site index without default_route tag (improperly accepted)" false "YY"
+    print_result "Site index with d tag too short (improperly accepted)" false "YY"
 fi
 
-# Test 23: Site index with empty content (should fail)
-INVALID_INDEX_EMPTY=$(nak event -k 34236 -c "" -t d="site-index" -t default_route="/" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+# Test 18: Site index with d tag not matching x tag (should fail)
+WRONG_D_TAG="1234567"
+INVALID_INDEX_D_MISMATCH=$(nak event -k 31126 -c "$SITE_INDEX_CONTENT" -t d="$WRONG_D_TAG" -t x="$SITE_INDEX_HASH" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_INDEX_D_MISMATCH" == *"d"* ]] || [[ "$INVALID_INDEX_D_MISMATCH" == *"first"* ]] || [[ "$INVALID_INDEX_D_MISMATCH" == *"refused"* ]]; then
+    print_result "Site index with d tag not matching x tag (properly rejected)" true "YY"
+else
+    print_result "Site index with d tag not matching x tag (improperly accepted)" false "YY"
+fi
+
+# Test 19: Site index with incorrect x tag hash (should fail)
+INVALID_INDEX_WRONG_HASH=$(nak event -k 31126 -c "$SITE_INDEX_CONTENT" -t d="$SITE_INDEX_D_TAG" -t x="0000000000000000000000000000000000000000000000000000000000000000" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_INDEX_WRONG_HASH" == *"x"* ]] || [[ "$INVALID_INDEX_WRONG_HASH" == *"hash"* ]] || [[ "$INVALID_INDEX_WRONG_HASH" == *"refused"* ]]; then
+    print_result "Site index with incorrect x tag hash (properly rejected)" true "YY"
+else
+    print_result "Site index with incorrect x tag hash (improperly accepted)" false "YY"
+fi
+
+# Test 20: Site index with empty content (should fail)
+INVALID_INDEX_EMPTY=$(nak event -k 31126 -c "" -t d="a1b2c3d" -t x="0000000000000000000000000000000000000000000000000000000000000000" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
 if [[ "$INVALID_INDEX_EMPTY" == *"content"* ]] || [[ "$INVALID_INDEX_EMPTY" == *"empty"* ]] || [[ "$INVALID_INDEX_EMPTY" == *"refused"* ]]; then
     print_result "Site index with empty content (properly rejected)" true "YY"
 else
     print_result "Site index with empty content (improperly accepted)" false "YY"
 fi
 
-# Test 24: Site index with invalid JSON content (should fail)
-INVALID_INDEX_JSON=$(nak event -k 34236 -c "not-valid-json" -t d="site-index" -t default_route="/" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+# Test 21: Site index with invalid JSON content (should fail)
+INVALID_JSON_CONTENT="not-valid-json"
+INVALID_JSON_HASH=$(echo -n "$INVALID_JSON_CONTENT" | sha256sum | awk '{print $1}')
+INVALID_JSON_D="${INVALID_JSON_HASH:0:7}"
+INVALID_INDEX_JSON=$(nak event -k 31126 -c "$INVALID_JSON_CONTENT" -t d="$INVALID_JSON_D" -t x="$INVALID_JSON_HASH" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
 if [[ "$INVALID_INDEX_JSON" == *"JSON"* ]] || [[ "$INVALID_INDEX_JSON" == *"invalid"* ]] || [[ "$INVALID_INDEX_JSON" == *"refused"* ]]; then
     print_result "Site index with invalid JSON content (properly rejected)" true "YY"
 else
     print_result "Site index with invalid JSON content (improperly accepted)" false "YY"
 fi
 
-# Test 25: Site index with any route format in JSON (now accepted - relay doesn't validate route format)
-# Relay stores any route, client validates format
-ANY_ROUTE_INDEX_JSON="{\"no-slash\":\"$SAMPLE_MANIFEST_ID\"}"
-VALID_INDEX_ANY_ROUTE=$(nak event -k 34236 -c "$ANY_ROUTE_INDEX_JSON" -t d="site-index" -t default_route="/" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [ ! -z "$VALID_INDEX_ANY_ROUTE" ] && [[ "$VALID_INDEX_ANY_ROUTE" != *"refused"* ]]; then
-    print_result "Site index with any route format in JSON (relay accepts, client validates)" true "YY"
+# Test 22: Site index without routes field (should fail)
+NO_ROUTES_CONTENT="{\"version\":\"1.0.0\"}"
+NO_ROUTES_HASH=$(echo -n "$NO_ROUTES_CONTENT" | sha256sum | awk '{print $1}')
+NO_ROUTES_D="${NO_ROUTES_HASH:0:7}"
+INVALID_INDEX_NO_ROUTES=$(nak event -k 31126 -c "$NO_ROUTES_CONTENT" -t d="$NO_ROUTES_D" -t x="$NO_ROUTES_HASH" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_INDEX_NO_ROUTES" == *"routes"* ]] || [[ "$INVALID_INDEX_NO_ROUTES" == *"refused"* ]]; then
+    print_result "Site index without routes field (properly rejected)" true "YY"
 else
-    print_result "Site index with any route format in JSON (relay accepts, client validates)" false "YY"
+    print_result "Site index without routes field (improperly accepted)" false "YY"
 fi
 
-# Test 26: Site index with invalid event ID in JSON (should fail - relay validates event ID format)
-INVALID_INDEX_ID_JSON="{\"\/\":\"not-a-valid-id\"}"
-INVALID_INDEX_ID=$(nak event -k 34236 -c "$INVALID_INDEX_ID_JSON" -t d="site-index" -t default_route="/" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [[ "$INVALID_INDEX_ID" == *"event ID"* ]] || [[ "$INVALID_INDEX_ID" == *"manifest"* ]] || [[ "$INVALID_INDEX_ID" == *"invalid"* ]] || [[ "$INVALID_INDEX_ID" == *"refused"* ]]; then
-    print_result "Site index with invalid event ID in JSON (properly rejected)" true "YY"
+# Test 23: Site index with invalid manifest ID in routes (should fail)
+INVALID_MANIFEST_CONTENT="{\"routes\":{\"/\":\"invalid-id\"}}"
+INVALID_MANIFEST_HASH=$(echo -n "$INVALID_MANIFEST_CONTENT" | sha256sum | awk '{print $1}')
+INVALID_MANIFEST_D="${INVALID_MANIFEST_HASH:0:7}"
+INVALID_INDEX_MANIFEST_ID=$(nak event -k 31126 -c "$INVALID_MANIFEST_CONTENT" -t d="$INVALID_MANIFEST_D" -t x="$INVALID_MANIFEST_HASH" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_INDEX_MANIFEST_ID" == *"event ID"* ]] || [[ "$INVALID_INDEX_MANIFEST_ID" == *"manifest"* ]] || [[ "$INVALID_INDEX_MANIFEST_ID" == *"invalid"* ]] || [[ "$INVALID_INDEX_MANIFEST_ID" == *"refused"* ]]; then
+    print_result "Site index with invalid manifest ID in routes (properly rejected)" true "YY"
 else
-    print_result "Site index with invalid event ID in JSON (improperly accepted)" false "YY"
+    print_result "Site index with invalid manifest ID in routes (improperly accepted)" false "YY"
 fi
 
-# Test 27: Site index with any default_route value (now accepted - relay doesn't validate route format)
-# Relay stores any default_route, client validates format
-VALID_INDEX_ANY_DEFAULT=$(nak event -k 34236 -c "$SITE_INDEX_CONTENT" -t d="site-index" -t default_route="no-slash" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
-if [ ! -z "$VALID_INDEX_ANY_DEFAULT" ] && [[ "$VALID_INDEX_ANY_DEFAULT" != *"refused"* ]]; then
-    print_result "Site index with any default_route value (relay accepts, client validates)" true "YY"
+# Test NIP-YY: Entrypoint (kind 11126)
+echo -e "\n${YELLOW}Testing NIP-YY: Entrypoint (kind 11126)${NC}"
+
+# Get author pubkey for address coordinate
+SITE_AUTHOR_PUBKEY=$(echo "$SITE_AUTHOR_SECRET_KEY" | nak key-public)
+
+# Test 24: Create valid entrypoint
+ENTRYPOINT_ADDRESS="31126:$SITE_AUTHOR_PUBKEY:$SITE_INDEX_D_TAG"
+ENTRYPOINT=$(nak event -k 11126 -c "" -t a="$ENTRYPOINT_ADDRESS" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+if [ ! -z "$ENTRYPOINT" ]; then
+    print_result "Valid entrypoint" true "YY"
 else
-    print_result "Site index with any default_route value (relay accepts, client validates)" false "YY"
+    print_result "Valid entrypoint" false "YY"
+fi
+
+# Test 25: Entrypoint with relay hint
+ENTRYPOINT_WITH_RELAY=$(nak event -k 11126 -c "" -t a="$ENTRYPOINT_ADDRESS" -t a="wss://relay.example.com" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>/dev/null)
+if [ ! -z "$ENTRYPOINT_WITH_RELAY" ]; then
+    print_result "Entrypoint with relay hint" true "YY"
+else
+    print_result "Entrypoint with relay hint" false "YY"
+fi
+
+# Test 26: Entrypoint without a tag (should fail)
+INVALID_ENTRYPOINT_NO_A=$(nak event -k 11126 -c "" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_ENTRYPOINT_NO_A" == *"a"* ]] || [[ "$INVALID_ENTRYPOINT_NO_A" == *"refused"* ]]; then
+    print_result "Entrypoint without a tag (properly rejected)" true "YY"
+else
+    print_result "Entrypoint without a tag (improperly accepted)" false "YY"
+fi
+
+# Test 27: Entrypoint with wrong kind in address (should fail)
+WRONG_KIND_ADDRESS="30000:$SITE_AUTHOR_PUBKEY:test"
+INVALID_ENTRYPOINT_WRONG_KIND=$(nak event -k 11126 -c "" -t a="$WRONG_KIND_ADDRESS" --sec $SITE_AUTHOR_SECRET_KEY $RELAY 2>&1)
+if [[ "$INVALID_ENTRYPOINT_WRONG_KIND" == *"31126"* ]] || [[ "$INVALID_ENTRYPOINT_WRONG_KIND" == *"site index"* ]] || [[ "$INVALID_ENTRYPOINT_WRONG_KIND" == *"refused"* ]]; then
+    print_result "Entrypoint with wrong kind in address (properly rejected)" true "YY"
+else
+    print_result "Entrypoint with wrong kind in address (improperly accepted)" false "YY"
 fi
 
 # Print summary
