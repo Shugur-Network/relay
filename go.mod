@@ -4,7 +4,7 @@ go 1.24.4
 
 require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.5
-	github.com/go-playground/validator/v10 v10.27.0
+	github.com/go-playground/validator/v10 v10.28.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/nbd-wtf/go-nostr v0.52.0
@@ -13,7 +13,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/willf/bloom v2.0.3+incompatible
 	go.uber.org/zap v1.27.0
-	golang.org/x/time v0.13.0
+	golang.org/x/time v0.14.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
