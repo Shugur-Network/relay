@@ -267,6 +267,7 @@ func validateEntrypointTags(helper *common.ValidationHelper, event *nostr.Event)
 				return fmt.Errorf("a tag must have at least 2 elements")
 			}
 			// Validate address coordinate format: "31126:<pubkey>:<d-tag-hash>"
+			// The a tag format is: ["a", "31126:<pubkey>:<d-tag>", "relay-url (optional)"]
 			address := tag[1]
 			if address == "" {
 				return fmt.Errorf("a tag address cannot be empty")
@@ -275,6 +276,7 @@ func validateEntrypointTags(helper *common.ValidationHelper, event *nostr.Event)
 			if len(address) < 6 || address[:6] != "31126:" {
 				return fmt.Errorf("a tag must reference a site index (31126:<pubkey>:<d-tag>)")
 			}
+			// tag[2] is optional relay URL hint - no validation needed
 			hasATag = true
 		}
 	}
