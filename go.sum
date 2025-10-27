@@ -80,8 +80,8 @@ github.com/modern-go/reflect2 v1.0.2 h1:xBagoLtFs94CBntxluKeaWgTMpvLxC4ur3nMaC9G
 github.com/modern-go/reflect2 v1.0.2/go.mod h1:yWuevngMOJpCy52FWWMvUC8ws7m/LJsjYzDa0/r8luk=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
-github.com/nbd-wtf/go-nostr v0.52.0 h1:9gtz0VOUPOb0PC2kugr2WJAxThlCSSM62t5VC3tvk1g=
-github.com/nbd-wtf/go-nostr v0.52.0/go.mod h1:4avYoc9mDGZ9wHsvCOhHH9vPzKucCfuYBtJUSpHTfNk=
+github.com/nbd-wtf/go-nostr v0.52.1 h1:SMxIyz92zMEwzY3MG6+2D93wwZmFXg7h76UPoDQlDag=
+github.com/nbd-wtf/go-nostr v0.52.1/go.mod h1:4avYoc9mDGZ9wHsvCOhHH9vPzKucCfuYBtJUSpHTfNk=
 github.com/pelletier/go-toml/v2 v2.2.4 h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=
 github.com/pelletier/go-toml/v2 v2.2.4/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
